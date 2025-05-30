@@ -8,7 +8,7 @@ Write-Host "Ensuring NuGet provider is installed..." -ForegroundColor Yellow
 if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
     try {
         $ConfirmPreference = "None"
-        Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -ForceBootstrap -Force -Scope CurrentUser
+        Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -ForceBootstrap -Force -Scope CurrentUser -Confirm:$false
         $ConfirmPreference = "High" # Reset to default after the command (optional but good practice)
         Write-Host "NuGet provider installed successfully." -ForegroundColor Green
     } catch {
