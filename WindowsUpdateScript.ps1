@@ -12,7 +12,7 @@ if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
 # Ensure the PSWindowsUpdate module is installed
 if (-not (Get-Module -ListAvailable -Name PSWindowsUpdate)) {
     Write-Host "Installing PSWindowsUpdate module..." -ForegroundColor Yellow
-    Install-Module -Name PSWindowsUpdate -Force -Scope CurrentUser
+    Install-Module -Name PSWindowsUpdate -Force -Scope Process
 }
 
 # Import the module
@@ -20,10 +20,19 @@ Import-Module PSWindowsUpdate
 
 # Show available updates
 Write-Host "Checking for updates..." -ForegroundColor Cyan
-$Updates = Get-WindowsUpdate -MicrosoftUpdate
+$Updates = Get-WindowsUpdate -MicrosoftUpdate -Verbose
 
 if ($Updates) {
     Write-Host "Updates found." -ForegroundColor Yellow
+
+    # Create a restore point
+    Write-Host "Creating a restore point before installing updates..." -ForegroundColor Cyan
+    try {
+        Checkpoint-Computer -Description "Pre-WindowsUpdateScript" -RestorePointType "MODIFY_SETTINGS"
+        Write-Host "Restore point created successfully." -ForegroundColor Green
+    } catch {
+        Write-Host "Failed to create restore point. Error: $_" -ForegroundColor Red
+    }
 
     # Set script to run at startup (if not already)
     if (-not (Test-Path $StartupShortcut)) {
