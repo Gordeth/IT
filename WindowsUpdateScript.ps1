@@ -7,9 +7,9 @@ $StartupShortcut = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\W
 Write-Host "Ensuring NuGet provider is installed..." -ForegroundColor Yellow
 if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
     try {
-        $ConfirmPreference = "None"
-        Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -ForceBootstrap -Force -Scope CurrentUser -Confirm:$false -Force -AllowClobber
-        $ConfirmPreference = "High" # Reset to default after the command (optional but good practice)
+        #$ConfirmPreference = "None"
+        Write-Output 'Y' | Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -ForceBootstrap -Force -Scope CurrentUser
+        #$ConfirmPreference = "High" # Reset to default after the command (optional but good practice)
         Write-Host "NuGet provider installed successfully." -ForegroundColor Green
     } catch {
         Write-Host "Failed to install NuGet provider. Error: $_" -ForegroundColor Red
