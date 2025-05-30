@@ -3,6 +3,12 @@
 $ScriptPath = $MyInvocation.MyCommand.Path
 $StartupShortcut = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\WindowsUpdateScript.lnk"
 
+# Ensure NuGet provider is available
+if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
+    Write-Host "Installing NuGet provider..." -ForegroundColor Yellow
+    Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
+}
+
 # Ensure the PSWindowsUpdate module is installed
 if (-not (Get-Module -ListAvailable -Name PSWindowsUpdate)) {
     Write-Host "Installing PSWindowsUpdate module..." -ForegroundColor Yellow
