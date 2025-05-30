@@ -10,7 +10,7 @@ if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
         Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
         $ProgressPreference = 'SilentlyContinue'
         $ConfirmPreference = 'None'
-        Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -ForceBootstrap -Force -Scope CurrentUser
+        echo Y | Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -ForceBootstrap -Force -Scope CurrentUser
         $ConfirmPreference = "High" # Reset to default after the command (optional but good practice)
         Write-Host "NuGet provider installed successfully." -ForegroundColor Green
     } catch {
