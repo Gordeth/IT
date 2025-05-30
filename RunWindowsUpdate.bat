@@ -29,13 +29,23 @@ powershell -Command "Invoke-WebRequest -Uri %BASE_URL%/office-update.ps1 -OutFil
 :: Run WindowsUpdateScript.ps1
 echo Running WindowsUpdateScript.ps1...
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%\WindowsUpdateScript.ps1"
+if %errorlevel% neq 0 goto cleanup
 
 :: Run winget-upgrade.ps1
 echo Running winget-upgrade.ps1...
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%\winget-upgrade.ps1"
+if %errorlevel% neq 0 goto cleanup
 
 :: Run office-update.ps1
 echo Running office-update.ps1...
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%\office-update.ps1"
+if %errorlevel% neq 0 goto cleanup
 
-pause
+:cleanup
+:: Delete the script directory
+echo Cleaning up temporary files...
+rmdir /s /q "%SCRIPT_DIR%"
+
+:: Delete this batch file. Uncomment del "%~f0" if not debugging
+echo Deleting this batch file...
+::del "%~f0"
