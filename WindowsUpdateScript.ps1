@@ -7,6 +7,7 @@ $StartupShortcut = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\W
 Write-Host "Ensuring NuGet provider is installed..." -ForegroundColor Yellow
 if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
     try {
+        Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
         $ProgressPreference = 'SilentlyContinue'
         $ConfirmPreference = 'None'
         Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -ForceBootstrap -Force -Scope CurrentUser
