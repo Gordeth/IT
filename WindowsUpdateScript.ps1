@@ -1,0 +1,46 @@
+# WindowsUpdateScript.ps1
+
+$ScriptPath = $MyInvocation.MyCommand.Path
+$StartupShortcut = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\WindowsUpdateScript.lnk"
+
+# Ensure the PSWindowsUpdate module is installed
+if (-not (Get-Module -ListAvailable -Name PSWindowsUpdate)) {
+    Write-Host "Installing PSWindowsUpdate module..." -ForegroundColor Yellow
+    Install-Module -Name PSWindowsUpdate -Force -Scope Process
+}
+
+# Import the module
+Import-Module PSWindowsUpdate
+
+# Show available updates
+Write-Host "Checking for updates..." -ForegroundColor Cyan
+$Updates = Get-WindowsUpdate -MicrosoftUpdate
+
+if ($Updates) {
+    Write-Host "Updates found." -ForegroundColor Yellow
+
+    # Set script to run at startup (if not already)
+    if (-not (Test-Path $StartupShortcut)) {
+        Write-Host "Adding script to Startup folder..." -ForegroundColor Gray
+        $WScriptShell = New-Object -ComObject WScript.Shell
+        $Shortcut = $WScriptShell.CreateShortcut($StartupShortcut)
+        $Shortcut.TargetPath = "powershell.exe"
+        $Shortcut.Arguments = "-ExecutionPolicy Bypass -WindowStyle Hidden -File `"$ScriptPath`""
+        $Shortcut.WorkingDirectory = Split-Path -Path $ScriptPath
+        $Shortcut.Save()
+    }
+
+    # Install updates and reboot
+    Write-Host "Installing updates..." -ForegroundColor Green
+    Install-WindowsUpdate -MicrosoftUpdate -AcceptAll -AutoReboot -Verbose
+}
+else {
+    Write-Host "No more updates found." -ForegroundColor Green
+
+    # Clean up: remove startup shortcut if it exists
+    if (Test-Path $StartupShortcut) {
+        Write-Host "Removing script from Startup..." -ForegroundColor Gray
+        Remove-Item $StartupShortcut -Force
+    }
+}
+
