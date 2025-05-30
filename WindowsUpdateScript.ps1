@@ -6,7 +6,7 @@ $StartupShortcut = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\W
 # Ensure the PSWindowsUpdate module is installed
 if (-not (Get-Module -ListAvailable -Name PSWindowsUpdate)) {
     Write-Host "Installing PSWindowsUpdate module..." -ForegroundColor Yellow
-    Install-Module -Name PSWindowsUpdate -Force -Scope Process
+    Install-Module -Name PSWindowsUpdate -Force -Scope CurrentUser
 }
 
 # Import the module
@@ -43,4 +43,3 @@ else {
         Remove-Item $StartupShortcut -Force
     }
 }
-
