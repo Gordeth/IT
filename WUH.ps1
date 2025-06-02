@@ -79,7 +79,7 @@ function Download-Script {
         Invoke-WebRequest -Uri $url -OutFile $scriptPath -UseBasicParsing -Verbose:$VerboseMode
         Log "$ScriptName downloaded successfully."
     } catch {
-        Log "Failed to download $ScriptName: $_"
+        Log "Failed to download ${ScriptName}: $_"
         Exit 1
     }
 }
@@ -95,7 +95,7 @@ function Run-Script {
         & $scriptPath
         Log "$ScriptName executed successfully."
     } catch {
-        Log "Error during execution of $ScriptName: $_"
+        Log "Error during execution of ${ScriptName}: $_"
         Exit 1
     }
 }
