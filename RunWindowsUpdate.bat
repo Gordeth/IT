@@ -1,7 +1,14 @@
 @echo off
-
+:: Define URLs and local paths first!
+set BASE_URL=https://raw.githubusercontent.com/Gordeth/IT/main
+set SCRIPT_DIR=%TEMP%\ITScripts
 set LOG_DIR=%SCRIPT_DIR%\Log
 set LOG_FILE=%LOG_DIR%\update_log.txt
+
+:: Create the local script and log directories
+if not exist "%SCRIPT_DIR%" mkdir "%SCRIPT_DIR%"
+if not exist "%LOG_DIR%" mkdir "%LOG_DIR%"
+if not exist "%LOG_FILE%" echo [%date% %time%] Log file created. > "%LOG_FILE%"
 
 :: Check for administrator privileges
 net session >nul 2>&1
@@ -11,24 +18,21 @@ if %errorlevel% neq 0 (
     exit /b
 )
 
-:: Define URLs and local paths
-set BASE_URL=https://raw.githubusercontent.com/Gordeth/IT/main
-set SCRIPT_DIR=%TEMP%\ITScripts
-
-:: Create the local script and log directories
-if not exist "%SCRIPT_DIR%" mkdir "%SCRIPT_DIR%" >> "%LOG_FILE%" 2>&1
-if not exist "%LOG_DIR%" mkdir "%LOG_DIR%" >> "%LOG_FILE%" 2>&1
-
-:: Log the start of the script
+:: Log start of script
 echo [%date% %time%] Script started. >> "%LOG_FILE%" 2>&1
 
-:: Set Execution Policy to Bypass for this session
+:: Set Execution Policy to Bypass
 echo [%date% %time%] Setting Execution Policy to Bypass... >> "%LOG_FILE%" 2>&1
 powershell.exe -NoProfile -Command "Set-ExecutionPolicy Bypass -Scope Process -Force" >> "%LOG_FILE%" 2>&1
 
-:: Check if NuGet provider is installed, install silently if needed
+:: Check for NuGet provider
 echo [%date% %time%] Checking for NuGet provider... >> "%LOG_FILE%" 2>&1
-powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -ForceBootstrap -Force -Scope CurrentUser" >> "%LOG_FILE%" 2>&1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command ^
+"if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) { Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force; }" >> "%LOG_FILE%" 2>&1
+
+:: Check if NuGet provider is installed, install silently if needed
+:: echo [%date% %time%] Checking for NuGet provider... >> "%LOG_FILE%" 2>&1
+:: powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -ForceBootstrap -Force -Scope CurrentUser" >> "%LOG_FILE%" 2>&1
 
 :: --- Download or update WindowsUpdateScript.ps1 ---
 echo [%date% %time%] Checking for WindowsUpdateScript.ps1 in %SCRIPT_DIR%... >> "%LOG_FILE%" 2>&1
