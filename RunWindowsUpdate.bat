@@ -84,7 +84,7 @@ rmdir /s /q "%SCRIPT_DIR%" >> "%LOG_FILE%" 2>&1
 
 :: Delete this batch file. Uncomment del "%~f0" if not debugging
 echo [%date% %time%] Deleting this batch file... >> "%LOG_FILE%" 2>&1
-::del "%~f0"
+del "%~f0"
 exit /b 0
 
 :error_download
