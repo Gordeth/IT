@@ -3,21 +3,14 @@
 $ScriptPath = $MyInvocation.MyCommand.Path
 $StartupShortcut = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\WindowsUpdateScript.lnk"
 
-# Ensure NuGet provider is installed *before* using Install-Module
-Write-Host "Ensuring NuGet provider is installed..." -ForegroundColor Yellow
-if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
-    try {
-        $ProgressPreference = 'SilentlyContinue'
-        $ConfirmPreference = 'None'
-        Set-ExecutionPolicy RemoteSigned -Scope Process -Force
-        Start-Process powershell -ArgumentList "-Command Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -ForceBootstrap -Force -Scope CurrentUser" -NoNewWindow -Wait
-        $ConfirmPreference = "High" # Reset to default after the command (optional but good practice)
-        Write-Host "NuGet provider installed successfully." -ForegroundColor Green
-    } catch {
-        Write-Host "Failed to install NuGet provider. Error: $_" -ForegroundColor Red
-    }
-}
+# Ensure Execution Policy is set properly
+Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process -Force
 
+# Check if NuGet provider is installed, install silently if needed
+if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
+    Write-Host "Installing NuGet provider..." -ForegroundColor Yellow
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -ForceBootstrap -Force -Scope CurrentUser"
+}
 # Ensure the PSWindowsUpdate module is installed
 if (-not (Get-Module -ListAvailable -Name PSWindowsUpdate)) {
     Write-Host "Installing PSWindowsUpdate module..." -ForegroundColor Yellow
