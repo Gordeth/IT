@@ -26,7 +26,7 @@ powershell.exe -NoProfile -Command "Set-ExecutionPolicy Bypass -Scope Process -F
 
 :: Check if NuGet provider is installed, install silently if needed
 echo Checking for NuGet provider... >> "%LOG_FILE%" 2>&1
-powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -ForceBootstrap -Force -Scope CurrentUser" >> "%LOG_FILE%" 2>&1 [cite: 2]
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -ForceBootstrap -Force -Scope CurrentUser" >> "%LOG_FILE%" 2>&1
 
 :: Download or update WindowsUpdateScript.ps1
 echo Checking for WindowsUpdateScript.ps1 in %SCRIPT_DIR%... >> "%LOG_FILE%" 2>&1
