@@ -3,18 +3,11 @@
 $ScriptPath = $MyInvocation.MyCommand.Path
 $StartupShortcut = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\WindowsUpdateScript.lnk"
 
-# Ensure Execution Policy is set properly
-Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process -Force
-
-# Check if NuGet provider is installed, install silently if needed
-if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
-    Write-Host "Installing NuGet provider..." -ForegroundColor Yellow
-    powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -ForceBootstrap -Force -Scope CurrentUser"
 }
 # Ensure the PSWindowsUpdate module is installed
 if (-not (Get-Module -ListAvailable -Name PSWindowsUpdate)) {
     Write-Host "Installing PSWindowsUpdate module..." -ForegroundColor Yellow
-    Install-Module -Name PSWindowsUpdate -Force -Scope Process
+    Install-Module -Name PSWindowsUpdate -Scope CurrentUser -Force
 }
 
 # Import the module
