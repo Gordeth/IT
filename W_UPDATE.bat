@@ -1,111 +1,112 @@
-# WindowsUpdateScript.ps1
+@echo off
+:: Define URLs and local paths first!
+set BASE_URL=https://raw.githubusercontent.com/Gordeth/IT/main
+set SCRIPT_DIR=%TEMP%\ITScripts
+set LOG_DIR=%SCRIPT_DIR%\Log
+set LOG_FILE=%LOG_DIR%\update_log.txt
 
-# Define log file location
-$ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-$LogDir = Join-Path $ScriptRoot "Log"
-if (-not (Test-Path $LogDir)) {
-    New-Item -Path $LogDir -ItemType Directory | Out-Null
-}
-$LogFile = Join-Path $LogDir "update_log-windowsupdate.txt"
+:: Create the local script and log directories
+if not exist "%SCRIPT_DIR%" mkdir "%SCRIPT_DIR%" >> "%LOG_FILE%" 2>&1
+if not exist "%LOG_DIR%" mkdir "%LOG_DIR%" >> "%LOG_FILE%" 2>&1
+:: Create the log file if it doesn't exist, and write a creation message.
+if not exist "%LOG_FILE%" echo [%date% %time%] Log file created. > "%LOG_FILE%"
 
-# Write-Log function
-function Write-Log {
-    param (
-        [string]$Message,
-        [string]$Color = "White"
-    )
-    $Timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $Entry = "[$Timestamp] $Message"
-    Add-Content -Path $LogFile -Value $Entry
-    Write-Host $Message -ForegroundColor $Color
-}
+:: Check for administrator privileges
+net session >nul 2>&1
+if %errorlevel% neq 0 (
+    echo [%date% %time%] Requesting administrator access... >> "%LOG_FILE%" 2>&1
+    powershell -Command "Start-Process '%~f0' -Verb runAs"
+    exit /b
+)
 
-Write-Log "Script started." "Yellow"
+:: Log start of script
+echo [%date% %time%] Script started. >> "%LOG_FILE%" 2>&1
 
-$ScriptPath = $MyInvocation.MyCommand.Path
-$StartupShortcut = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\WindowsUpdateScript.lnk"
+:: Set Execution Policy to Bypass
+echo [%date% %time%] Setting Execution Policy to Bypass... >> "%LOG_FILE%" 2>&1
+powershell.exe -NoProfile -Command "Set-ExecutionPolicy Bypass -Scope Process -Force" >> "%LOG_FILE%" 2>&1
 
-# Set execution policy
-Write-Log "Setting execution policy to RemoteSigned for this session..." "Yellow"
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process -Force
+:: Check for NuGet provider and install if missing (with CurrentUser scope)
+echo [%date% %time%] Checking for NuGet provider... >> "%LOG_FILE%" 2>&1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command ^
+"if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) { Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Scope CurrentUser; }" >> "%LOG_FILE%" 2>&1
 
-# Ensure NuGet is installed
-Write-Host "Checking for NuGet provider..."
-if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
-    Write-Host "NuGet provider not found. Installing..."
-    Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
-}
+:: --- Download or update WindowsUpdateScript.ps1 ---
+echo [%date% %time%] Checking for WindowsUpdateScript.ps1 in %SCRIPT_DIR%... >> "%LOG_FILE%" 2>&1
+if exist "%SCRIPT_DIR%\WindowsUpdateScript.ps1" (
+    echo [%date% %time%] Existing WindowsUpdateScript.ps1 found. Deleting for fresh download... >> "%LOG_FILE%" 2>&1
+    del /q "%SCRIPT_DIR%\WindowsUpdateScript.ps1" >> "%LOG_FILE%" 2>&1
+)
+echo [%date% %time%] Downloading WindowsUpdateScript.ps1 from GitHub... >> "%LOG_FILE%" 2>&1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -Uri %BASE_URL%/WindowsUpdateScript.ps1 -OutFile %SCRIPT_DIR%\WindowsUpdateScript.ps1 -UseBasicParsing" >> "%LOG_FILE%" 2>&1
+if %errorlevel% neq 0 goto error_download
 
-# Ensure the PSWindowsUpdate module is installed
-if (-not (Get-Module -ListAvailable -Name PSWindowsUpdate)) {
-    Write-Log "PSWindowsUpdate module not found. Installing..." "Yellow"
-    try {
-        Install-Module -Name PSWindowsUpdate -Scope CurrentUser -Force -AllowClobber
-        Write-Log "PSWindowsUpdate module installed successfully." "Green"
-    } catch {
-        Write-Log "Failed to install PSWindowsUpdate module: $_" "Red"
-    }
-} else {
-    Write-Log "PSWindowsUpdate module already installed." "Green"
-}
+:: --- Download or update winget-upgrade.ps1 ---
+echo [%date% %time%] Checking for winget-upgrade.ps1 in %SCRIPT_DIR%... >> "%LOG_FILE%" 2>&1
+if exist "%SCRIPT_DIR%\winget-upgrade.ps1" (
+    echo [%date% %time%] Existing winget-upgrade.ps1 found. Deleting for fresh download... >> "%LOG_FILE%" 2>&1
+    del /q "%SCRIPT_DIR%\winget-upgrade.ps1" >> "%LOG_FILE%" 2>&1
+)
+echo [%date% %time%] Downloading winget-upgrade.ps1 from GitHub... >> "%LOG_FILE%" 2>&1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -Uri %BASE_URL%/winget-upgrade.ps1 -OutFile %SCRIPT_DIR%\winget-upgrade.ps1 -UseBasicParsing" >> "%LOG_FILE%" 2>&1
+if %errorlevel% neq 0 goto error_download
 
-# Import the module
-Import-Module PSWindowsUpdate -Force
-Write-Log "PSWindowsUpdate module imported." "Green"
+:: --- Download or update office-update.ps1 ---
+echo [%date% %time%] Checking for office-update.ps1 in %SCRIPT_DIR%... >> "%LOG_FILE%" 2>&1
+if exist "%SCRIPT_DIR%\office-update.ps1" (
+    echo [%date% %time%] Existing office-update.ps1 found. Deleting for fresh download... >> "%LOG_FILE%" 2>&1
+    del /q "%SCRIPT_DIR%\office-update.ps1" >> "%LOG_FILE%" 2>&1
+)
+echo [%date% %time%] Downloading office-update.ps1 from GitHub... >> "%LOG_FILE%" 2>&1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -Uri %BASE_URL%/office-update.ps1 -OutFile %SCRIPT_DIR%\office-update.ps1 -UseBasicParsing" >> "%LOG_FILE%" 2>&1
+if %errorlevel% neq 0 goto error_download
 
-# Check for available updates
-Write-Log "Checking for Windows updates..." "Cyan"
-$Updates = Get-WindowsUpdate -MicrosoftUpdate -Verbose | Tee-Object -Variable UpdateList
+:: Run WindowsUpdateScript.ps1 and log output
+echo [%date% %time%] Running WindowsUpdateScript.ps1... >> "%LOG_FILE%" 2>&1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%\WindowsUpdateScript.ps1" >> "%LOG_FILE%" 2>&1
+if %errorlevel% neq 0 goto error_script_execution
 
-if ($UpdateList) {
-    Write-Log "Updates found: $($UpdateList.Count)." "Yellow"
+:: Run winget-upgrade.ps1 and log output
+echo [%date% %time%] Running winget-upgrade.ps1... >> "%LOG_FILE%" 2>&1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%\winget-upgrade.ps1" >> "%LOG_FILE%" 2>&1
+if %errorlevel% neq 0 goto error_script_execution
 
-    # Create a restore point
-    Write-Log "Creating system restore point..." "Cyan"
-    try {
-        Checkpoint-Computer -Description "Pre-WindowsUpdateScript" -RestorePointType "MODIFY_SETTINGS"
-        Write-Log "Restore point created successfully." "Green"
-    } catch {
-        Write-Log "Failed to create restore point: $_" "Red"
-    }
+:: Run office-update.ps1 and log output
+echo [%date% %time%] Running office-update.ps1... >> "%LOG_FILE%" 2>&1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%\office-update.ps1" >> "%LOG_FILE%" 2>&1
+if %errorlevel% neq 0 goto error_script_execution
 
-    # Add to Startup if not already
-    if (-not (Test-Path $StartupShortcut)) {
-        Write-Log "Adding script shortcut to Startup folder." "Gray"
-        try {
-            $WScriptShell = New-Object -ComObject WScript.Shell
-            $Shortcut = $WScriptShell.CreateShortcut($StartupShortcut)
-            $Shortcut.TargetPath = "powershell.exe"
-            $Shortcut.Arguments = "-ExecutionPolicy Bypass -WindowStyle Hidden -File `"$ScriptPath`""
-            $Shortcut.WorkingDirectory = Split-Path -Path $ScriptPath
-            $Shortcut.Save()
-            Write-Log "Shortcut added successfully." "Green"
-        } catch {
-            Write-Log "Failed to add Startup shortcut: $_" "Red"
-        }
-    }
+:cleanup
+:: Reset the Execution Policy back to default
+echo [%date% %time%] Resetting Execution Policy to default... >> "%LOG_FILE%" 2>&1
+powershell.exe -NoProfile -Command "Set-ExecutionPolicy Restricted -Scope Process -Force" >> "%LOG_FILE%" 2>&1
 
-    # Install updates
-    Write-Log "Installing updates..." "Green"
-    try {
-        Install-WindowsUpdate -MicrosoftUpdate -AcceptAll -AutoReboot -Verbose
-        Write-Log "Update installation completed (system may have rebooted)." "Green"
-    } catch {
-        Write-Log "Error during update installation: $_" "Red"
-    }
-} else {
-    Write-Log "No updates found." "Green"
+:: Delete the downloaded PowerShell scripts.
+echo [%date% %time%] Deleting downloaded scripts... >> "%LOG_FILE%" 2>&1
+if exist "%SCRIPT_DIR%\WindowsUpdateScript.ps1" del /q "%SCRIPT_DIR%\WindowsUpdateScript.ps1" >> "%LOG_FILE%" 2>&1
+if exist "%SCRIPT_DIR%\winget-upgrade.ps1" del /q "%SCRIPT_DIR%\winget-upgrade.ps1" >> "%LOG_FILE%" 2>&1
+if exist "%SCRIPT_DIR%\office-update.ps1" del /q "%SCRIPT_DIR%\office-update.ps1" >> "%LOG_FILE%" 2>&1
 
-    # Clean up: remove startup shortcut if it exists
-    if (Test-Path $StartupShortcut) {
-        Write-Log "Removing script shortcut from Startup folder." "Gray"
-        try {
-            Remove-Item $StartupShortcut -Force
-            Write-Log "Shortcut removed successfully." "Green"
-        } catch {
-            Write-Log "Failed to remove Startup shortcut: $_" "Red"
-        }
-    }
-}
+:: The following line for deleting the entire script directory remains commented out to keep the log folder.
+echo [%date% %time%] Temporary script folder (excluding log) will remain, or delete manually if needed. >> "%LOG_FILE%" 2>&1
+:: rmdir /s /q "%SCRIPT_DIR%" >> "%LOG_FILE%" 2>&1
 
-Write-Log "Script execution completed." "Yellow"
+:: Delete this batch file.
+echo [%date% %time%] Deleting this batch file... >> "%LOG_FILE%" 2>&1
+del "%~f0"
+exit /b 0
+
+:error_download
+echo [%date% %time%] A file download encountered an error. >> "%LOG_FILE%" 2>&1
+goto error_common
+
+:error_script_execution
+echo [%date% %time%] One or more scripts encountered an error during execution. >> "%LOG_FILE%" 2>&1
+goto error_common
+
+:error_common
+echo [%date% %time%] Resetting Execution Policy to default... >> "%LOG_FILE%" 2>&1
+powershell.exe -NoProfile -Command "Set-ExecutionPolicy Restricted -Scope Process -Force" >> "%LOG_FILE%" 2>&1
+echo [%date% %time%] Keeping downloaded files for debugging. (Scripts and batch file will not be deleted on error) >> "%LOG_FILE%" 2>&1
+pause
+exit /b 1
