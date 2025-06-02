@@ -59,7 +59,7 @@ rmdir /s /q "%SCRIPT_DIR%"
 
 :: Delete this batch file
 echo Deleting this batch file...
-# del "%~f0"
+:: del "%~f0"
 exit /b 0
 
 :error
