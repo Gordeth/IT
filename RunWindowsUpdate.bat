@@ -88,7 +88,7 @@ powershell.exe -NoProfile -Command "Set-ExecutionPolicy Restricted -Scope Proces
 echo [%date% %time%] Cleaning up temporary files (rmdir commented out for debugging)... >> "%LOG_FILE%" 2>&1
 :: rmdir /s /q "%SCRIPT_DIR%" >> "%LOG_FILE%" 2>&1
 
-:: Delete this batch file. Uncomment del "%~f0" if not debugging
+:: Delete this batch file. Comment del "%~f0" if debugging
 echo [%date% %time%] Deleting this batch file... >> "%LOG_FILE%" 2>&1
 del "%~f0"
 exit /b 0
