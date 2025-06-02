@@ -1,4 +1,8 @@
 @echo off
+
+set LOG_DIR=%SCRIPT_DIR%\Log
+set LOG_FILE=%LOG_DIR%\update_log.txt
+
 :: Check for administrator privileges
 net session >nul 2>&1
 if %errorlevel% neq 0 (
@@ -10,8 +14,6 @@ if %errorlevel% neq 0 (
 :: Define URLs and local paths
 set BASE_URL=https://raw.githubusercontent.com/Gordeth/IT/main
 set SCRIPT_DIR=%TEMP%\ITScripts
-set LOG_DIR=%SCRIPT_DIR%\Log
-set LOG_FILE=%LOG_DIR%\update_log.txt
 
 :: Create the local script and log directories
 if not exist "%SCRIPT_DIR%" mkdir "%SCRIPT_DIR%" >> "%LOG_FILE%" 2>&1
