@@ -31,7 +31,6 @@ if exist "%SCRIPT_DIR%\WindowsUpdateScript.ps1" (
 ) else (
     echo Downloading WindowsUpdateScript.ps1 from GitHub...
 )
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%\WindowsUpdateScript.ps1" >> "%LOG_FILE%" 2>&1
 powershell -Command "Invoke-WebRequest -Uri %BASE_URL%/WindowsUpdateScript.ps1 -OutFile %SCRIPT_DIR%\WindowsUpdateScript.ps1 -UseBasicParsing"
 
 :: Download or update winget-upgrade.ps1
@@ -55,17 +54,17 @@ powershell -Command "Invoke-WebRequest -Uri %BASE_URL%/office-update.ps1 -OutFil
 :: Run WindowsUpdateScript.ps1 and log output
 echo Running WindowsUpdateScript.ps1...
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%\WindowsUpdateScript.ps1" >> "%LOG_FILE%" 2>&1
-if %errorlevel% neq 0 goto cleanup
+if %errorlevel% neq 0 goto error
 
 :: Run winget-upgrade.ps1 and log output
 echo Running winget-upgrade.ps1...
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%\winget-upgrade.ps1" >> "%LOG_FILE%" 2>&1
-if %errorlevel% neq 0 goto cleanup
+if %errorlevel% neq 0 goto error
 
 :: Run office-update.ps1 and log output
 echo Running office-update.ps1...
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%\office-update.ps1" >> "%LOG_FILE%" 2>&1
-if %errorlevel% neq 0 goto cleanup
+if %errorlevel% neq 0 goto error
 
 :cleanup
 :: Reset the Execution Policy back to default
@@ -83,6 +82,8 @@ exit /b 0
 
 :error
 echo One or more scripts encountered an error.
+echo Resetting Execution Policy to default...
+powershell.exe -NoProfile -Command "Set-ExecutionPolicy Restricted -Scope Process -Force"
 echo Keeping downloaded files for debugging.
 pause
 exit /b 1
