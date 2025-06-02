@@ -3,7 +3,7 @@
 set "BASE_URL=https://raw.githubusercontent.com/Gordeth/IT/main"
 set "SCRIPT_DIR=%TEMP%\ITScripts"
 set "LOG_DIR=%SCRIPT_DIR%\Log"
-set "LOG_FILE=%LOG_DIR%\update_log.txt"
+set "LOG_FILE=%LOG_DIR%\W_UPDATE_log.txt"
 
 :: =================== CREATE DIRECTORIES ===================
 if not exist "%SCRIPT_DIR%" mkdir "%SCRIPT_DIR%"
