@@ -35,7 +35,7 @@ if exist "%SCRIPT_DIR%\WindowsUpdateScript.ps1" (
     del /q "%SCRIPT_DIR%\WindowsUpdateScript.ps1" >> "%LOG_FILE%" 2>&1
 )
 echo [%date% %time%] Downloading WindowsUpdateScript.ps1 from GitHub... >> "%LOG_FILE%" 2>&1
-powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -Uri %BASE_URL%/WindowsUpdateScript.ps1 -OutFile %SCRIPT_DIR%\WindowsUpdateScript.ps1 -UseBasicParsing -Headers @{'Cache-Control'='no-cache','Pragma'='no-cache'}" >> "%LOG_FILE%" 2>&1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -Uri %BASE_URL%/WindowsUpdateScript.ps1 -OutFile %SCRIPT_DIR%\WindowsUpdateScript.ps1 -UseBasicParsing" >> "%LOG_FILE%" 2>&1
 if %errorlevel% neq 0 goto error_download
 
 :: --- Download or update winget-upgrade.ps1 ---
@@ -45,7 +45,7 @@ if exist "%SCRIPT_DIR%\winget-upgrade.ps1" (
     del /q "%SCRIPT_DIR%\winget-upgrade.ps1" >> "%LOG_FILE%" 2>&1
 )
 echo [%date% %time%] Downloading winget-upgrade.ps1 from GitHub... >> "%LOG_FILE%" 2>&1
-powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -Uri %BASE_URL%/winget-upgrade.ps1 -OutFile %SCRIPT_DIR%\winget-upgrade.ps1 -UseBasicParsing -Headers @{'Cache-Control'='no-cache','Pragma'='no-cache'}" >> "%LOG_FILE%" 2>&1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -Uri %BASE_URL%/winget-upgrade.ps1 -OutFile %SCRIPT_DIR%\winget-upgrade.ps1 -UseBasicParsing" >> "%LOG_FILE%" 2>&1
 if %errorlevel% neq 0 goto error_download
 
 :: --- Download or update office-update.ps1 ---
@@ -55,7 +55,7 @@ if exist "%SCRIPT_DIR%\office-update.ps1" (
     del /q "%SCRIPT_DIR%\office-update.ps1" >> "%LOG_FILE%" 2>&1
 )
 echo [%date% %time%] Downloading office-update.ps1 from GitHub... >> "%LOG_FILE%" 2>&1
-powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -Uri %BASE_URL%/office-update.ps1 -OutFile %SCRIPT_DIR%\office-update.ps1 -UseBasicParsing -Headers @{'Cache-Control'='no-cache','Pragma'='no-cache'}" >> "%LOG_FILE%" 2>&1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -Uri %BASE_URL%/office-update.ps1 -OutFile %SCRIPT_DIR%\office-update.ps1 -UseBasicParsing" >> "%LOG_FILE%" 2>&1
 if %errorlevel% neq 0 goto error_download
 
 :: Run WindowsUpdateScript.ps1 and log output
