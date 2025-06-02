@@ -31,7 +31,7 @@ if exist "%SCRIPT_DIR%\WindowsUpdateScript.ps1" (
 ) else (
     echo Downloading WindowsUpdateScript.ps1 from GitHub...
 )
-# powershell -Command "Invoke-WebRequest -Uri %BASE_URL%/WindowsUpdateScript.ps1 -OutFile %SCRIPT_DIR%\WindowsUpdateScript.ps1 -UseBasicParsing"
+:: powershell -Command "Invoke-WebRequest -Uri %BASE_URL%/WindowsUpdateScript.ps1 -OutFile %SCRIPT_DIR%\WindowsUpdateScript.ps1 -UseBasicParsing"
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%\WindowsUpdateScript.ps1" >> "%LOG_FILE%" 2>&1
 
 :: Download or update winget-upgrade.ps1
