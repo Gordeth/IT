@@ -29,6 +29,13 @@ $StartupShortcut = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\W
 Write-Log "Setting execution policy to RemoteSigned for this session..." "Yellow"
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process -Force
 
+# Ensure NuGet is installed
+Write-Host "Checking for NuGet provider..."
+if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
+    Write-Host "NuGet provider not found. Installing..."
+    Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
+}
+
 # Ensure the PSWindowsUpdate module is installed
 if (-not (Get-Module -ListAvailable -Name PSWindowsUpdate)) {
     Write-Log "PSWindowsUpdate module not found. Installing..." "Yellow"
