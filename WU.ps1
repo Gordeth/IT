@@ -23,7 +23,7 @@ function Write-Log {
 Write-Log "Script started." "Yellow"
 
 $ScriptPath = $MyInvocation.MyCommand.Path
-$StartupShortcut = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\WindowsUpdateScript.lnk"
+$StartupShortcut = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\WU.lnk"
 
 # Set execution policy
 Write-Log "Setting execution policy to RemoteSigned for this session..." "Yellow"
@@ -40,7 +40,7 @@ if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
 if (-not (Get-Module -ListAvailable -Name PSWindowsUpdate)) {
     Write-Log "PSWindowsUpdate module not found. Installing..." "Yellow"
     try {
-        Install-Module -Name PSWindowsUpdate -Scope Process -Force -AllowClobber
+        Install-Module -Name PSWindowsUpdate -Force -AllowClobber
         Write-Log "PSWindowsUpdate module installed successfully." "Green"
     } catch {
         Write-Log "Failed to install PSWindowsUpdate module: $_" "Red"
