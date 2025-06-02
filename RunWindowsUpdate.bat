@@ -39,29 +39,29 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -Command ^
         [string]$OutFile, ^
         [int]$Retries = 3, ^
         [int]$DelaySeconds = 5 ^
-    ) ^
+    ); ^
     $attempt = 0; ^
     while ($attempt -lt $Retries) { ^
         $attempt++; ^
-        Write-Host \"Attempt $attempt to download $Uri...\"; ^
-        Write-Output \"Attempt $attempt to download $Uri...\"; ^
+        Write-Host \"Attempt $($attempt) to download $($Uri)...\"; ^
+        Write-Output \"Attempt $($attempt) to download $($Uri)...\"; ^
         try { ^
-            Invoke-WebRequest -Uri $Uri -OutFile $OutFile -UseBasicParsing -Headers @{'Cache-Control'='no-cache','Pragma'='no-cache'} -ErrorAction Stop; ^
-            Write-Host \"Successfully downloaded $OutFile.\"; ^
-            Write-Output \"Successfully downloaded $OutFile.\"; ^
+            Invoke-WebRequest -Uri $Uri -OutFile $OutFile -UseBasicParsing -Headers @{{'Cache-Control'='no-cache';'Pragma'='no-cache'}} -ErrorAction Stop; ^
+            Write-Host \"Successfully downloaded $($OutFile).\"; ^
+            Write-Output \"Successfully downloaded $($OutFile).\"; ^
             return $true; ^
         } catch { ^
-            Write-Host \"Error downloading $Uri: $($_.Exception.Message)\" -ForegroundColor Red; ^
-            Write-Output \"Error downloading $Uri: $($_.Exception.Message)\"; ^
+            Write-Host \"Error downloading $($Uri): $($_.Exception.Message)\" -ForegroundColor Red; ^
+            Write-Output \"Error downloading $($Uri): $($_.Exception.Message)\"; ^
             if ($attempt -lt $Retries) { ^
-                Write-Host \"Retrying in $DelaySeconds seconds...\"; ^
-                Write-Output \"Retrying in $DelaySeconds seconds...\"; ^
+                Write-Host \"Retrying in $($DelaySeconds) seconds...\"; ^
+                Write-Output \"Retrying in $($DelaySeconds) seconds...\"; ^
                 Start-Sleep -Seconds $DelaySeconds; ^
             } ^
         } ^
-    } ^
-    Write-Host \"Failed to download $Uri after $Retries attempts.\" -ForegroundColor Red; ^
-    Write-Output \"Failed to download $Uri after $Retries attempts.\"; ^
+    }; ^
+    Write-Host \"Failed to download $($Uri) after $($Retries) attempts.\" -ForegroundColor Red; ^
+    Write-Output \"Failed to download $($Uri) after $($Retries) attempts.\"; ^
     return $false; ^
 }" >> "%LOG_FILE%" 2>&1
 
