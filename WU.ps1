@@ -6,7 +6,7 @@ $LogDir = Join-Path $ScriptRoot "Log"
 if (-not (Test-Path $LogDir)) {
     New-Item -Path $LogDir -ItemType Directory | Out-Null
 }
-$LogFile = Join-Path $LogDir "update_log-windowsupdate.txt"
+$LogFile = Join-Path $LogDir "update_log-WU.txt"
 
 # Write-Log function
 function Write-Log {
@@ -40,7 +40,7 @@ if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
 if (-not (Get-Module -ListAvailable -Name PSWindowsUpdate)) {
     Write-Log "PSWindowsUpdate module not found. Installing..." "Yellow"
     try {
-        Install-Module -Name PSWindowsUpdate -Scope CurrentUser -Force -AllowClobber
+        Install-Module -Name PSWindowsUpdate -Scope Process -Force -AllowClobber
         Write-Log "PSWindowsUpdate module installed successfully." "Green"
     } catch {
         Write-Log "Failed to install PSWindowsUpdate module: $_" "Red"
