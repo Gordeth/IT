@@ -27,14 +27,12 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Set-ExecutionPolicy 
 :: =================== INSTALL NUGET PROVIDER ===================
 :: Check for NuGet provider and install if missing (with CurrentUser scope)
 echo [%date% %time%] Checking for NuGet provider... >> "%LOG_FILE%" 2>&1
-powershell.exe -NoProfile -ExecutionPolicy Bypass -Command ^
-"if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) { Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Scope CurrentUser; }" >> "%LOG_FILE%" 2>&1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) { Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Scope CurrentUser; }" >> "%LOG_FILE%" 2>&1
 if %errorlevel% neq 0 goto error_common
 
 :: Register PSGallery as a repository if not already present
 echo [%date% %time%] Registering PSGallery repository if needed... >> "%LOG_FILE%" 2>&1
-powershell.exe -NoProfile -ExecutionPolicy Bypass -Command ^
-"if (-not (Get-PSRepository | Where-Object { $_.Name -eq 'PSGallery' })) { Register-PSRepository -Default }" >> "%LOG_FILE%" 2>&1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "if (-not (Get-PSRepository | Where-Object { $_.Name -eq 'PSGallery' })) { Register-PSRepository -Default }" >> "%LOG_FILE%" 2>&1
 if %errorlevel% neq 0 goto error_common
 
 :: =================== DOWNLOAD SCRIPTS ===================
