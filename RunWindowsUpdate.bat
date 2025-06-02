@@ -33,7 +33,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Install-PackageProvi
 echo. >> "%LOG_FILE%" 2>&1
 echo Defining download function... >> "%LOG_FILE%" 2>&1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -Command ^
-"function Download-FileWithRetry { ^
+"$Headers = @{'Cache-Control'='no-cache';'Pragma'='no-cache'}; ^
+function Download-FileWithRetry { ^
     param ( ^
         [string]$Uri, ^
         [string]$OutFile, ^
@@ -46,7 +47,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -Command ^
         Write-Host \"Attempt $($attempt) to download $($Uri)...\"; ^
         Write-Output \"Attempt $($attempt) to download $($Uri)...\"; ^
         try { ^
-            Invoke-WebRequest -Uri $Uri -OutFile $OutFile -UseBasicParsing -Headers @{{'Cache-Control'='no-cache';'Pragma'='no-cache'}} -ErrorAction Stop; ^
+            Invoke-WebRequest -Uri $Uri -OutFile $OutFile -UseBasicParsing -Headers $Headers -ErrorAction Stop; ^
             Write-Host \"Successfully downloaded $($OutFile).\"; ^
             Write-Output \"Successfully downloaded $($OutFile).\"; ^
             return $true; ^
