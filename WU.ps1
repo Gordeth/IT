@@ -40,10 +40,11 @@ if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
 if (-not (Get-Module -ListAvailable -Name PSWindowsUpdate)) {
     Write-Log "PSWindowsUpdate module not found. Installing..." "Yellow"
     try {
-        Install-Module -Name PSWindowsUpdate -Force -AllowClobber
+         Install-Module -Name PSWindowsUpdate -Force -SkipPublisherCheck -AllowClobber
         Write-Log "PSWindowsUpdate module installed successfully." "Green"
     } catch {
         Write-Log "Failed to install PSWindowsUpdate module: $_" "Red"
+        exit 1
     }
 } else {
     Write-Log "PSWindowsUpdate module already installed." "Green"
