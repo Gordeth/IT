@@ -78,13 +78,13 @@ if %errorlevel% neq 0 goto error_script_execution
 echo [%date% %time%] Resetting Execution Policy to default... >> "%LOG_FILE%" 2>&1
 powershell.exe -NoProfile -Command "Set-ExecutionPolicy Restricted -Scope Process -Force" >> "%LOG_FILE%" 2>&1
 
-:: Delete the script directory
-echo [%date% %time%] Cleaning up temporary files... >> "%LOG_FILE%" 2>&1
-rmdir /s /q "%SCRIPT_DIR%" >> "%LOG_FILE%" 2>&1
+:: Delete the script directory. Comment out the next line to keep the directory and log file.
+echo [%date% %time%] Cleaning up temporary files (rmdir commented out for debugging)... >> "%LOG_FILE%" 2>&1
+:: rmdir /s /q "%SCRIPT_DIR%" >> "%LOG_FILE%" 2>&1
 
 :: Delete this batch file. Uncomment del "%~f0" if not debugging
 echo [%date% %time%] Deleting this batch file... >> "%LOG_FILE%" 2>&1
-del "%~f0"
+::del "%~f0"
 exit /b 0
 
 :error_download
