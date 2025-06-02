@@ -9,6 +9,17 @@ if (-not (Test-Path $ScriptDir)) { New-Item -ItemType Directory -Path $ScriptDir
 if (-not (Test-Path $LogDir)) { New-Item -ItemType Directory -Path $LogDir | Out-Null }
 if (-not (Test-Path $LogFile)) { "[{0}] Log file created." -f (Get-Date) | Out-File $LogFile -Append }
 
+# ================== DEFINE LOG FUNCTION ==================
+function Log {
+    param (
+        [string]$Message
+    )
+    $timestamp = "[{0}]" -f (Get-Date)
+    "$timestamp $Message" | Out-File $LogFile -Append
+    if ($VerboseMode) {
+        Write-Host "$timestamp $Message"
+    }
+}
 # ================== ASK FOR MODE ==================
 Write-Host ""
 Write-Host "Select Mode:"
@@ -21,18 +32,6 @@ if ($mode.ToUpper() -eq "V") {
 } else {
     $VerboseMode = $false
     Log "Silent mode selected."
-}
-
-# ================== DEFINE LOG FUNCTION ==================
-function Log {
-    param (
-        [string]$Message
-    )
-    $timestamp = "[{0}]" -f (Get-Date)
-    "$timestamp $Message" | Out-File $LogFile -Append
-    if ($VerboseMode) {
-        Write-Host "$timestamp $Message"
-    }
 }
 
 # ================== SET EXECUTION POLICY ==================
