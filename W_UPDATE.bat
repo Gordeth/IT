@@ -57,23 +57,23 @@ if exist "%SCRIPT_DIR%\MSO_UPDATE.ps1" (
     echo [%date% %time%] Existing MSO_UPDATE.ps1 found. Deleting for fresh download... >> "%LOG_FILE%" 2>&1
     del /q "%SCRIPT_DIR%\MSO_UPDATE.ps1" >> "%LOG_FILE%" 2>&1
 )
-echo [%date% %time%] Downloading MSO_UPDATE from GitHub... >> "%LOG_FILE%" 2>&1
+echo [%date% %time%] Downloading MSO_UPDATE.ps1 from GitHub... >> "%LOG_FILE%" 2>&1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -Uri %BASE_URL%/MSO_UPDATE.ps1 -OutFile %SCRIPT_DIR%\MSO_UPDATE.ps1 -UseBasicParsing" >> "%LOG_FILE%" 2>&1
 if %errorlevel% neq 0 goto error_download
 
-:: Run WindowsUpdateScript.ps1 and log output
-echo [%date% %time%] Running WindowsUpdateScript.ps1... >> "%LOG_FILE%" 2>&1
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%\WindowsUpdateScript.ps1" >> "%LOG_FILE%" 2>&1
+:: Run WU.ps1 and log output
+echo [%date% %time%] Running WU.ps1... >> "%LOG_FILE%" 2>&1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%\WU.ps1" >> "%LOG_FILE%" 2>&1
 if %errorlevel% neq 0 goto error_script_execution
 
-:: Run winget-upgrade.ps1 and log output
-echo [%date% %time%] Running winget-upgrade.ps1... >> "%LOG_FILE%" 2>&1
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%\winget-upgrade.ps1" >> "%LOG_FILE%" 2>&1
+:: Run WGET.ps1 and log output
+echo [%date% %time%] Running WGET.ps1... >> "%LOG_FILE%" 2>&1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%\WGET.ps1" >> "%LOG_FILE%" 2>&1
 if %errorlevel% neq 0 goto error_script_execution
 
-:: Run office-update.ps1 and log output
-echo [%date% %time%] Running office-update.ps1... >> "%LOG_FILE%" 2>&1
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%\office-update.ps1" >> "%LOG_FILE%" 2>&1
+:: Run MSO_UPDATE.ps1 and log output
+echo [%date% %time%] Running MSO_UPDATE.ps1... >> "%LOG_FILE%" 2>&1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%\MSO_UPDATE.ps1" >> "%LOG_FILE%" 2>&1
 if %errorlevel% neq 0 goto error_script_execution
 
 :cleanup
@@ -83,9 +83,9 @@ powershell.exe -NoProfile -Command "Set-ExecutionPolicy Restricted -Scope Proces
 
 :: Delete the downloaded PowerShell scripts.
 echo [%date% %time%] Deleting downloaded scripts... >> "%LOG_FILE%" 2>&1
-if exist "%SCRIPT_DIR%\WindowsUpdateScript.ps1" del /q "%SCRIPT_DIR%\WindowsUpdateScript.ps1" >> "%LOG_FILE%" 2>&1
-if exist "%SCRIPT_DIR%\winget-upgrade.ps1" del /q "%SCRIPT_DIR%\winget-upgrade.ps1" >> "%LOG_FILE%" 2>&1
-if exist "%SCRIPT_DIR%\office-update.ps1" del /q "%SCRIPT_DIR%\office-update.ps1" >> "%LOG_FILE%" 2>&1
+if exist "%SCRIPT_DIR%\WU.ps1" del /q "%SCRIPT_DIR%\WU.ps1" >> "%LOG_FILE%" 2>&1
+if exist "%SCRIPT_DIR%\WGET.ps1" del /q "%SCRIPT_DIR%\WGET.ps1" >> "%LOG_FILE%" 2>&1
+if exist "%SCRIPT_DIR%\MSO_UPDATE.ps1" del /q "%SCRIPT_DIR%\MSO_UPDATE.ps1" >> "%LOG_FILE%" 2>&1
 
 :: The following line for deleting the entire script directory remains commented out to keep the log folder.
 echo [%date% %time%] Temporary script folder (excluding log) will remain, or delete manually if needed. >> "%LOG_FILE%" 2>&1
