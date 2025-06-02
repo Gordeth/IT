@@ -3,6 +3,7 @@
 $ScriptPath = $MyInvocation.MyCommand.Path
 $StartupShortcut = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\WindowsUpdateScript.lnk"
 
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
 
 # Ensure the PSWindowsUpdate module is installed
 if (-not (Get-Module -ListAvailable -Name PSWindowsUpdate)) {
