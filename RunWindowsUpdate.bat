@@ -18,7 +18,7 @@ if not exist "%SCRIPT_DIR%" mkdir "%SCRIPT_DIR%"
 echo Setting Execution Policy to Bypass...
 powershell.exe -NoProfile -Command "Set-ExecutionPolicy Bypass -Scope Process -Force"
 
-# Check if NuGet provider is installed, install silently if needed
+:: Check if NuGet provider is installed, install silently if needed
 powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -ForceBootstrap -Force -Scope CurrentUser"
 
 :: Download or update WindowsUpdateScript.ps1
