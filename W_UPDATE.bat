@@ -31,34 +31,34 @@ echo [%date% %time%] Checking for NuGet provider... >> "%LOG_FILE%" 2>&1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -Command ^
 "if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) { Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Scope CurrentUser; }" >> "%LOG_FILE%" 2>&1
 
-:: --- Download or update WindowsUpdateScript.ps1 ---
-echo [%date% %time%] Checking for WindowsUpdateScript.ps1 in %SCRIPT_DIR%... >> "%LOG_FILE%" 2>&1
-if exist "%SCRIPT_DIR%\WindowsUpdateScript.ps1" (
-    echo [%date% %time%] Existing WindowsUpdateScript.ps1 found. Deleting for fresh download... >> "%LOG_FILE%" 2>&1
-    del /q "%SCRIPT_DIR%\WindowsUpdateScript.ps1" >> "%LOG_FILE%" 2>&1
+:: --- Download or update WU.ps1 ---
+echo [%date% %time%] Checking for WU.ps1 in %SCRIPT_DIR%... >> "%LOG_FILE%" 2>&1
+if exist "%SCRIPT_DIR%\WU.ps1" (
+    echo [%date% %time%] Existing WU.ps1 found. Deleting for fresh download... >> "%LOG_FILE%" 2>&1
+    del /q "%SCRIPT_DIR%\WU.ps1" >> "%LOG_FILE%" 2>&1
 )
-echo [%date% %time%] Downloading WindowsUpdateScript.ps1 from GitHub... >> "%LOG_FILE%" 2>&1
-powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -Uri %BASE_URL%/WindowsUpdateScript.ps1 -OutFile %SCRIPT_DIR%\WindowsUpdateScript.ps1 -UseBasicParsing" >> "%LOG_FILE%" 2>&1
+echo [%date% %time%] Downloading WU.ps1 from GitHub... >> "%LOG_FILE%" 2>&1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -Uri %BASE_URL%/WU.ps1 -OutFile %SCRIPT_DIR%\WU.ps1 -UseBasicParsing" >> "%LOG_FILE%" 2>&1
 if %errorlevel% neq 0 goto error_download
 
-:: --- Download or update winget-upgrade.ps1 ---
-echo [%date% %time%] Checking for winget-upgrade.ps1 in %SCRIPT_DIR%... >> "%LOG_FILE%" 2>&1
-if exist "%SCRIPT_DIR%\winget-upgrade.ps1" (
-    echo [%date% %time%] Existing winget-upgrade.ps1 found. Deleting for fresh download... >> "%LOG_FILE%" 2>&1
-    del /q "%SCRIPT_DIR%\winget-upgrade.ps1" >> "%LOG_FILE%" 2>&1
+:: --- Download or update WGET.ps1 ---
+echo [%date% %time%] Checking for WGET.ps1 in %SCRIPT_DIR%... >> "%LOG_FILE%" 2>&1
+if exist "%SCRIPT_DIR%\WGET.ps1" (
+    echo [%date% %time%] Existing WGET.ps1 found. Deleting for fresh download... >> "%LOG_FILE%" 2>&1
+    del /q "%SCRIPT_DIR%\WGET.ps1" >> "%LOG_FILE%" 2>&1
 )
-echo [%date% %time%] Downloading winget-upgrade.ps1 from GitHub... >> "%LOG_FILE%" 2>&1
-powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -Uri %BASE_URL%/winget-upgrade.ps1 -OutFile %SCRIPT_DIR%\winget-upgrade.ps1 -UseBasicParsing" >> "%LOG_FILE%" 2>&1
+echo [%date% %time%] Downloading WGET.ps1 from GitHub... >> "%LOG_FILE%" 2>&1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -Uri %BASE_URL%/WGET.ps1 -OutFile %SCRIPT_DIR%\WGET.ps1 -UseBasicParsing" >> "%LOG_FILE%" 2>&1
 if %errorlevel% neq 0 goto error_download
 
-:: --- Download or update office-update.ps1 ---
-echo [%date% %time%] Checking for office-update.ps1 in %SCRIPT_DIR%... >> "%LOG_FILE%" 2>&1
-if exist "%SCRIPT_DIR%\office-update.ps1" (
-    echo [%date% %time%] Existing office-update.ps1 found. Deleting for fresh download... >> "%LOG_FILE%" 2>&1
-    del /q "%SCRIPT_DIR%\office-update.ps1" >> "%LOG_FILE%" 2>&1
+:: --- Download or update MSO_UPDATE.ps1 ---
+echo [%date% %time%] Checking for MSO_UPDATE.ps1 in %SCRIPT_DIR%... >> "%LOG_FILE%" 2>&1
+if exist "%SCRIPT_DIR%\MSO_UPDATE.ps1" (
+    echo [%date% %time%] Existing MSO_UPDATE.ps1 found. Deleting for fresh download... >> "%LOG_FILE%" 2>&1
+    del /q "%SCRIPT_DIR%\MSO_UPDATE.ps1" >> "%LOG_FILE%" 2>&1
 )
-echo [%date% %time%] Downloading office-update.ps1 from GitHub... >> "%LOG_FILE%" 2>&1
-powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -Uri %BASE_URL%/office-update.ps1 -OutFile %SCRIPT_DIR%\office-update.ps1 -UseBasicParsing" >> "%LOG_FILE%" 2>&1
+echo [%date% %time%] Downloading MSO_UPDATE from GitHub... >> "%LOG_FILE%" 2>&1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -Uri %BASE_URL%/MSO_UPDATE.ps1 -OutFile %SCRIPT_DIR%\MSO_UPDATE.ps1 -UseBasicParsing" >> "%LOG_FILE%" 2>&1
 if %errorlevel% neq 0 goto error_download
 
 :: Run WindowsUpdateScript.ps1 and log output
