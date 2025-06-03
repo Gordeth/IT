@@ -2,6 +2,8 @@
 
 This project automates Windows maintenance tasks and profile preparation using PowerShell.
 
+Note: Not recommended to production enviroments.
+
 ## 📂 Contents
 
 - `WUH.ps1` — Main launcher script.
