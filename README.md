@@ -2,7 +2,7 @@
 
 This project automates Windows maintenance tasks and profile preparation using PowerShell.
 
-Note: Not recommended to production enviroments.
+Note: Not recommended for production enviroments.
 
 ## 📂 Contents
 
