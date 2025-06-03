@@ -20,6 +20,7 @@ function Log {
         Write-Host "$timestamp $Message"
     }
 }
+
 # ================== ASK FOR MODE ==================
 Write-Host ""
 Write-Host "Select Mode:"
@@ -33,6 +34,13 @@ if ($mode.ToUpper() -eq "V") {
     $VerboseMode = $false
     Log "Silent mode selected."
 }
+
+# ================== ASK FOR TASK ==================
+Write-Host ""
+Write-Host "Select Task:"
+Write-Host "[1] User Profile Preparation"
+Write-Host "[2] Windows Maintenance"
+$task = Read-Host "Choose task [1/2]"
 
 # ================== SET EXECUTION POLICY ==================
 Log "Setting Execution Policy to Bypass..."
@@ -99,15 +107,29 @@ function Run-Script {
     }
 }
 
-# ================== DOWNLOAD AND EXECUTE SCRIPTS ==================
-Download-Script -ScriptName "WU.ps1"
-Run-Script -ScriptName "WU.ps1"
+# ================== TASK SELECTION ==================
+switch ($task) {
+    "1" {
+        Log "Task selected: User Profile Preparation"
+        Download-Script -ScriptName "UserProfilePrep.ps1"
+        Run-Script -ScriptName "UserProfilePrep.ps1"
+    }
+    "2" {
+        Log "Task selected: Windows Maintenance"
+        Download-Script -ScriptName "WU.ps1"
+        Run-Script -ScriptName "WU.ps1"
 
-Download-Script -ScriptName "WGET.ps1"
-Run-Script -ScriptName "WGET.ps1"
+        Download-Script -ScriptName "WGET.ps1"
+        Run-Script -ScriptName "WGET.ps1"
 
-Download-Script -ScriptName "MSO_UPDATE.ps1"
-Run-Script -ScriptName "MSO_UPDATE.ps1"
+        Download-Script -ScriptName "MSO_UPDATE.ps1"
+        Run-Script -ScriptName "MSO_UPDATE.ps1"
+    }
+    default {
+        Log "Invalid task selection. Exiting script."
+        Exit 1
+    }
+}
 
 # ================== CLEANUP ==================
 Log "Resetting Execution Policy to Restricted..."
