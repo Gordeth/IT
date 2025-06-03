@@ -139,3 +139,7 @@ Log "Deleting downloaded scripts..."
 Get-ChildItem -Path $ScriptDir -Filter *.ps1 | Remove-Item -Force
 
 Log "Script completed successfully."
+
+Get-ChildItem -Path $ScriptDir -Filter *.ps1 | Remove-Item -Force
+
+Log "Script completed successfully."
