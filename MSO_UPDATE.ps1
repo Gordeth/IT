@@ -1,12 +1,32 @@
-# office-update.ps1
+param (
+    [switch]$VerboseMode = $false
+)
 
-$OfficeUpdatePath = "C:\Program Files\Common Files\Microsoft Shared\ClickToRun\OfficeC2RClient.exe"
-$UpdateArgs = "/update user forceappshutdown=true"
+function Log {
+    param (
+        [string]$Message
+    )
+    $timestamp = "[{0}]" -f (Get-Date)
+    "$timestamp $Message" | Out-File "$env:TEMP\ITScripts\Log\MSO_UPDATE_log.txt" -Append
+    if ($VerboseMode) {
+        Write-Host "$timestamp $Message"
+    }
+}
 
-Log "Starting Microsoft Office update..."
+Log "Starting Office update..."
+
 try {
-    Start-Process -FilePath $OfficeUpdatePath -ArgumentList $UpdateArgs -Wait
-    Log "Microsoft Office update completed."
+    $OfficeClient = "C:\Program Files\Common Files\microsoft shared\ClickToRun\OfficeC2RClient.exe"
+    if (Test-Path $OfficeClient) {
+        if ($VerboseMode) {
+            & $OfficeClient /update user forceappshutdown=true
+        } else {
+            & $OfficeClient /update user forceappshutdown=true | Out-Null
+        }
+        Log "Office update initiated. Please wait until it finishes."
+    } else {
+        Log "OfficeC2RClient.exe not found."
+    }
 } catch {
-    Log "Error during Microsoft Office update: $_"
+    Log "Failed to initiate Office update: $_"
 }
