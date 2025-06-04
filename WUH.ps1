@@ -43,7 +43,7 @@ if ($mode.ToUpper() -eq "V") {
 # ================== ASK FOR TASK ==================
 Write-Host ""
 Write-Host "Select Task:"
-Write-Host "[1] Machine Preparation"
+Write-Host "[1] Machine Preparation (semi-automated)"
 Write-Host "[2] Windows Maintenance"
 $task = Read-Host "Choose task [1/2]"
 
