@@ -13,18 +13,29 @@ function Log {
 
 # ================== 1. Check if TeamViewer is installed ==================
 Log "Checking if TeamViewer is installed..."
-$tvInstalled = Get-ItemProperty -Path "HKLM:\Software\WOW6432Node\TeamViewer" -ErrorAction SilentlyContinue
+$teamViewerPaths = @(
+    "C:\Program Files\TeamViewer",
+    "C:\Program Files (x86)\TeamViewer"
+)
+$tvInstalled = $false
+foreach ($path in $teamViewerPaths) {
+    if (Test-Path $path) {
+        $tvInstalled = $true
+        break
+    }
+}
+
 if ($tvInstalled) {
     Log "TeamViewer is already installed. Skipping installation."
 } else {
     Log "TeamViewer not found. Proceeding with installation..."
-    Write-Host "Installing TeamViewer Host using winget..."
-try {
-    winget install --id=TeamViewer.TeamViewer.Host -e --accept-package-agreements --accept-source-agreements
-    Write-Host "TeamViewer Host installed successfully."
-} catch {
-    Write-Host "Failed to install TeamViewer Host: $_"
-    Exit 1
+    # --- Example install using winget ---
+    try {
+        winget install --id=TeamViewer.TeamViewerHost --silent --accept-package-agreements --accept-source-agreements
+        Log "TeamViewer Host installed successfully."
+    } catch {
+        Log "Failed to install TeamViewer Host: $_"
+        Exit 1
     }
 }
 # ================== 2. Check if WU.ps1 is available ==================
