@@ -156,6 +156,52 @@ try {
             Log "No specific driver update app found for $brand. Skipping..."
         }
     }
+    # ================== 9. Install Disk Management App based on disk brand ==================
+try {
+    Log "Detecting disk brand..."
+    # Get the first physical disk (or loop if multiple)
+    $disk = Get-WmiObject Win32_DiskDrive | Select-Object -First 1
+    $diskBrand = $disk.Manufacturer
+    if (-not $diskBrand) {
+        # Some disks (like NVMe) might not populate Manufacturer — fallback to Model
+        $diskBrand = $disk.Model
+    }
+    Log "Detected disk brand/model: $diskBrand"
+
+    switch -Wildcard ($diskBrand) {
+        "*Samsung*" {
+            Log "Installing Samsung Magician..."
+            winget install --id=Samsung.SamsungMagician -e --silent --accept-package-agreements --accept-source-agreements
+            Log "Samsung Magician installed successfully."
+        }
+        "*Kingston*" {
+            Log "Installing Kingston SSD Manager..."
+            winget install --id=Kingston.SSDManager -e --silent --accept-package-agreements --accept-source-agreements
+            Log "Kingston SSD Manager installed successfully."
+        }
+        "*Crucial*" {
+            Log "Installing Crucial Storage Executive..."
+            winget install --id=Micron.CrucialStorageExecutive -e --silent --accept-package-agreements --accept-source-agreements
+            Log "Crucial Storage Executive installed successfully."
+        }
+        "*Western Digital*" {
+            Log "Installing Western Digital Dashboard..."
+            winget install --id=WesternDigital.WDSSDDashboard -e --silent --accept-package-agreements --accept-source-agreements
+            Log "WD SSD Dashboard installed successfully."
+        }
+        "*Intel*" {
+            Log "Installing Intel Memory and Storage Tool..."
+            winget install --id=Intel.MemoryAndStorageTool -e --silent --accept-package-agreements --accept-source-agreements
+            Log "Intel Memory and Storage Tool installed successfully."
+        }
+        default {
+            Log "No specific disk management app found for $diskBrand. Skipping..."
+        }
+    }
+} catch {
+    Log "Error during disk management app installation: $_"
+}
+
 } catch {
     Log "Error during driver update app installation: $_"
 }
