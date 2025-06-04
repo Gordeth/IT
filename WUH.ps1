@@ -135,8 +135,8 @@ function Run-Script {
 switch ($task) {
     "1" {
         Log "Task selected: Machine Preparation"
-        Download-Script -ScriptName "MachinePrep.ps1"
-        Run-Script -ScriptName "MachinePrep.ps1"
+        Download-Script -ScriptName "MACHINEPREP.ps1"
+        Run-Script -ScriptName "MACHINEPREP.ps1"
     }
     "2" {
         Log "Task selected: Windows Maintenance"
