@@ -35,6 +35,9 @@ if ($mode.ToUpper() -eq "V") {
     $VerboseMode = $false
     Log "Silent mode selected."
     $VerbosePreference = "SilentlyContinue"
+    $InformationPreference = "SilentlyContinue"
+    $ProgressPreference = "SilentlyContinue"
+    $WarningPreference = "SilentlyContinue"
 }
 
 # ================== ASK FOR TASK ==================
