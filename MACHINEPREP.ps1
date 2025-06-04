@@ -98,7 +98,7 @@ try {
 $apps = @(
     @{ Name = "7-Zip"; Id = "7zip.7zip" },
     @{ Name = "Google Chrome"; Id = "Google.Chrome" },
-    @{ Name = "Adobe Acrobat Reader 64-bit"; Id = "Adobe.Acrobat.Reader.64-bit" },
+    @{ Name = "Adobe Acrobat Reader 64-bit"; Id = "Adobe.Acrobat.Reader.64-bit" }
 )
 
 foreach ($app in $apps) {
