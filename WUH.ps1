@@ -167,6 +167,3 @@ Log "Resetting Execution Policy to Restricted..."
 Set-ExecutionPolicy Restricted -Scope Process -Force -ErrorAction SilentlyContinue
 
 Log "Script completed successfully."
-Get-ChildItem -Path $ScriptDir -Filter *.ps1 | Remove-Item -Force
-
-Log "Script completed successfully."
