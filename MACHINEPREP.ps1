@@ -116,3 +116,17 @@ foreach ($app in $apps) {
         }
     }
 }
+# ================== 7. Ask to install OpenVPN Connect ==================
+Log "Prompting for OpenVPN Connect installation..."
+$openvpnChoice = Read-Host "Do you want to install OpenVPN Connect? (Y/N)"
+if ($openvpnChoice -match '^(?i)y(es)?$') {
+    Log "User chose to install OpenVPN Connect. Installing..."
+    try {
+        winget install --id=OpenVPNTechnologies.OpenVPN -e --scope machine --silent --accept-package-agreements --accept-source-agreements
+        Log "OpenVPN Connect installed successfully."
+    } catch {
+        Log "Failed to install OpenVPN Connect: $_"
+    }
+} else {
+    Log "User chose not to install OpenVPN Connect. Skipping installation."
+}
