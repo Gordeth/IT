@@ -22,8 +22,14 @@ This project automates Windows maintenance tasks and profile preparation using P
   - [2] Windows Maintenance (runs Windows Update, downloads updates, and Office updates)  
 ✅ Temporary Maximum Performance power plan during maintenance for optimal performance, automatically reset to Balanced after completion  
 ✅ NuGet and PSGallery setup to ensure package installations work smoothly  
-✅ Automatic cleanup: downloaded scripts removed after execution  
+✅ Automatic cleanup: downloaded scripts removed after execution
 
+🖥️ Machine Preparation Script (MACHINEPREP.ps1)
+
+Checks and installs TeamViewer Host
+Installs default apps (7-Zip, Google Chrome, Adobe Acrobat Reader 64-bit)
+Prompts the user to optionally install OpenVPN Connect
+(Coming Soon): Detects the machine brand and installs the appropriate driver update app (e.g., Lenovo Vantage, HP Support Assistant, Dell Command Update).
 ---
 
 🛠️ **Usage**  
