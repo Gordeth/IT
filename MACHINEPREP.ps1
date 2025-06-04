@@ -159,6 +159,7 @@ try {
         default {
             Log "No specific driver update app found for $brand. Skipping..."
         }
+        }
     }
    # ================== 9. Install Disk Management App based on disk brand ==================
 try {
