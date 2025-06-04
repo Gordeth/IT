@@ -2,7 +2,7 @@
 $BaseUrl = "https://raw.githubusercontent.com/Gordeth/IT/main"
 $ScriptDir = "$env:TEMP\ITScripts"
 $LogDir = "$ScriptDir\Log"
-$LogFile = "$LogDir\W_UPDATE_log.txt"
+$LogFile = "$LogDir\WUH_log.txt"
 
 # ================== CREATE DIRECTORIES ==================
 if (-not (Test-Path $ScriptDir)) { New-Item -ItemType Directory -Path $ScriptDir | Out-Null }
