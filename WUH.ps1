@@ -34,6 +34,7 @@ if ($mode.ToUpper() -eq "V") {
 } else {
     $VerboseMode = $false
     Log "Silent mode selected."
+    $VerbosePreference = "SilentlyContinue"
 }
 
 # ================== ASK FOR TASK ==================
@@ -74,7 +75,7 @@ if (-not (Get-PSRepository | Where-Object { $_.Name -eq "PSGallery" })) {
 # ================== CREATE TEMPORARY MAX PERFORMANCE POWER PLAN ==================
 Log "Creating temporary Maximum Performance power plan..."
 try {
-    $baseScheme = powercfg -l | Where-Object { $_ -match "High performance" } | ForEach-Object { ($_ -split '\s+')[3] }
+    $baseScheme = (powercfg -list | Where-Object { $_ -match "High performance" } | ForEach-Object { ($_ -split '\s+')[3] })
     if ($null -eq $baseScheme) {
         Log "High Performance power plan not found. Skipping power plan changes."
     } else {
@@ -100,7 +101,7 @@ function Download-Script {
     $url = "$BaseUrl/$ScriptName"
     Log "Downloading $ScriptName from $url..."
     try {
-        Invoke-WebRequest -Uri $url -OutFile $scriptPath -UseBasicParsing -Verbose:$VerboseMode
+        Invoke-WebRequest -Uri $url -OutFile $scriptPath -UseBasicParsing | Out-Null
         Log "$ScriptName downloaded successfully."
     } catch {
         Log "Failed to download ${ScriptName}: $_"
@@ -116,7 +117,11 @@ function Run-Script {
     $scriptPath = Join-Path $ScriptDir $ScriptName
     Log "Running $ScriptName..."
     try {
-        & $scriptPath
+        if ($VerboseMode) {
+            & $scriptPath
+        } else {
+            & $scriptPath | Out-Null
+        }
         Log "$ScriptName executed successfully."
     } catch {
         Log "Error during execution of ${ScriptName}: $_"
@@ -161,7 +166,7 @@ try {
 Log "Resetting Execution Policy to Restricted..."
 Set-ExecutionPolicy Restricted -Scope Process -Force -ErrorAction SilentlyContinue
 
-Log "Deleting downloaded scripts..."
+Log "Script completed successfully."
 Get-ChildItem -Path $ScriptDir -Filter *.ps1 | Remove-Item -Force
 
 Log "Script completed successfully."
