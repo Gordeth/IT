@@ -3,6 +3,7 @@ $BaseUrl = "https://raw.githubusercontent.com/Gordeth/IT/main"
 $ScriptDir = "$env:TEMP\ITScripts"
 $LogDir = "$ScriptDir\Log"
 $LogFile = "$LogDir\WUH_log.txt"
+$PowerPlanName = "TempMaxPerformance"
 
 # ================== CREATE DIRECTORIES ==================
 if (-not (Test-Path $ScriptDir)) { New-Item -ItemType Directory -Path $ScriptDir | Out-Null }
@@ -38,7 +39,7 @@ if ($mode.ToUpper() -eq "V") {
 # ================== ASK FOR TASK ==================
 Write-Host ""
 Write-Host "Select Task:"
-Write-Host "[1] User Profile Preparation"
+Write-Host "[1] Machine Preparation"
 Write-Host "[2] Windows Maintenance"
 $task = Read-Host "Choose task [1/2]"
 
@@ -68,6 +69,17 @@ if (-not (Get-PSRepository | Where-Object { $_.Name -eq "PSGallery" })) {
         Log "Failed to register PSGallery: $_"
         Exit 1
     }
+}
+
+# ================== CREATE TEMPORARY MAX PERFORMANCE POWER PLAN ==================
+Log "Creating temporary Maximum Performance power plan..."
+try {
+    $guid = (powercfg -duplicatescheme SCHEME_MIN).Trim()
+    powercfg -changename $guid $PowerPlanName "Temporary Maximum Performance"
+    powercfg -setactive $guid
+    Log "Temporary Maximum Performance power plan activated."
+} catch {
+    Log "Failed to create or set temporary power plan: $_"
 }
 
 # ================== DOWNLOAD SCRIPT FUNCTION ==================
@@ -110,9 +122,9 @@ function Run-Script {
 # ================== TASK SELECTION ==================
 switch ($task) {
     "1" {
-        Log "Task selected: User Profile Preparation"
-        Download-Script -ScriptName "UserProfilePrep.ps1"
-        Run-Script -ScriptName "UserProfilePrep.ps1"
+        Log "Task selected: Machine Preparation"
+        Download-Script -ScriptName "MachinePrep.ps1"
+        Run-Script -ScriptName "MachinePrep.ps1"
     }
     "2" {
         Log "Task selected: Windows Maintenance"
@@ -131,6 +143,15 @@ switch ($task) {
     }
 }
 
+# ================== RESET POWER PLAN TO BALANCED ==================
+Log "Resetting power plan to Balanced..."
+try {
+    powercfg -setactive SCHEME_BALANCED
+    Log "Power plan reset to Balanced."
+} catch {
+    Log "Failed to reset power plan to Balanced: $_"
+}
+
 # ================== CLEANUP ==================
 Log "Resetting Execution Policy to Restricted..."
 Set-ExecutionPolicy Restricted -Scope Process -Force -ErrorAction SilentlyContinue
@@ -139,6 +160,7 @@ Log "Deleting downloaded scripts..."
 Get-ChildItem -Path $ScriptDir -Filter *.ps1 | Remove-Item -Force
 
 Log "Script completed successfully."
+
 
 Get-ChildItem -Path $ScriptDir -Filter *.ps1 | Remove-Item -Force
 
