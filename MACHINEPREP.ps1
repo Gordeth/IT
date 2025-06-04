@@ -1,11 +1,15 @@
 # MACHINEPREP.ps1
 # ================== LOG FUNCTION ==================
+param (
+    [switch]$VerboseMode = $false
+)
+
 function Log {
     param (
         [string]$Message
     )
     $timestamp = "[{0}]" -f (Get-Date)
-    "$timestamp $Message" | Out-File $LogFile -Append
+    "$timestamp $Message" | Out-File "$env:TEMP\ITScripts\Log\MACHINEPREP_log.txt" -Append
     if ($VerboseMode) {
         Write-Host "$timestamp $Message"
     }
