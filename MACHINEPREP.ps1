@@ -160,14 +160,12 @@ try {
             Log "No specific driver update app found for $brand. Skipping..."
         }
     }
-    # ================== 9. Install Disk Management App based on disk brand ==================
+   # ================== 9. Install Disk Management App based on disk brand ==================
 try {
     Log "Detecting disk brand..."
-    # Get the first physical disk (or loop if multiple)
     $disk = Get-WmiObject Win32_DiskDrive | Select-Object -First 1
     $diskBrand = $disk.Manufacturer
     if (-not $diskBrand) {
-        # Some disks (like NVMe) might not populate Manufacturer — fallback to Model
         $diskBrand = $disk.Model
     }
     Log "Detected disk brand/model: $diskBrand"
@@ -198,14 +196,15 @@ try {
             winget install --id=Intel.MemoryAndStorageTool -e --silent --accept-package-agreements --accept-source-agreements
             Log "Intel Memory and Storage Tool installed successfully."
         }
+        "*SanDisk*" {
+            Log "Installing SanDisk SSD Dashboard..."
+            winget install --id=SanDisk.SSDDashboard -e --silent --accept-package-agreements --accept-source-agreements
+            Log "SanDisk SSD Dashboard installed successfully."
+        }
         default {
             Log "No specific disk management app found for $diskBrand. Skipping..."
         }
     }
 } catch {
     Log "Error during disk management app installation: $_"
-}
-
-} catch {
-    Log "Error during driver update app installation: $_"
 }
