@@ -66,4 +66,31 @@ try {
     Log "Error during execution of WU.ps1: $_"
     Exit 1
 }
-
+# ================== 4. Check if WGET.ps1 is available ==================
+$WUPath = Join-Path $ScriptDir "WGET.ps1"
+if (-not (Test-Path $WUPath)) {
+    Log "WU.ps1 not found. Downloading..."
+    $WUUrl = "$ScriptDir/WGET.ps1"
+    try {
+        Invoke-WebRequest -Uri $WUUrl -OutFile $WUPath -UseBasicParsing | Out-Null
+        Log "WU.ps1 downloaded successfully."
+    } catch {
+        Log "Failed to download WGET.ps1: $_"
+        Exit 1
+    }
+} else {
+    Log "WU.ps1 already exists. Skipping download."
+}
+# ================== 5. Run WGET.ps1 ==================
+Log "Running WGET.ps1..."
+try {
+    if ($VerboseMode) {
+        & $WUPath
+    } else {
+        & $WUPath | Out-Null
+    }
+    Log "WGET.ps1 executed successfully."
+} catch {
+    Log "Error during execution of WGET.ps1: $_"
+    Exit 1
+}
