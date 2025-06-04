@@ -2,34 +2,38 @@
 
 This project automates Windows maintenance tasks and profile preparation using PowerShell.
 
-Note: Not recommended for production enviroments.
+**Note:** Not recommended for production environments.
 
-## 📂 Contents
+---
 
-- `WUH.ps1` — Main launcher script.
-- `WU.ps1` — Windows Updates script.
-- `WGET.ps1` — Additional maintenance script.
-- `MSO_UPDATE.ps1` — Office update script.
-- `MACHINEPREP.ps1` — (Coming soon) New machine preparation script.
+📂 **Contents**  
+- **WUH.ps1** — Main launcher script.  
+- **WU.ps1** — Windows Updates script.  
+- **WGET.ps1** — Additional maintenance script.  
+- **MSO_UPDATE.ps1** — Office update script.  
+- **MACHINEPREP.ps1** — New machine preparation script.  
 
-## 🚀 Features
+---
 
-✅ **Verbose and Silent modes** (console output and logging)  
-✅ **Task selection**:  
-- [1] Machine Preparation (installs TeamViewer Host)
-- [2] Windows Maintenance (runs Windows Update, downloads updates, and Office updates)  
-✅ **Temporary Maximum Performance power plan** during maintenance for optimal performance, automatically reset to Balanced after completion.  
-✅ **NuGet and PSGallery setup** to ensure package installations work smoothly.  
-✅ **Automatic cleanup**: downloaded scripts removed after execution.
+🚀 **Features**  
+✅ Verbose and Silent modes (console output and logging)  
+✅ Task selection:  
+  - [1] Machine Preparation (installs default apps, TeamViewer Host, and optional OpenVPN Connect)  
+  - [2] Windows Maintenance (runs Windows Update, downloads updates, and Office updates)  
+✅ Temporary Maximum Performance power plan during maintenance for optimal performance, automatically reset to Balanced after completion  
+✅ NuGet and PSGallery setup to ensure package installations work smoothly  
+✅ Automatic cleanup: downloaded scripts removed after execution  
 
-## 🛠️ Usage
+---
 
-1. Open PowerShell as Administrator.
-2. Run the main script:
-   ```powershell
-   Set-ExecutionPolicy Bypass -Scope Process -Force
-   Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Gordeth/IT/main/WUH.ps1" -OutFile "$env:TEMP\WUH.ps1"
-   & "$env:TEMP\WUH.ps1"
+🛠️ **Usage**  
+Open PowerShell as Administrator.  
+Run the main script:  
+
+```powershell
+Set-ExecutionPolicy Bypass -Scope Process -Force
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Gordeth/IT/main/WUH.ps1" -OutFile "$env:TEMP\WUH.ps1"
+& "$env:TEMP\WUH.ps1"
 
 ## License
 
