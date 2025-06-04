@@ -10,7 +10,7 @@ Note: Not recommended for production enviroments.
 - `WU.ps1` — Windows Updates script.
 - `WGET.ps1` — Additional maintenance script.
 - `MSO_UPDATE.ps1` — Office update script.
-- `UserProfilePrep.ps1` — (Coming soon) New user profile preparation script.
+- `MACHINEPREP.ps1` — (Coming soon) New machine preparation script.
 
 ## 🚀 Features
 
