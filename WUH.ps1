@@ -74,10 +74,15 @@ if (-not (Get-PSRepository | Where-Object { $_.Name -eq "PSGallery" })) {
 # ================== CREATE TEMPORARY MAX PERFORMANCE POWER PLAN ==================
 Log "Creating temporary Maximum Performance power plan..."
 try {
-    $guid = (powercfg -duplicatescheme SCHEME_MIN).Trim()
-    powercfg -changename $guid $PowerPlanName "Temporary Maximum Performance"
-    powercfg -setactive $guid
-    Log "Temporary Maximum Performance power plan activated."
+    $baseScheme = powercfg -l | Where-Object { $_ -match "High performance" } | ForEach-Object { ($_ -split '\s+')[3] }
+    if ($null -eq $baseScheme) {
+        Log "High Performance power plan not found. Skipping power plan changes."
+    } else {
+        $guid = (powercfg -duplicatescheme $baseScheme).Trim()
+        powercfg -changename $guid $PowerPlanName "Temporary Maximum Performance"
+        powercfg -setactive $guid
+        Log "Temporary Maximum Performance power plan activated."
+    }
 } catch {
     Log "Failed to create or set temporary power plan: $_"
 }
