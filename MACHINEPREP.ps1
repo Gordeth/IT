@@ -159,8 +159,10 @@ try {
         default {
             Log "No specific driver update app found for $brand. Skipping..."
         }
-        }
     }
+} catch {
+    Log "Error during driver update app installation: $_"
+}
    # ================== 9. Install Disk Management App based on disk brand ==================
 try {
     Log "Detecting disk brand..."
