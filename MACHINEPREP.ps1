@@ -94,3 +94,25 @@ try {
     Log "Error during execution of WGET.ps1: $_"
     Exit 1
 }
+# ================== 6. Install Default Apps ==================
+$apps = @(
+    @{ Name = "7-Zip"; Id = "7zip.7zip" },
+    @{ Name = "Google Chrome"; Id = "Google.Chrome" },
+    @{ Name = "Adobe Acrobat Reader 64-bit"; Id = "Adobe.Acrobat.Reader.64-bit" },
+)
+
+foreach ($app in $apps) {
+    $installed = winget list --name $app.Name -e | Where-Object { $_ }
+    if ($installed) {
+        Log "$($app.Name) is already installed. Skipping installation."
+    } else {
+        Log "$($app.Name) not found. Installing..."
+        try {
+            winget install --id=$($app.Id) -e --silent --accept-package-agreements --accept-source-agreements
+            Log "$($app.Name) installed successfully."
+        } catch {
+            Log "Failed to install $($app.Name): $_"
+            # continue to next app without exiting
+        }
+    }
+}
