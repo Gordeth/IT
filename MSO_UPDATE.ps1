@@ -1,9 +1,12 @@
 # office-update.ps1
 
-Write-Host "Updating Microsoft Office..." -ForegroundColor Cyan
+$OfficeUpdatePath = "C:\Program Files\Common Files\Microsoft Shared\ClickToRun\OfficeC2RClient.exe"
+$UpdateArgs = "/update user forceappshutdown=true"
+
+Log "Starting Microsoft Office update..."
 try {
-    & "C:\Program Files\Common Files\microsoft shared\ClickToRun\OfficeC2RClient.exe" /update user forceappshutdown=true
-    Write-Host "Microsoft Office update triggered successfully." -ForegroundColor Green
+    Start-Process -FilePath $OfficeUpdatePath -ArgumentList $UpdateArgs -Wait
+    Log "Microsoft Office update completed."
 } catch {
-    Write-Host "Failed to update Microsoft Office. Error: $_" -ForegroundColor Red
+    Log "Error during Microsoft Office update: $_"
 }
