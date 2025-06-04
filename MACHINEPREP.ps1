@@ -130,3 +130,32 @@ if ($openvpnChoice -match '^(?i)y(es)?$') {
 } else {
     Log "User chose not to install OpenVPN Connect. Skipping installation."
 }
+# ================== 8. Install Driver Update App based on machine brand ==================
+try {
+    Log "Detecting machine brand..."
+    $brand = (Get-WmiObject -Class Win32_ComputerSystem).Manufacturer
+    Log "Detected manufacturer: $brand"
+
+    switch -Wildcard ($brand) {
+        "*Lenovo*" {
+            Log "Installing Lenovo Vantage..."
+            winget install --id=9WZDNCRFJ4MV -e --silent --accept-package-agreements --accept-source-agreements
+            Log "Lenovo Vantage installed successfully."
+        }
+        "*HP*" {
+            Log "Installing HP Support Assistant..."
+            winget install --id=9NBB0P7HPH4S -e --silent --accept-package-agreements --accept-source-agreements
+            Log "HP Support Assistant installed successfully."
+        }
+        "*Dell*" {
+            Log "Installing Dell Command Update..."
+            winget install --id=Dell.CommandUpdate -e --silent --accept-package-agreements --accept-source-agreements
+            Log "Dell Command Update installed successfully."
+        }
+        default {
+            Log "No specific driver update app found for $brand. Skipping..."
+        }
+    }
+} catch {
+    Log "Error during driver update app installation: $_"
+}
