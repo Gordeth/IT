@@ -13,16 +13,19 @@ function Log {
     }
 }
 
+if (-not $VerboseMode) {
+    $VerbosePreference = "SilentlyContinue"
+    $InformationPreference = "SilentlyContinue"
+    $ProgressPreference = "SilentlyContinue"
+    $WarningPreference = "SilentlyContinue"
+}
+
 Log "Starting Office update..."
 
 try {
     $OfficeClient = "C:\Program Files\Common Files\microsoft shared\ClickToRun\OfficeC2RClient.exe"
     if (Test-Path $OfficeClient) {
-        if ($VerboseMode) {
-            & $OfficeClient /update user forceappshutdown=true
-        } else {
-            & $OfficeClient /update user forceappshutdown=true | Out-Null
-        }
+        Start-Process -FilePath $OfficeClient -ArgumentList "/update user forceappshutdown=true" -WindowStyle Hidden -Wait
         Log "Office update initiated. Please wait until it finishes."
     } else {
         Log "OfficeC2RClient.exe not found."
