@@ -123,7 +123,7 @@ function Run-Script {
         if ($VerboseMode) {
             & $scriptPath
         } else {
-            & $scriptPath | Out-Null
+            & $scriptPath *>&1 | Out-Null
         }
         Log "$ScriptName executed successfully."
     } catch {
@@ -131,7 +131,6 @@ function Run-Script {
         Exit 1
     }
 }
-
 # ================== TASK SELECTION ==================
 switch ($task) {
     "1" {
