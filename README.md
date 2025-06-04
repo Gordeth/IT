@@ -14,12 +14,13 @@ Note: Not recommended for production enviroments.
 
 ## 🚀 Features
 
-- **User Mode Selection:**
-  - Silent Mode (logs only)
-  - Verbose Mode (logs + console output)
-- **Task Selection:**
-  - User Profile Preparation
-  - Windows Maintenance (runs Windows Updates, WGET, and MSO_UPDATE)
+✅ **Verbose and Silent modes** (console output and logging)  
+✅ **Task selection**:  
+- [1] Machine Preparation (installs TeamViewer Host)
+- [2] Windows Maintenance (runs Windows Update, downloads updates, and Office updates)  
+✅ **Temporary Maximum Performance power plan** during maintenance for optimal performance, automatically reset to Balanced after completion.  
+✅ **NuGet and PSGallery setup** to ensure package installations work smoothly.  
+✅ **Automatic cleanup**: downloaded scripts removed after execution.
 
 ## 🛠️ Usage
 
