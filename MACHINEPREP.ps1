@@ -1,4 +1,4 @@
-# MachinePrep.ps1
+# MACHINEPREP.ps1
 # ============================================
 # Prepares the machine by installing TeamViewer Host.
 # ============================================
