@@ -136,6 +136,9 @@ switch ($task) {
     "1" {
         Log "Task selected: Machine Preparation"
         Download-Script -ScriptName "MACHINEPREP.ps1"
+        Download-Script -ScriptName "WU.ps1"
+        Download-Script -ScriptName "WGET.ps1"
+        Run-Script -ScriptName "MSO_UPDATE.ps1"
         Run-Script -ScriptName "MACHINEPREP.ps1"
     }
     "2" {
