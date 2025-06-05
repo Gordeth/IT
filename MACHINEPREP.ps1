@@ -104,7 +104,7 @@ try {
     $openvpnChoice = Read-Host "Do you want to install OpenVPN Connect? (Y/N)"
     if ($openvpnChoice -match '^(?i)y(es)?$') {
         Log "Installing OpenVPN Connect..."
-        winget install --id=OpenVPNTechnologies.OpenVPN -e --scope machine --silent --accept-package-agreements --accept-source-agreements
+        winget install --id=OpenVPNTechnologies.OpenVPNConnect -e --scope machine --silent --accept-package-agreements --accept-source-agreements
         Log "OpenVPN Connect installed successfully."
     } else {
         Log "Skipped OpenVPN Connect installation."
