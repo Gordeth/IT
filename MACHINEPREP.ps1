@@ -230,7 +230,7 @@ try {
         }
         "*SanDisk*" {
             Log "Installing SanDisk SSD Dashboard..."
-            winget install --id=SanDisk.SSDDashboard -e --silent --accept-package-agreements --accept-source-agreements
+            winget install --id=SanDisk.Dashboard -e --silent --accept-package-agreements --accept-source-agreements
             Log "SanDisk SSD Dashboard installed successfully."
         }
         default {
