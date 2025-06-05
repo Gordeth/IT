@@ -171,6 +171,11 @@ try {
     if (-not $diskBrand) {
         $diskBrand = $disk.Model
     }
+    if (-not $diskBrand) {
+        $diskBrand = $disk.Caption
+    }
+
+    Log "Raw disk object: $($disk | Out-String)"
     Log "Detected disk brand/model: $diskBrand"
 
     switch -Wildcard ($diskBrand) {
