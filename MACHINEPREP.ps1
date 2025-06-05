@@ -236,6 +236,7 @@ try {
         default {
             Log "No specific disk management app found for $diskBrand. Skipping..."
         }
+    }
 } catch {
     Log "Error during disk management app installation: $_"
 }
