@@ -171,22 +171,27 @@ try {
     Log "Raw disk object: $($disk | Out-String)"
 
     # Prefer Manufacturer but fall back to Model if Manufacturer is blank or generic
-    $diskBrand = $disk.Manufacturer
-    if ([string]::IsNullOrWhiteSpace($diskBrand) -or $diskBrand -match "Unidades de disco padrão|Standard disk drives") {
-        $diskBrand = $disk.Model
-    }
+$diskBrand = $disk.Manufacturer
+if ([string]::IsNullOrWhiteSpace($diskBrand) -or $diskBrand -match "Unidades de disco padrão|Standard disk drives|\(.*\)") {
+    $diskBrand = $disk.Model
+}
 
-    Log "Detected disk brand/model: $diskBrand"
+Log "Detected disk brand/model: $diskBrand"
 
-    # Parse brand name from diskBrand (first word)
-    if ($diskBrand -match "Samsung|Kingston|Crucial|Western Digital|Intel|SanDisk") {
-        $diskBrand = $matches[0]
-    } else {
-        # Default to first word
-        $diskBrand = $diskBrand.Split(" ")[0]
-    }
+# Strip parentheses and trim whitespace
+$diskBrand = $diskBrand -replace '\(.*\)', '' -replace '\[.*\]', ''
+$diskBrand = $diskBrand.Trim()
 
-    Log "Parsed disk brand: $diskBrand"
+# Try to match known brand names
+if ($diskBrand -match "Samsung|Kingston|Crucial|Western Digital|Intel|SanDisk") {
+    $diskBrand = $matches[0]
+} else {
+    # Try splitting on space and taking the first non-empty word
+    $diskBrand = ($diskBrand -split '\s+') | Where-Object { $_ -ne "" } | Select-Object -First 1
+}
+
+Log "Parsed disk brand: $diskBrand"
+
 
     switch -Wildcard ($diskBrand) {
         "*Samsung*" {
