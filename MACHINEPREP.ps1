@@ -1,104 +1,83 @@
 # MACHINEPREP.ps1
-# ================== LOG FUNCTION ==================
+
 param (
     [switch]$VerboseMode = $false
 )
 
+# ================== LOG FUNCTION ==================
 function Log {
     param (
         [string]$Message
     )
-    $timestamp = "[{0}]" -f (Get-Date)
+    $timestamp = "[{0}]" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss")
     "$timestamp $Message" | Out-File "$env:TEMP\ITScripts\Log\MACHINEPREP_log.txt" -Append
     if ($VerboseMode) {
         Write-Host "$timestamp $Message"
     }
 }
 
-# ================== 1. Check if TeamViewer is installed ==================
-Log "Checking if TeamViewer is installed..."
-$teamViewerPaths = @(
-    "C:\Program Files\TeamViewer",
-    "C:\Program Files (x86)\TeamViewer"
-)
-$tvInstalled = $false
-foreach ($path in $teamViewerPaths) {
-    if (Test-Path $path) {
-        $tvInstalled = $true
-        break
-    }
-}
+# ================== SCRIPT START ==================
+Log "==== MACHINEPREP Script Started ===="
 
-if ($tvInstalled) {
-    Log "TeamViewer is already installed. Skipping installation."
-} else {
-    Log "TeamViewer not found. Proceeding with installation..."
-    # --- Example install using winget ---
-    try {
+# ========== 1. Check if TeamViewer is installed ==========
+try {
+    Log "Checking for TeamViewer installation..."
+    $teamViewerPaths = @(
+        "C:\Program Files\TeamViewer",
+        "C:\Program Files (x86)\TeamViewer"
+    )
+    $tvInstalled = $teamViewerPaths | Where-Object { Test-Path $_ }
+
+    if ($tvInstalled) {
+        Log "TeamViewer already installed. Skipping installation."
+    } else {
+        Log "Installing TeamViewer Host..."
         winget install --id=TeamViewer.TeamViewerHost --silent --accept-package-agreements --accept-source-agreements
         Log "TeamViewer Host installed successfully."
-    } catch {
-        Log "Failed to install TeamViewer Host: $_"
-        Exit 1
     }
+} catch {
+    Log "Error installing TeamViewer: $_"
 }
-# ================== 2. Check if WU.ps1 is available ==================
-$WUPath = Join-Path $ScriptDir "WU.ps1"
-if (-not (Test-Path $WUPath)) {
-    Log "WU.ps1 not found. Downloading..."
-    $WUUrl = "$ScriptDir/WU.ps1"
-    try {
+
+# ========== 2. Ensure WU.ps1 is present ==========
+try {
+    $WUPath = Join-Path $ScriptDir "WU.ps1"
+    if (-not (Test-Path $WUPath)) {
+        Log "WU.ps1 not found. Downloading..."
+        $WUUrl = "$ScriptDir/WU.ps1"
         Invoke-WebRequest -Uri $WUUrl -OutFile $WUPath -UseBasicParsing | Out-Null
         Log "WU.ps1 downloaded successfully."
-    } catch {
-        Log "Failed to download WU.ps1: $_"
-        Exit 1
-    }
-} else {
-    Log "WU.ps1 already exists. Skipping download."
-}
-# ================== 3. Run WU.ps1 ==================
-Log "Running WU.ps1..."
-try {
-    if ($VerboseMode) {
-        & $WUPath
     } else {
-        & $WUPath | Out-Null
+        Log "WU.ps1 already exists. Skipping download."
     }
+
+    Log "Running WU.ps1..."
+    & $WUPath | Out-Null
     Log "WU.ps1 executed successfully."
 } catch {
-    Log "Error during execution of WU.ps1: $_"
-    Exit 1
+    Log "Error with WU.ps1: $_"
 }
-# ================== 4. Check if WGET.ps1 is available ==================
-$WGETPath = Join-Path $ScriptDir "WGET.ps1"
-if (-not (Test-Path $WGETPath)) {
-    Log "WGET.ps1 not found. Downloading..."
-    $WGETUrl = "$BaseUrl/WGET.ps1"
-    try {
+
+# ========== 3. Ensure WGET.ps1 is present ==========
+try {
+    $WGETPath = Join-Path $ScriptDir "WGET.ps1"
+    if (-not (Test-Path $WGETPath)) {
+        Log "WGET.ps1 not found. Downloading..."
+        $WGETUrl = "$BaseUrl/WGET.ps1"
         Invoke-WebRequest -Uri $WGETUrl -OutFile $WGETPath -UseBasicParsing | Out-Null
         Log "WGET.ps1 downloaded successfully."
-    } catch {
-        Log "Failed to download WGET.ps1: $_"
-        Exit 1
-    }
-} else {
-    Log "WGET.ps1 already exists. Skipping download."
-}
-# ================== 5. Run WGET.ps1 ==================
-Log "Running WGET.ps1..."
-try {
-    if ($VerboseMode) {
-        & $WGETPath
     } else {
-        & $WGETPath | Out-Null
+        Log "WGET.ps1 already exists. Skipping download."
     }
+
+    Log "Running WGET.ps1..."
+    & $WGETPath | Out-Null
     Log "WGET.ps1 executed successfully."
 } catch {
-    Log "Error during execution of WGET.ps1: $_"
-    Exit 1
+    Log "Error with WGET.ps1: $_"
 }
-# ================== 6. Install Default Apps ==================
+
+# ========== 4. Install Default Apps ==========
 $apps = @(
     @{ Name = "7-Zip"; Id = "7zip.7zip" },
     @{ Name = "Google Chrome"; Id = "Google.Chrome" },
@@ -106,151 +85,103 @@ $apps = @(
 )
 
 foreach ($app in $apps) {
-    $installed = winget list --name $app.Name -e | Where-Object { $_ }
-    if ($installed) {
-        Log "$($app.Name) is already installed. Skipping installation."
-    } else {
-        Log "$($app.Name) not found. Installing..."
-        try {
+    try {
+        $installed = winget list --name $app.Name -e | Where-Object { $_ }
+        if ($installed) {
+            Log "$($app.Name) already installed. Skipping."
+        } else {
+            Log "Installing $($app.Name)..."
             winget install --id=$($app.Id) -e --silent --accept-package-agreements --accept-source-agreements
             Log "$($app.Name) installed successfully."
-        } catch {
-            Log "Failed to install $($app.Name): $_"
-            # continue to next app without exiting
         }
+    } catch {
+        Log "Error installing $($app.Name): $_"
     }
 }
-# ================== 7. Ask to install OpenVPN Connect ==================
-Log "Prompting for OpenVPN Connect installation..."
-$openvpnChoice = Read-Host "Do you want to install OpenVPN Connect? (Y/N)"
-if ($openvpnChoice -match '^(?i)y(es)?$') {
-    Log "User chose to install OpenVPN Connect. Installing..."
-    try {
+
+# ========== 5. Prompt for OpenVPN Connect ==========
+try {
+    $openvpnChoice = Read-Host "Do you want to install OpenVPN Connect? (Y/N)"
+    if ($openvpnChoice -match '^(?i)y(es)?$') {
+        Log "Installing OpenVPN Connect..."
         winget install --id=OpenVPNTechnologies.OpenVPN -e --scope machine --silent --accept-package-agreements --accept-source-agreements
         Log "OpenVPN Connect installed successfully."
-    } catch {
-        Log "Failed to install OpenVPN Connect: $_"
+    } else {
+        Log "Skipped OpenVPN Connect installation."
     }
-} else {
-    Log "User chose not to install OpenVPN Connect. Skipping installation."
+} catch {
+    Log "Error installing OpenVPN Connect: $_"
 }
-# ================== 8. Install Driver Update App based on machine brand ==================
+
+# ========== 6. Install Driver Update App ==========
 try {
-    Log "Detecting machine brand..."
     $brand = (Get-WmiObject -Class Win32_ComputerSystem).Manufacturer
     Log "Detected manufacturer: $brand"
 
     switch -Wildcard ($brand) {
         "*Lenovo*" {
-            Log "Installing Lenovo Vantage..."
             winget install --id=9WZDNCRFJ4MV -e --silent --accept-package-agreements --accept-source-agreements
-            Log "Lenovo Vantage installed successfully."
+            Log "Lenovo Vantage installed."
         }
         "*HP*" {
-            Log "Installing HP Support Assistant..."
             winget install --id=9NBB0P7HPH4S -e --silent --accept-package-agreements --accept-source-agreements
-            Log "HP Support Assistant installed successfully."
+            Log "HP Support Assistant installed."
         }
         "*Dell*" {
-            Log "Installing Dell Command Update..."
             winget install --id=Dell.CommandUpdate -e --silent --accept-package-agreements --accept-source-agreements
-            Log "Dell Command Update installed successfully."
+            Log "Dell Command Update installed."
         }
         default {
-            Log "No specific driver update app found for $brand. Skipping..."
+            Log "No driver update app needed for this brand."
         }
     }
 } catch {
-    Log "Error during driver update app installation: $_"
+    Log "Error installing driver update app: $_"
 }
-   # ================== 9. Install Disk Management App based on disk brand ==================
+
+# ========== 7. Install Disk Management App ==========
 try {
-    Log "Detecting disk brand..."
-    
-    # First attempt with Get-PhysicalDisk
-    $disk = Get-PhysicalDisk | Select-Object -First 1 FriendlyName, Manufacturer, Model, SerialNumber, MediaType, Size
-
-    if ($disk -eq $null) {
-        Log "Get-PhysicalDisk returned no results. Falling back to Get-CimInstance..."
-        $disk = Get-CimInstance -ClassName Win32_DiskDrive | Select-Object -First 1 Model, Manufacturer, SerialNumber, Size
+    $disk = Get-PhysicalDisk | Select-Object -First 1 FriendlyName, Manufacturer, Model
+    if (-not $disk) {
+        $disk = Get-CimInstance -ClassName Win32_DiskDrive | Select-Object -First 1 Model, Manufacturer
     }
-
-    Log "Raw disk object: $($disk | Out-String)"
-
-    # Determine the brand
-    $diskBrand = $null
-
-    if ($disk.Manufacturer -and -not ($disk.Manufacturer -match 'Unidades de disco padrão|Standard disk drives|\(.*\)')) {
-        $diskBrand = $disk.Manufacturer.Trim()
-    }
-
-    if (-not $diskBrand -or $diskBrand -eq "") {
-        $diskBrand = $disk.Model
-    }
-
-    # Remove parentheses and other clutter
-    $diskBrand = $diskBrand -replace '\(.*?\)', '' -replace '\[.*?\]', ''
-    $diskBrand = $diskBrand.Trim()
-
-    # Try to match known brand names
-    if ($diskBrand -match "Samsung|Kingston|Crucial|Western Digital|Intel|SanDisk|Toshiba|Seagate|Micron") {
-        $diskBrand = $matches[0]
-    } else {
-        # Default to first non-empty word
-        $diskBrand = ($diskBrand -split '\s+') | Where-Object { $_ -ne "" } | Select-Object -First 1
-    }
-
-    Log "Parsed disk brand: $diskBrand"
+    $diskBrand = $disk.Manufacturer ?? $disk.Model
+    $diskBrand = $diskBrand -replace '\(.*?\)|\[.*?\]', '' -replace '\s+', '' -replace '-', ''
+    Log "Detected disk brand: $diskBrand"
 
     switch -Wildcard ($diskBrand) {
-        "*Samsung*" {
-            Log "Installing Samsung Magician..."
-            winget install --id=Samsung.SamsungMagician -e --silent --accept-package-agreements --accept-source-agreements
-            Log "Samsung Magician installed successfully."
-        }
-        "*Kingston*" {
-            Log "Installing Kingston SSD Manager..."
-            winget install --id=Kingston.SSDManager -e --silent --accept-package-agreements --accept-source-agreements
-            Log "Kingston SSD Manager installed successfully."
-        }
-        "*Crucial*" {
-            Log "Installing Crucial Storage Executive..."
-            winget install --id=Micron.CrucialStorageExecutive -e --silent --accept-package-agreements --accept-source-agreements
-            Log "Crucial Storage Executive installed successfully."
-        }
-        "*Western Digital*" {
-            Log "Installing Western Digital Dashboard..."
-            winget install --id=WesternDigital.WDSSDDashboard -e --silent --accept-package-agreements --accept-source-agreements
-            Log "WD SSD Dashboard installed successfully."
-        }
-        "*Intel*" {
-            Log "Installing Intel Memory and Storage Tool..."
-            winget install --id=Intel.MemoryAndStorageTool -e --silent --accept-package-agreements --accept-source-agreements
-            Log "Intel Memory and Storage Tool installed successfully."
-        }
-        "*SanDisk*" {
-            Log "Installing SanDisk SSD Dashboard..."
-            winget install --id=SanDisk.Dashboard -e --silent --accept-package-agreements --accept-source-agreements
-            Log "SanDisk SSD Dashboard installed successfully."
-        }
-        default {
-            Log "No specific disk management app found for $diskBrand. Skipping..."
-        }
+        "*Samsung*" { winget install --id=Samsung.SamsungMagician -e --silent --accept-package-agreements --accept-source-agreements; Log "Samsung Magician installed." }
+        "*Kingston*" { winget install --id=Kingston.SSDManager -e --silent --accept-package-agreements --accept-source-agreements; Log "Kingston SSD Manager installed." }
+        "*Crucial*" { winget install --id=Micron.CrucialStorageExecutive -e --silent --accept-package-agreements --accept-source-agreements; Log "Crucial Storage Executive installed." }
+        "*WesternDigital*" { winget install --id=WesternDigital.WDSSDDashboard -e --silent --accept-package-agreements --accept-source-agreements; Log "WD SSD Dashboard installed." }
+        "*Intel*" { winget install --id=Intel.MemoryAndStorageTool -e --silent --accept-package-agreements --accept-source-agreements; Log "Intel Memory and Storage Tool installed." }
+        "*SanDisk*" { winget install --id=SanDisk.Dashboard -e --silent --accept-package-agreements --accept-source-agreements; Log "SanDisk SSD Dashboard installed." }
+        default { Log "No disk management app needed for this brand." }
     }
-} 
-catch {
-    Log "Error during disk management app installation: $_"
+} catch {
+    Log "Error installing disk management app: $_"
 }
-# ================== 10. Disable OneDrive Auto-Start ==================
+
+# ========== 8. Disable OneDrive Auto-Start ==========
 try {
+    Log "Disabling OneDrive auto-start..."
     $taskName = "OneDrive Standalone Update Task"
     $task = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
     if ($task) {
-        Disable-ScheduledTask -TaskName $taskName
-        Write-Log "Disabled OneDrive scheduled task." "Green"
+        Disable-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+        Log "Disabled OneDrive scheduled task."
     } else {
-        Write-Log "OneDrive scheduled task not found." "Gray"
+        Log "OneDrive scheduled task not found."
     }
+
+    $policyPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\OneDrive"
+    if (-not (Test-Path $policyPath)) {
+        New-Item -Path $policyPath -Force | Out-Null
+    }
+    New-ItemProperty -Path $policyPath -Name "DisableFileSyncNGSC" -Value 1 -PropertyType DWORD -Force | Out-Null
+    Log "Set Group Policy key to disable OneDrive auto-start."
 } catch {
-    Write-Log "Error disabling OneDrive scheduled task: $_" "Red"
+    Log "Error disabling OneDrive auto-start: $_"
 }
+
+Log "==== MACHINEPREP Script Completed ===="
