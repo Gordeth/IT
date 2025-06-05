@@ -64,10 +64,18 @@ if ($UpdateList) {
     # Create a restore point
     Write-Log "Creating system restore point..." "Cyan"
     try {
+         # Enable VSS
+        Set-Service -Name 'VSS' -StartupType Manual -ErrorAction SilentlyContinue
+        Start-Service -Name 'VSS' -ErrorAction SilentlyContinue
+
+        # Enable System Restore for C: drive
+        Enable-ComputerRestore -Drive "C:\"
+        Write-Log "Enabled VSS and System Restore." "Yellow"
+        # Create Checkpoint
         Checkpoint-Computer -Description "Pre-WindowsUpdateScript" -RestorePointType "MODIFY_SETTINGS"
         Write-Log "Restore point created successfully." "Green"
     } catch {
-        Write-Log "Failed to create restore point: $_" "Red"
+        Write-Log "Failed to create restore point. System restore may be disabled or VSS service may not be running: $_" "Red"
     }
 
     # Add to Startup if not already
