@@ -250,5 +250,7 @@ try {
     } else {
         Log "OneDrive auto-start registry path not found."
     }
+} catch {
+    Log "Error disabling OneDrive auto-start: $_"
 }
 
