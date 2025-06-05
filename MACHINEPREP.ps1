@@ -167,18 +167,18 @@ try {
 try {
     Log "Detecting disk brand..."
     $disk = Get-WmiObject Win32_DiskDrive | Select-Object -First 1
-    $diskBrand = $disk.Manufacturer
-    if (-not $diskBrand) {
-        $diskBrand = $disk.Model
-    }
-    if (-not $diskBrand) {
-        $diskBrand = $disk.Caption
-    }
 
     Log "Raw disk object: $($disk | Out-String)"
+
+    # Prefer Manufacturer but fall back to Model if Manufacturer is blank or generic
+    $diskBrand = $disk.Manufacturer
+    if ([string]::IsNullOrWhiteSpace($diskBrand) -or $diskBrand -match "Unidades de disco padrão|Standard disk drives") {
+        $diskBrand = $disk.Model
+    }
+
     Log "Detected disk brand/model: $diskBrand"
 
-    # Extract brand from string
+    # Parse brand name from diskBrand (first word)
     if ($diskBrand -match "Samsung|Kingston|Crucial|Western Digital|Intel|SanDisk") {
         $diskBrand = $matches[0]
     } else {
