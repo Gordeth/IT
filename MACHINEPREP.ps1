@@ -240,3 +240,15 @@ try {
 } catch {
     Log "Error during disk management app installation: $_"
 }
+# ================== 10. Disable OneDrive Auto-Start ==================
+try {
+    Log "Disabling OneDrive auto-start..."
+    $oneDriveAutoStartRegPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
+    if (Test-Path $oneDriveAutoStartRegPath) {
+        Remove-ItemProperty -Path $oneDriveAutoStartRegPath -Name "OneDrive" -ErrorAction SilentlyContinue
+        Log "OneDrive auto-start entry removed from HKCU Run key."
+    } else {
+        Log "OneDrive auto-start registry path not found."
+    }
+}
+
