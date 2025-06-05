@@ -188,5 +188,27 @@ try {
 } catch {
     Log "Error disabling OneDrive auto-start: $_"
 }
+# ================== 11. Unpin Microsoft Edge from the Taskbar ==================
+try {
+    Log "Attempting to unpin Microsoft Edge from the taskbar..."
 
+    $taskbarPath = "$env:APPDATA\Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar"
+
+    if (Test-Path $taskbarPath) {
+        $edgeLnk = Get-ChildItem -Path $taskbarPath -Filter "*.lnk" | Where-Object {
+            $_.Name -like "*Edge*" -or $_.Target -like "*msedge.exe*"
+        }
+
+        foreach ($lnk in $edgeLnk) {
+            Log "Removing pinned shortcut: $($lnk.FullName)"
+            Remove-Item $lnk.FullName -Force
+        }
+
+        Log "Microsoft Edge unpinned from the taskbar."
+    } else {
+        Log "Taskbar pinned items folder not found. Skipping unpinning of Edge."
+    }
+} catch {
+    Log "Error while attempting to unpin Microsoft Edge from the taskbar: $_"
+}
 Log "==== MACHINEPREP Script Completed ===="
