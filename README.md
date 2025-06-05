@@ -40,7 +40,7 @@ Run the main script:
 Set-ExecutionPolicy Bypass -Scope Process -Force
 Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Gordeth/IT/main/WUH.ps1" -OutFile "$env:TEMP\WUH.ps1"
 & "$env:TEMP\WUH.ps1"
-
+```
 License
 
 This project is licensed under the [MIT License](LICENSE).
