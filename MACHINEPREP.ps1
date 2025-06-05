@@ -237,7 +237,8 @@ try {
             Log "No specific disk management app found for $diskBrand. Skipping..."
         }
     }
-} catch {
+} 
+catch {
     Log "Error during disk management app installation: $_"
 }
 # ================== 10. Disable OneDrive Auto-Start ==================
