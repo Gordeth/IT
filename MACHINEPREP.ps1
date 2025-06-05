@@ -145,7 +145,13 @@ try {
     if (-not $disk) {
         $disk = Get-CimInstance -ClassName Win32_DiskDrive | Select-Object -First 1 Model, Manufacturer
     }
-    $diskBrand = $disk.Manufacturer ?? $disk.Model
+
+    if ($disk.Manufacturer) {
+        $diskBrand = $disk.Manufacturer
+    } else {
+        $diskBrand = $disk.Model
+    }
+
     $diskBrand = $diskBrand -replace '\(.*?\)|\[.*?\]', '' -replace '\s+', '' -replace '-', ''
     Log "Detected disk brand: $diskBrand"
 
@@ -161,7 +167,6 @@ try {
 } catch {
     Log "Error installing disk management app: $_"
 }
-
 # ========== 8. Disable OneDrive Auto-Start ==========
 try {
     Log "Disabling OneDrive auto-start..."
