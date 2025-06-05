@@ -243,16 +243,14 @@ catch {
 }
 # ================== 10. Disable OneDrive Auto-Start ==================
 try {
-      # Disable Scheduled Tasks
-    $tasks = Get-ScheduledTask | Where-Object {$_.TaskName -like "*OneDrive*"}
-    foreach ($task in $tasks) {
-        try {
-            Disable-ScheduledTask -TaskName $task.TaskName -ErrorAction SilentlyContinue
-            Log "Disabled scheduled task: $($task.TaskName)"
-        } catch {
-            Log "Failed to disable scheduled task: $($task.TaskName)"
-        }
+    $taskName = "OneDrive Standalone Update Task"
+    $task = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+    if ($task) {
+        Disable-ScheduledTask -TaskName $taskName
+        Write-Log "Disabled OneDrive scheduled task." "Green"
+    } else {
+        Write-Log "OneDrive scheduled task not found." "Gray"
     }
 } catch {
-    Log "Error disabling OneDrive auto-start: $_"
+    Write-Log "Error disabling OneDrive scheduled task: $_" "Red"
 }
