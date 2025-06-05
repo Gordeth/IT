@@ -191,22 +191,29 @@ try {
 # ================== 11. Unpin Microsoft Edge from the Taskbar ==================
 try {
     Log "Attempting to unpin Microsoft Edge from the taskbar..."
+    
+    $edgeAppId = "Microsoft.MicrosoftEdge.Stable_8wekyb3d8bbwe!MicrosoftEdge"
+    
+    $shell = New-Object -ComObject Shell.Application
+    $taskbar = $shell.Namespace(0x1f4)  # Taskbar Pinned Items
 
-    $taskbarPath = "$env:APPDATA\Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar"
+    # Note: Windows does not expose a straightforward way to programmatically unpin via the Shell.Application
+    # Instead, we can simulate right-click -> unpin by invoking a 'verb' on the app shortcut if found.
 
-    if (Test-Path $taskbarPath) {
-        $edgeLnk = Get-ChildItem -Path $taskbarPath -Filter "*.lnk" | Where-Object {
-            $_.Name -like "*Edge*" -or $_.Target -like "*msedge.exe*"
+    $edgePinnedPath = "$env:APPDATA\Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar"
+    $edgeShortcuts = Get-ChildItem -Path $edgePinnedPath -Filter "*.lnk" | Where-Object {
+        $_.Name -like "*Edge*"
+    }
+
+    foreach ($shortcut in $edgeShortcuts) {
+        $verb = $shortcut.GetVerbs() | Where-Object { $_.Name -match "Unpin from taskbar" }
+        if ($verb) {
+            Log "Unpinning Edge from taskbar..."
+            $verb.DoIt()
+            Log "Edge unpinned successfully."
+        } else {
+            Log "Unpin verb not found; shortcut may not be pinned or is managed differently."
         }
-
-        foreach ($lnk in $edgeLnk) {
-            Log "Removing pinned shortcut: $($lnk.FullName)"
-            Remove-Item $lnk.FullName -Force
-        }
-
-        Log "Microsoft Edge unpinned from the taskbar."
-    } else {
-        Log "Taskbar pinned items folder not found. Skipping unpinning of Edge."
     }
 } catch {
     Log "Error while attempting to unpin Microsoft Edge from the taskbar: $_"
