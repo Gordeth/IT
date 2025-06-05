@@ -243,13 +243,15 @@ catch {
 }
 # ================== 10. Disable OneDrive Auto-Start ==================
 try {
-    Log "Disabling OneDrive auto-start..."
-    $oneDriveAutoStartRegPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
-    if (Test-Path $oneDriveAutoStartRegPath) {
-        Remove-ItemProperty -Path $oneDriveAutoStartRegPath -Name "OneDrive" -ErrorAction SilentlyContinue
-        Log "OneDrive auto-start entry removed from HKCU Run key."
-    } else {
-        Log "OneDrive auto-start registry path not found."
+      # Disable Scheduled Tasks
+    $tasks = Get-ScheduledTask | Where-Object {$_.TaskName -like "*OneDrive*"}
+    foreach ($task in $tasks) {
+        try {
+            Disable-ScheduledTask -TaskName $task.TaskName -ErrorAction SilentlyContinue
+            Log "Disabled scheduled task: $($task.TaskName)"
+        } catch {
+            Log "Failed to disable scheduled task: $($task.TaskName)"
+        }
     }
 } catch {
     Log "Error disabling OneDrive auto-start: $_"
