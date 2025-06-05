@@ -166,32 +166,41 @@ try {
    # ================== 9. Install Disk Management App based on disk brand ==================
 try {
     Log "Detecting disk brand..."
-    $disk = Get-WmiObject Win32_DiskDrive | Select-Object -First 1
+    
+    # First attempt with Get-PhysicalDisk
+    $disk = Get-PhysicalDisk | Select-Object -First 1 FriendlyName, Manufacturer, Model, SerialNumber, MediaType, Size
+
+    if ($disk -eq $null) {
+        Log "Get-PhysicalDisk returned no results. Falling back to Get-CimInstance..."
+        $disk = Get-CimInstance -ClassName Win32_DiskDrive | Select-Object -First 1 Model, Manufacturer, SerialNumber, Size
+    }
 
     Log "Raw disk object: $($disk | Out-String)"
 
-    # Prefer Manufacturer but fall back to Model if Manufacturer is blank or generic
-$diskBrand = $disk.Manufacturer
-if ([string]::IsNullOrWhiteSpace($diskBrand) -or $diskBrand -match "Unidades de disco padrão|Standard disk drives|\(.*\)") {
-    $diskBrand = $disk.Model
-}
+    # Determine the brand
+    $diskBrand = $null
 
-Log "Detected disk brand/model: $diskBrand"
+    if ($disk.Manufacturer -and -not ($disk.Manufacturer -match 'Unidades de disco padrão|Standard disk drives|\(.*\)')) {
+        $diskBrand = $disk.Manufacturer.Trim()
+    }
 
-# Strip parentheses and trim whitespace
-$diskBrand = $diskBrand -replace '\(.*\)', '' -replace '\[.*\]', ''
-$diskBrand = $diskBrand.Trim()
+    if (-not $diskBrand -or $diskBrand -eq "") {
+        $diskBrand = $disk.Model
+    }
 
-# Try to match known brand names
-if ($diskBrand -match "Samsung|Kingston|Crucial|Western Digital|Intel|SanDisk") {
-    $diskBrand = $matches[0]
-} else {
-    # Try splitting on space and taking the first non-empty word
-    $diskBrand = ($diskBrand -split '\s+') | Where-Object { $_ -ne "" } | Select-Object -First 1
-}
+    # Remove parentheses and other clutter
+    $diskBrand = $diskBrand -replace '\(.*?\)', '' -replace '\[.*?\]', ''
+    $diskBrand = $diskBrand.Trim()
 
-Log "Parsed disk brand: $diskBrand"
+    # Try to match known brand names
+    if ($diskBrand -match "Samsung|Kingston|Crucial|Western Digital|Intel|SanDisk|Toshiba|Seagate|Micron") {
+        $diskBrand = $matches[0]
+    } else {
+        # Default to first non-empty word
+        $diskBrand = ($diskBrand -split '\s+') | Where-Object { $_ -ne "" } | Select-Object -First 1
+    }
 
+    Log "Parsed disk brand: $diskBrand"
 
     switch -Wildcard ($diskBrand) {
         "*Samsung*" {
