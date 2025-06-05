@@ -178,6 +178,16 @@ try {
     Log "Raw disk object: $($disk | Out-String)"
     Log "Detected disk brand/model: $diskBrand"
 
+    # Extract brand from string
+    if ($diskBrand -match "Samsung|Kingston|Crucial|Western Digital|Intel|SanDisk") {
+        $diskBrand = $matches[0]
+    } else {
+        # Default to first word
+        $diskBrand = $diskBrand.Split(" ")[0]
+    }
+
+    Log "Parsed disk brand: $diskBrand"
+
     switch -Wildcard ($diskBrand) {
         "*Samsung*" {
             Log "Installing Samsung Magician..."
