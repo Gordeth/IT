@@ -129,7 +129,7 @@ function Download-Script {
         Log "Failed to download ${ScriptName}: $_"
         Exit 1
     }
-}
+} # This was missing
 
 # ================== RUN SCRIPT FUNCTION ==================
 function Run-Script {
