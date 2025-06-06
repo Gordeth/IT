@@ -121,6 +121,21 @@ try {
     Log "Failed to create or set temporary power plan: $_"
 }
 
+# ================== FUNCTION: CHECK IF OFFICE IS INSTALLED ==================
+function Is-OfficeInstalled {
+    $officePaths = @(
+        "${env:ProgramFiles(x86)}\Microsoft Office",
+        "${env:ProgramFiles}\Microsoft Office",
+        "${env:ProgramW6432}\Microsoft Office"
+    )
+    foreach ($path in $officePaths) {
+        if (Test-Path $path) {
+            return $true
+        }
+    }
+    return $false
+}
+
 # ================== DOWNLOAD SCRIPT FUNCTION ==================
 function Get-Script {
     param (
@@ -135,13 +150,13 @@ function Get-Script {
     Log "Downloading $ScriptName from $url..."
     try {
         Invoke-WebRequest -Uri $url -OutFile $scriptPath -UseBasicParsing | Out-Null
-        Log "$ScriptName downloaded successfully."     
-    }
-    catch {
+        Log "$ScriptName downloaded successfully."
+    } catch {
         Log "Failed to download ${ScriptName}: $_"
         Exit 1
     }
 }
+
 # ================== RUN SCRIPT FUNCTION ==================
 function Invoke-Script {
     param (
@@ -170,7 +185,11 @@ switch ($task) {
         Get-Script -ScriptName "MACHINEPREP.ps1"
         Get-Script -ScriptName "WU.ps1"
         Get-Script -ScriptName "WGET.ps1"
-        Get-Script -ScriptName "MSO_UPDATE.ps1"
+        if (Is-OfficeInstalled) {
+            Get-Script -ScriptName "MSO_UPDATE.ps1"
+        } else {
+            Log "Microsoft Office not detected. Skipping Office update script download."
+        }
         Invoke-Script -ScriptName "MACHINEPREP.ps1"
     }
     "2" {
@@ -179,8 +198,12 @@ switch ($task) {
         Invoke-Script -ScriptName "WU.ps1"
         Get-Script -ScriptName "WGET.ps1"
         Invoke-Script -ScriptName "WGET.ps1"
-        Get-Script -ScriptName "MSO_UPDATE.ps1"
-        Invoke-Script -ScriptName "MSO_UPDATE.ps1"
+        if (Is-OfficeInstalled) {
+            Get-Script -ScriptName "MSO_UPDATE.ps1"
+            Invoke-Script -ScriptName "MSO_UPDATE.ps1"
+        } else {
+            Log "Microsoft Office not detected. Skipping Office update."
+        }
     }
     default {
         Log "Invalid task selection. Exiting script."

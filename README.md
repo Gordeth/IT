@@ -8,6 +8,7 @@ This project automates Windows maintenance tasks and machine/profile preparation
 
 📂 **Contents**  
 - **WUH.ps1** — Main launcher script.  
+  🆕 Now intelligently skips Office updates if Microsoft Office isn’t installed.  
 - **WU.ps1** — Windows Updates script.  
 - **WGET.ps1** — Additional maintenance script.  
 - **MSO_UPDATE.ps1** — Office update script.  
@@ -18,16 +19,17 @@ This project automates Windows maintenance tasks and machine/profile preparation
 🚀 **Features**  
 ✅ Verbose and Silent modes (console output and logging)  
 ✅ Task selection:  
-  - [1] Machine Preparation (installs default apps, TeamViewer Host, and optional OpenVPN Connect)
-  Checks and installs TeamViewer Host
-  Installs default apps (7-Zip, Google Chrome, Adobe Acrobat Reader 64-bit)
-  Prompts the user to optionally install OpenVPN Connect
-  Detects the machine brand and installs the appropriate driver update app (e.g., Lenovo Vantage, HP Support Assistant, Dell Command Update)
-  Defines standard desktop items (This PC, Network, Control Panel, User’s Files) so they appear by default on the desktop
-  - [2] Windows Maintenance (runs Windows Update, downloads updates, and Office updates)  
-  Temporary Maximum Performance power plan during maintenance for optimal performance, automatically reset to Balanced after completion  
-  NuGet and PSGallery setup to ensure package installations work smoothly  
-  Automatic cleanup: downloaded scripts removed after execution
+  - [1] Machine Preparation (installs default apps, TeamViewer Host, and optional OpenVPN Connect)  
+    - Checks and installs TeamViewer Host  
+    - Installs default apps (7-Zip, Google Chrome, Adobe Acrobat Reader 64-bit)  
+    - Prompts the user to optionally install OpenVPN Connect  
+    - Detects the machine brand and installs the appropriate driver update app (e.g., Lenovo Vantage, HP Support Assistant, Dell Command Update)  
+    - Defines standard desktop items (This PC, Network, Control Panel, User’s Files) so they appear by default on the desktop  
+  - [2] Windows Maintenance (runs Windows Update, downloads updates, and Office updates if Office is installed)  
+✅ Office updates now intelligently skipped if Microsoft Office is not installed  
+✅ Temporary Maximum Performance power plan during maintenance for optimal performance, automatically reset to Balanced after completion  
+✅ NuGet and PSGallery setup to ensure package installations work smoothly  
+✅ Automatic cleanup: downloaded scripts removed after execution  
 
 ---
 
