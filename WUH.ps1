@@ -124,13 +124,12 @@ function Get-Script {
         if ((Get-Item $scriptPath).Length -lt 1024) {
             Log "Warning: Downloaded $ScriptName appears too small—possible download error. Please verify the file integrity or retry the download."
         }
-        } 
-        catch {
+    }
+    catch {
         Log "Failed to download ${ScriptName}: $_"
         Exit 1
     }
 }
-
 # ================== RUN SCRIPT FUNCTION ==================
 function Invoke-Script {
     param (
