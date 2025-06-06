@@ -1,6 +1,6 @@
 # Windows Update Helper (WUH)
 
-This project automates Windows maintenance tasks and profile preparation using PowerShell.
+This project automates Windows maintenance tasks and machine/profile preparation using PowerShell.
 
 **Note:** Not recommended for production environments.
 
