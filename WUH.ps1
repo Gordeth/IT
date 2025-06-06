@@ -193,5 +193,5 @@ try {
     Log "Failed to restore Execution Policy: $_"
 }
 
-# ================== SCRIPT COMPLETION ==================
+# ================== SCRIPT COMPLETION ===================
 Log "Script completed successfully."
