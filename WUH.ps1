@@ -131,7 +131,7 @@ function Get-Script{
 }
 
 # ================== RUN SCRIPT FUNCTION ==================
-function Invoke-ScriptFile {
+function Invoke-Script {
     param (
         [string]$ScriptName
     )
@@ -154,10 +154,10 @@ function Invoke-ScriptFile {
 switch ($task) {
     "1" {
         Log "Task selected: Machine Preparation"
-        Download-Script -ScriptName "MACHINEPREP.ps1"
-        Download-Script -ScriptName "WU.ps1"
-        Download-Script -ScriptName "WGET.ps1"
-        Download-Script -ScriptName "MSO_UPDATE.ps1"
+        Get-Script -ScriptName "MACHINEPREP.ps1"
+        Get-Script -ScriptName "WU.ps1"
+        Get-Script -ScriptName "WGET.ps1"
+        Get-Script -ScriptName "MSO_UPDATE.ps1"
         Invoke-Script -ScriptName "MACHINEPREP.ps1"
     }
     "2" {
