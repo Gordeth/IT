@@ -2,7 +2,7 @@
 $BaseUrl = "https://raw.githubusercontent.com/Gordeth/IT/main"
 $ScriptDir = "$env:TEMP\ITScripts"
 $LogDir = "$ScriptDir\Log"
-$LogFile = "$LogDir\WUH_log.txt"
+$LogFile = "$LogDir\WUH.txt"
 $PowerPlanName = "TempMaxPerformance"
 
 # ================== CREATE DIRECTORIES ==================
