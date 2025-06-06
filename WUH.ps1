@@ -166,7 +166,7 @@ switch ($task) {
         Invoke-Script -ScriptName "WU.ps1"
         Get-Script -ScriptName "WGET.ps1"
         Invoke-Script -ScriptName "WGET.ps1"
-        Get-Script -ScriptName
+        Get-Script -ScriptName "MSO_UPDATE.ps1"
         Invoke-Script -ScriptName "MSO_UPDATE.ps1"
     }
     default {
@@ -194,4 +194,4 @@ try {
 }
 
 # ================== SCRIPT COMPLETION ===================
-# Log "Script completed successfully."
+Log "Script completed successfully."
