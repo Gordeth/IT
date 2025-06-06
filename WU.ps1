@@ -6,7 +6,7 @@ $LogDir = Join-Path $ScriptRoot "Log"
 if (-not (Test-Path $LogDir)) {
     New-Item -Path $LogDir -ItemType Directory | Out-Null
 }
-$LogFile = Join-Path $LogDir "update_log-WU.txt"
+$LogFile = Join-Path $LogDir "WU.txt"
 
 # Write-Log function
 function Write-Log {
