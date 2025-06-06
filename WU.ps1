@@ -1,4 +1,4 @@
-# WindowsUpdateScript.ps1
+# WU.ps1
 
 # Define log file location
 $ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -20,7 +20,7 @@ function Write-Log {
     Write-Host $Message -ForegroundColor $Color
 }
 
-Write-Log "Script started." "Yellow"
+Write-Log "WU.ps1 Script started." "Yellow"
 
 $ScriptPath = $MyInvocation.MyCommand.Path
 $StartupShortcut = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\WU.lnk"
@@ -64,21 +64,25 @@ if ($UpdateList) {
     # Create a restore point
     Write-Log "Creating system restore point..." "Cyan"
     try {
-         # Enable VSS
+        # Enable VSS
         Set-Service -Name 'VSS' -StartupType Manual -ErrorAction SilentlyContinue
         Start-Service -Name 'VSS' -ErrorAction SilentlyContinue
+
         # Enable System Restore for C: drive
         Enable-ComputerRestore -Drive "C:\"
         Write-Log "Enabled VSS and System Restore." "Yellow"
+
         # Adjust System Restore Point Creation Frequency
         try {
             Write-Log "Setting System Restore Point Creation Frequency to allow immediate restore points..." "Yellow"
             $restoreRegPath = 'HKLM:\Software\Microsoft\Windows NT\CurrentVersion\SystemRestore'
             New-ItemProperty -Path $restoreRegPath -Name 'SystemRestorePointCreationFrequency' -PropertyType DWord -Value 0 -Force | Out-Null
             Write-Log "System Restore Point Creation Frequency set successfully." "Green"
+            $frequencyChanged = $true
         } catch {
             Write-Log "Failed to set System Restore Point Creation Frequency: $_" "Red"
-}
+        }
+
         # Create Checkpoint
         Checkpoint-Computer -Description "Pre-WindowsUpdateScript" -RestorePointType "MODIFY_SETTINGS"
         Write-Log "Restore point created successfully." "Green"
@@ -111,6 +115,16 @@ if ($UpdateList) {
     }
 } else {
     Write-Log "No updates found." "Green"
+    if ($frequencyChanged) {
+        try {
+            Write-Log "Resetting System Restore Point Creation Frequency to default (1440 minutes)..." "Yellow"
+            $restoreRegPath = 'HKLM:\Software\Microsoft\Windows NT\CurrentVersion\SystemRestore'
+            Set-ItemProperty -Path $restoreRegPath -Name 'SystemRestorePointCreationFrequency' -Value 1440 -Force
+            Write-Log "System Restore Point Creation Frequency reset successfully." "Green"
+        } catch {
+            Write-Log "Failed to reset System Restore Point Creation Frequency: $_" "Red"
+        }
+    }
 
     # Clean up: remove startup shortcut if it exists
     if (Test-Path $StartupShortcut) {
