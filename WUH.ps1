@@ -76,6 +76,7 @@ if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
     }
 }
 
+
 # ================== REGISTER PSGALLERY ==================
 Log "Checking PSGallery repository..."
 if (-not (Get-PSRepository | Where-Object { $_.Name -eq "PSGallery" })) {
