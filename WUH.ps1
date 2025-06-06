@@ -165,7 +165,8 @@ function Invoke-Script {
 # ================== TASK SELECTION ==================
 switch ($task) {
     "1" {
-        Log "Task selected: Machine Preparation"
+        Log "Task selected: Machine Preparation (semi-automated)"
+        Log "Downloading necessary scripts..."
         Get-Script -ScriptName "MACHINEPREP.ps1"
         Get-Script -ScriptName "WU.ps1"
         Get-Script -ScriptName "WGET.ps1"

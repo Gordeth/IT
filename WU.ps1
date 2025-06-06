@@ -1,6 +1,14 @@
-# WU.ps1
+# ==================== Define Log Function ====================
+function Log {
+    param (
+        [string]$Message
+    )
+    $Timestamp = "[{0}]" -f (Get-Date)
+    "$Timestamp $Message" | Out-File $LogFile -Append
+    Write-Host "$Timestamp $Message"
+}
 
-# Define log file location
+# ==================== Setup Paths ====================
 $ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $LogDir = Join-Path $ScriptRoot "Log"
 if (-not (Test-Path $LogDir)) {
@@ -8,134 +16,117 @@ if (-not (Test-Path $LogDir)) {
 }
 $LogFile = Join-Path $LogDir "WU.txt"
 
-# Write-Log function
-function Write-Log {
-    param (
-        [string]$Message,
-        [string]$Color = "White"
-    )
-    $Timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $Entry = "[$Timestamp] $Message"
-    Add-Content -Path $LogFile -Value $Entry
-    Write-Host $Message -ForegroundColor $Color
-}
-
-Write-Log "WU.ps1 Script started." "Yellow"
+Log "WU.ps1 Script started."
 
 $ScriptPath = $MyInvocation.MyCommand.Path
 $StartupShortcut = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\WU.lnk"
 
-# Set execution policy
-Write-Log "Setting execution policy to RemoteSigned for this session..." "Yellow"
+# ==================== Save Original Execution Policy ====================
+$OriginalPolicy = Get-ExecutionPolicy
+Log "Original Execution Policy: $OriginalPolicy"
+
+# ==================== Set Execution Policy ====================
+Log "Setting execution policy to RemoteSigned for this session..."
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process -Force
 
-# Ensure NuGet is installed
-Write-Host "Checking for NuGet provider..."
+# ==================== Ensure NuGet Provider ====================
+Log "Checking for NuGet provider..."
 if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
-    Write-Host "NuGet provider not found. Installing..."
+    Log "NuGet provider not found. Installing..."
     Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
+    Log "NuGet provider installed successfully."
+} else {
+    Log "NuGet provider already installed."
 }
 
-# Ensure the PSWindowsUpdate module is installed
+# ==================== Ensure PSWindowsUpdate Module ====================
 if (-not (Get-Module -ListAvailable -Name PSWindowsUpdate)) {
-    Write-Log "PSWindowsUpdate module not found. Installing..." "Yellow"
+    Log "PSWindowsUpdate module not found. Installing..."
     try {
-         Install-Module -Name PSWindowsUpdate -Force -SkipPublisherCheck -AllowClobber
-        Write-Log "PSWindowsUpdate module installed successfully." "Green"
+        Install-Module -Name PSWindowsUpdate -Force -SkipPublisherCheck -AllowClobber
+        Log "PSWindowsUpdate module installed successfully."
     } catch {
-        Write-Log "Failed to install PSWindowsUpdate module: $_" "Red"
+        Log "Failed to install PSWindowsUpdate module: $_"
         exit 1
     }
 } else {
-    Write-Log "PSWindowsUpdate module already installed." "Green"
+    Log "PSWindowsUpdate module already installed."
 }
 
-# Import the module
 Import-Module PSWindowsUpdate -Force
-Write-Log "PSWindowsUpdate module imported." "Green"
+Log "PSWindowsUpdate module imported."
 
-# Check for available updates
-Write-Log "Checking for Windows updates..." "Cyan"
-$Updates = Get-WindowsUpdate -MicrosoftUpdate -Verbose | Tee-Object -Variable UpdateList
+# ==================== Check for Updates ====================
+Log "Checking for Windows updates..."
+$UpdateList = Get-WindowsUpdate -MicrosoftUpdate -Verbose
 
 if ($UpdateList) {
-    Write-Log "Updates found: $($UpdateList.Count)." "Yellow"
+    Log "Updates found: $($UpdateList.Count)."
 
-    # Create a restore point
-    Write-Log "Creating system restore point..." "Cyan"
+    # Create Restore Point
     try {
-        # Enable VSS
+        Log "Creating system restore point..."
         Set-Service -Name 'VSS' -StartupType Manual -ErrorAction SilentlyContinue
         Start-Service -Name 'VSS' -ErrorAction SilentlyContinue
-
-        # Enable System Restore for C: drive
         Enable-ComputerRestore -Drive "C:\"
-        Write-Log "Enabled VSS and System Restore." "Yellow"
-
-        # Adjust System Restore Point Creation Frequency
-        try {
-            Write-Log "Setting System Restore Point Creation Frequency to allow immediate restore points..." "Yellow"
-            $restoreRegPath = 'HKLM:\Software\Microsoft\Windows NT\CurrentVersion\SystemRestore'
-            New-ItemProperty -Path $restoreRegPath -Name 'SystemRestorePointCreationFrequency' -PropertyType DWord -Value 0 -Force | Out-Null
-            Write-Log "System Restore Point Creation Frequency set successfully." "Green"
-            $frequencyChanged = $true
-        } catch {
-            Write-Log "Failed to set System Restore Point Creation Frequency: $_" "Red"
-        }
-
-        # Create Checkpoint
+        Log "Enabled VSS and System Restore."
         Checkpoint-Computer -Description "Pre-WindowsUpdateScript" -RestorePointType "MODIFY_SETTINGS"
-        Write-Log "Restore point created successfully." "Green"
+        Log "Restore point created successfully."
     } catch {
-        Write-Log "Failed to create restore point. System restore may be disabled or VSS service may not be running: $_" "Red"
+        Log "Failed to create restore point: $_"
     }
+
     # Add to Startup if not already
     if (-not (Test-Path $StartupShortcut)) {
-        Write-Log "Adding script shortcut to Startup folder." "Gray"
         try {
+            Log "Adding script shortcut to Startup folder."
             $WScriptShell = New-Object -ComObject WScript.Shell
             $Shortcut = $WScriptShell.CreateShortcut($StartupShortcut)
             $Shortcut.TargetPath = "powershell.exe"
             $Shortcut.Arguments = "-ExecutionPolicy Bypass -WindowStyle Hidden -File `"$ScriptPath`""
             $Shortcut.WorkingDirectory = Split-Path -Path $ScriptPath
             $Shortcut.Save()
-            Write-Log "Shortcut added successfully." "Green"
+            Log "Shortcut added successfully."
         } catch {
-            Write-Log "Failed to add Startup shortcut: $_" "Red"
+            Log "Failed to add Startup shortcut: $_"
         }
     }
 
     # Install updates
-    Write-Log "Installing updates..." "Green"
     try {
+        Log "Installing updates..."
         Install-WindowsUpdate -MicrosoftUpdate -AcceptAll -AutoReboot -Verbose
-        Write-Log "Update installation completed (system may have rebooted)." "Green"
+        Log "Update installation completed (system may have rebooted)."
     } catch {
-        Write-Log "Error during update installation: $_" "Red"
+        Log "Error during update installation: $_"
     }
 } else {
-    Write-Log "No updates found." "Green"
-    if ($frequencyChanged) {
-        try {
-            Write-Log "Resetting System Restore Point Creation Frequency to default (1440 minutes)..." "Yellow"
-            $restoreRegPath = 'HKLM:\Software\Microsoft\Windows NT\CurrentVersion\SystemRestore'
-            Set-ItemProperty -Path $restoreRegPath -Name 'SystemRestorePointCreationFrequency' -Value 1440 -Force
-            Write-Log "System Restore Point Creation Frequency reset successfully." "Green"
-        } catch {
-            Write-Log "Failed to reset System Restore Point Creation Frequency: $_" "Red"
-        }
-    }
+    Log "No updates found."
 
     # Clean up: remove startup shortcut if it exists
     if (Test-Path $StartupShortcut) {
-        Write-Log "Removing script shortcut from Startup folder." "Gray"
         try {
+            Log "Removing script shortcut from Startup folder."
             Remove-Item $StartupShortcut -Force
-            Write-Log "Shortcut removed successfully." "Green"
+            Log "Shortcut removed successfully."
         } catch {
-            Write-Log "Failed to remove Startup shortcut: $_" "Red"
+            Log "Failed to remove Startup shortcut: $_"
         }
     }
 }
 
-Write-Log "Script execution completed." "Yellow"
+# ==================== Restore Execution Policy ====================
+Log "Restoring Execution Policy..."
+try {
+    if ($OriginalPolicy -ne "Restricted") {
+        Log "Original policy was $OriginalPolicy; resetting to Restricted."
+        Set-ExecutionPolicy Restricted -Scope Process -Force -ErrorAction SilentlyContinue
+        Log "Execution Policy set to Restricted."
+    } else {
+        Log "Original policy was Restricted; no change needed."
+    }
+} catch {
+    Log "Failed to restore Execution Policy: $_"
+}
+
+Log "Script execution completed."
