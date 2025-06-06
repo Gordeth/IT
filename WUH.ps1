@@ -180,8 +180,13 @@ try {
     Log "Failed to reset power plan to Balanced: $_"
 }
 
+# ================== RESTORE EXECUTION POLICY ==================
+Log "Restoring original Execution Policy..."
+try {
+    Set-ExecutionPolicy $OriginalPolicy -Scope Process -Force -ErrorAction SilentlyContinue
+    Log "Execution Policy restored to $OriginalPolicy."
+} catch {
+    Log "Failed to restore Execution Policy: $_"
+}
 # ================== CLEANUP ==================
-Log "Resetting Execution Policy to Restricted..."
-Set-ExecutionPolicy Restricted -Scope Process -Force -ErrorAction SilentlyContinue
-
 Log "Script completed successfully."
