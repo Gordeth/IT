@@ -7,7 +7,7 @@ function Log {
         [string]$Message
     )
     $timestamp = "[{0}]" -f (Get-Date)
-    "$timestamp $Message" | Out-File "$env:TEMP\ITScripts\Log\WGET_log.txt" -Append
+    "$timestamp $Message" | Out-File "$env:TEMP\ITScripts\Log\WGET.txt" -Append
     if ($VerboseMode) {
         Write-Host "$timestamp $Message"
     }
