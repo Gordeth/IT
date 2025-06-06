@@ -197,10 +197,15 @@ try {
 }
 
 # ================== RESTORE EXECUTION POLICY ==================
-Log "Restoring original Execution Policy..."
+Log "Restoring Execution Policy..."
 try {
-    Set-ExecutionPolicy $OriginalPolicy -Scope Process -Force -ErrorAction SilentlyContinue
-    Log "Execution Policy restored to $OriginalPolicy."
+    if ($OriginalPolicy -ne "Restricted") {
+        Log "Original policy was $OriginalPolicy; resetting to Restricted as default."
+        Set-ExecutionPolicy Restricted -Scope Process -Force -ErrorAction SilentlyContinue
+        Log "Execution Policy set to Restricted."
+    } else {
+        Log "Original policy was Restricted; no change needed."
+    }
 } catch {
     Log "Failed to restore Execution Policy: $_"
 }
