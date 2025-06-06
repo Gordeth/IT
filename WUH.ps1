@@ -121,9 +121,19 @@ function Get-Script {
         Log "$ScriptName downloaded successfully."
 
         # Basic integrity check
-        #if ((Get-Item $scriptPath).Length -lt 1024) {
-        #    Log "Warning: Downloaded $ScriptName appears too small—possible download error. Please verify the file integrity or retry the download."
-        #}
+        if (Test-Path $scriptPath) {
+            try {
+                $fileInfo = Get-Item $scriptPath
+                if ($fileInfo.Length -lt 1024) {
+                    Log "Warning: Downloaded $ScriptName appears too small—possible download error. Please verify the file integrity or retry the download."
+                }
+    }
+    catch {
+        Log "Failed to check file size for ${ScriptName}: $_"
+    }
+    } else {
+    Log "Downloaded file $ScriptName not found for integrity check."
+    }
     }
     catch {
         Log "Failed to download ${ScriptName}: $_"
