@@ -105,7 +105,7 @@ try {
 }
 
 # ================== DOWNLOAD SCRIPT FUNCTION ==================
-function Download-Script {
+function Get-Script{
     param (
         [string]$ScriptName
     )
@@ -131,7 +131,7 @@ function Download-Script {
 }
 
 # ================== RUN SCRIPT FUNCTION ==================
-function Run-Script {
+function Invoke-ScriptFile {
     param (
         [string]$ScriptName
     )
@@ -158,7 +158,7 @@ switch ($task) {
         Download-Script -ScriptName "WU.ps1"
         Download-Script -ScriptName "WGET.ps1"
         Download-Script -ScriptName "MSO_UPDATE.ps1"
-        Run-Script -ScriptName "MACHINEPREP.ps1"
+        Invoke-Script -ScriptName "MACHINEPREP.ps1"
     }
     "2" {
         Log "Task selected: Windows Maintenance"
