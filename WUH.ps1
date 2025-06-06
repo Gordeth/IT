@@ -2,7 +2,7 @@
 $BaseUrl = "https://raw.githubusercontent.com/Gordeth/IT/main"
 $ScriptDir = "$env:TEMP\ITScripts"
 $LogDir = "$ScriptDir\Log"
-$LogFile = "$LogDir\WUH.txt"
+$LogFile = "$LogDir\WUH_log.txt"
 $PowerPlanName = "TempMaxPerformance"
 
 # ================== CREATE DIRECTORIES ==================
@@ -21,8 +21,10 @@ function Log {
         Write-Host "$timestamp $Message"
     }
 }
+
 # ================== SAVE ORIGINAL EXECUTION POLICY ==================
 $OriginalPolicy = Get-ExecutionPolicy
+
 # ================== ASK FOR MODE ==================
 Write-Host ""
 Write-Host "Select Mode:"
@@ -47,6 +49,7 @@ Write-Host "Select Task:"
 Write-Host "[1] Machine Preparation (semi-automated)"
 Write-Host "[2] Windows Maintenance"
 $task = Read-Host "Choose task [1/2]"
+
 # ================== CHECK INTERNET CONNECTIVITY ==================
 Log "Checking internet connectivity..."
 try {
@@ -56,6 +59,7 @@ try {
     Log "Internet connectivity check failed. Please check your network connection."
     Exit 1
 }
+
 # ================== SET EXECUTION POLICY ==================
 Log "Setting Execution Policy to Bypass..."
 Set-ExecutionPolicy Bypass -Scope Process -Force -ErrorAction SilentlyContinue
@@ -72,7 +76,7 @@ if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
     }
 }
 
-# ================== REGISTER PSGALLERY (OPTIONAL) ==================
+# ================== REGISTER PSGALLERY ==================
 Log "Checking PSGallery repository..."
 if (-not (Get-PSRepository | Where-Object { $_.Name -eq "PSGallery" })) {
     try {
@@ -125,6 +129,7 @@ function Download-Script {
         Exit 1
     }
 }
+
 # ================== RUN SCRIPT FUNCTION ==================
 function Run-Script {
     param (
@@ -188,5 +193,6 @@ try {
 } catch {
     Log "Failed to restore Execution Policy: $_"
 }
-# ================== CLEANUP ==================
+
+# ================== SCRIPT COMPLETION ==================
 Log "Script completed successfully."
