@@ -18,7 +18,7 @@ function Log {
         [string]$Level = "INFO"
     )
 
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $timestamp = Get-Date -Format "dd-MM-yyyyHH:mm:ss"
     $logEntry = "[$timestamp] [$Level] $Message"
 
     try {

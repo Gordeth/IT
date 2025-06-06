@@ -1,15 +1,31 @@
 param (
     [switch]$VerboseMode = $false
 )
-
 function Log {
     param (
-        [string]$Message
+        [string]$Message,
+        [ValidateSet("INFO", "WARN", "ERROR", "DEBUG")]
+        [string]$Level = "INFO"
     )
-    $timestamp = "[{0}]" -f (Get-Date)
-    "$timestamp $Message" | Out-File "$env:TEMP\ITScripts\Log\WGET.txt" -Append
-    if ($VerboseMode) {
-        Write-Host "$timestamp $Message"
+
+    $timestamp = Get-Date -Format "dd-MM-yyyyHH:mm:ss"
+    $logEntry = "[$timestamp] [$Level] $Message"
+
+    try {
+        Add-Content -Path $LogFile -Value $logEntry
+    } catch {
+        Write-Host "Failed to write to log file: $_" -ForegroundColor Red
+    }
+
+    if ($VerboseMode -or $Level -eq "ERROR") {
+        $color = switch ($Level) {
+            "INFO"  { "White" }
+            "WARN"  { "Yellow" }
+            "ERROR" { "Red" }
+            "DEBUG" { "Gray" }
+            default { "White" }
+        }
+        Write-Host $logEntry -ForegroundColor $color
     }
 }
 
