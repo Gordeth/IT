@@ -11,25 +11,24 @@ This project automates Windows maintenance tasks and profile preparation using P
 - **WU.ps1** — Windows Updates script.  
 - **WGET.ps1** — Additional maintenance script.  
 - **MSO_UPDATE.ps1** — Office update script.  
-- **MACHINEPREP.ps1** — New machine preparation script.  
+- **MACHINEPREP.ps1** — Machine preparation script.  
 
 ---
 
 🚀 **Features**  
 ✅ Verbose and Silent modes (console output and logging)  
 ✅ Task selection:  
-  - [1] Machine Preparation (installs default apps, TeamViewer Host, and optional OpenVPN Connect)  
+  - [1] Machine Preparation (installs default apps, TeamViewer Host, and optional OpenVPN Connect)
+  Checks and installs TeamViewer Host
+  Installs default apps (7-Zip, Google Chrome, Adobe Acrobat Reader 64-bit)
+  Prompts the user to optionally install OpenVPN Connect
+  Detects the machine brand and installs the appropriate driver update app (e.g., Lenovo Vantage, HP Support Assistant, Dell Command Update)
+  Defines standard desktop items (This PC, Network, Control Panel, User’s Files) so they appear by default on the desktop
   - [2] Windows Maintenance (runs Windows Update, downloads updates, and Office updates)  
-✅ Temporary Maximum Performance power plan during maintenance for optimal performance, automatically reset to Balanced after completion  
-✅ NuGet and PSGallery setup to ensure package installations work smoothly  
-✅ Automatic cleanup: downloaded scripts removed after execution
+  Temporary Maximum Performance power plan during maintenance for optimal performance, automatically reset to Balanced after completion  
+  NuGet and PSGallery setup to ensure package installations work smoothly  
+  Automatic cleanup: downloaded scripts removed after execution
 
-🖥️ Machine Preparation Script (MACHINEPREP.ps1)
-
-Checks and installs TeamViewer Host
-Installs default apps (7-Zip, Google Chrome, Adobe Acrobat Reader 64-bit)
-Prompts the user to optionally install OpenVPN Connect
-(Coming Soon): Detects the machine brand and installs the appropriate driver update app (e.g., Lenovo Vantage, HP Support Assistant, Dell Command Update).
 ---
 
 🛠️ **Usage**  
