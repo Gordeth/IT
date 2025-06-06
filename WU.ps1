@@ -1,13 +1,31 @@
 # ==================== Define Log Function ====================
 function Log {
     param (
-        [string]$Message
+        [string]$Message,
+        [ValidateSet("INFO", "WARN", "ERROR", "DEBUG")]
+        [string]$Level = "INFO"
     )
-    $Timestamp = "[{0}]" -f (Get-Date)
-    "$Timestamp $Message" | Out-File $LogFile -Append
-    Write-Host "$Timestamp $Message"
-}
 
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $logEntry = "[$timestamp] [$Level] $Message"
+
+    try {
+        Add-Content -Path $LogFile -Value $logEntry
+    } catch {
+        Write-Host "Failed to write to log file: $_" -ForegroundColor Red
+    }
+
+    if ($VerboseMode -or $Level -eq "ERROR") {
+        $color = switch ($Level) {
+            "INFO"  { "White" }
+            "WARN"  { "Yellow" }
+            "ERROR" { "Red" }
+            "DEBUG" { "Gray" }
+            default { "White" }
+        }
+        Write-Host $logEntry -ForegroundColor $color
+    }
+}
 # ==================== Setup Paths ====================
 $ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $LogDir = Join-Path $ScriptRoot "Log"
@@ -114,19 +132,4 @@ if ($UpdateList) {
         }
     }
 }
-
-# ==================== Restore Execution Policy ====================
-Log "Restoring Execution Policy..."
-try {
-    if ($OriginalPolicy -ne "Restricted") {
-        Log "Original policy was $OriginalPolicy; resetting to Restricted."
-        Set-ExecutionPolicy Restricted -Scope Process -Force -ErrorAction SilentlyContinue
-        Log "Execution Policy set to Restricted."
-    } else {
-        Log "Original policy was Restricted; no change needed."
-    }
-} catch {
-    Log "Failed to restore Execution Policy: $_"
-}
-
 Log "Script execution completed."
