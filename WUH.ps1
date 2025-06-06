@@ -13,12 +13,29 @@ if (-not (Test-Path $LogFile)) { "[{0}] Log file created." -f (Get-Date) | Out-F
 # ================== DEFINE LOG FUNCTION ==================
 function Log {
     param (
-        [string]$Message
+        [string]$Message,
+        [ValidateSet("INFO", "WARN", "ERROR", "DEBUG")]
+        [string]$Level = "INFO"
     )
-    $timestamp = "[{0}]" -f (Get-Date)
-    "$timestamp $Message" | Out-File $LogFile -Append
-    if ($VerboseMode) {
-        Write-Host "$timestamp $Message"
+
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $logEntry = "[$timestamp] [$Level] $Message"
+
+    try {
+        Add-Content -Path $LogFile -Value $logEntry
+    } catch {
+        Write-Host "Failed to write to log file: $_" -ForegroundColor Red
+    }
+
+    if ($VerboseMode -or $Level -eq "ERROR") {
+        $color = switch ($Level) {
+            "INFO"  { "White" }
+            "WARN"  { "Yellow" }
+            "ERROR" { "Red" }
+            "DEBUG" { "Gray" }
+            default { "White" }
+        }
+        Write-Host $logEntry -ForegroundColor $color
     }
 }
 
