@@ -105,7 +105,7 @@ try {
 }
 
 # ================== DOWNLOAD SCRIPT FUNCTION ==================
-function Get-Script{
+function Get-Script {
     param (
         [string]$ScriptName
     )
@@ -162,12 +162,12 @@ switch ($task) {
     }
     "2" {
         Log "Task selected: Windows Maintenance"
-        Download-Script -ScriptName "WU.ps1"
-        Run-Script -ScriptName "WU.ps1"
-        Download-Script -ScriptName "WGET.ps1"
-        Run-Script -ScriptName "WGET.ps1"
-        Download-Script -ScriptName "MSO_UPDATE.ps1"
-        Run-Script -ScriptName "MSO_UPDATE.ps1"
+        Get-Script -ScriptName "WU.ps1"
+        Invoke-Script -ScriptName "WU.ps1"
+        Get-Script -ScriptName "WGET.ps1"
+        Invoke-Script -ScriptName "WGET.ps1"
+        Get-Script -ScriptName
+        Invoke-Script -ScriptName "MSO_UPDATE.ps1"
     }
     default {
         Log "Invalid task selection. Exiting script."
@@ -194,4 +194,4 @@ try {
 }
 
 # ================== SCRIPT COMPLETION ===================
-Log "Script completed successfully."
+# Log "Script completed successfully."
