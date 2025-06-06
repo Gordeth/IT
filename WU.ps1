@@ -67,17 +67,24 @@ if ($UpdateList) {
          # Enable VSS
         Set-Service -Name 'VSS' -StartupType Manual -ErrorAction SilentlyContinue
         Start-Service -Name 'VSS' -ErrorAction SilentlyContinue
-
         # Enable System Restore for C: drive
         Enable-ComputerRestore -Drive "C:\"
         Write-Log "Enabled VSS and System Restore." "Yellow"
+        # Adjust System Restore Point Creation Frequency
+        try {
+            Write-Log "Setting System Restore Point Creation Frequency to allow immediate restore points..." "Yellow"
+            $restoreRegPath = 'HKLM:\Software\Microsoft\Windows NT\CurrentVersion\SystemRestore'
+            New-ItemProperty -Path $restoreRegPath -Name 'SystemRestorePointCreationFrequency' -PropertyType DWord -Value 0 -Force | Out-Null
+            Write-Log "System Restore Point Creation Frequency set successfully." "Green"
+        } catch {
+            Write-Log "Failed to set System Restore Point Creation Frequency: $_" "Red"
+}
         # Create Checkpoint
         Checkpoint-Computer -Description "Pre-WindowsUpdateScript" -RestorePointType "MODIFY_SETTINGS"
         Write-Log "Restore point created successfully." "Green"
     } catch {
         Write-Log "Failed to create restore point. System restore may be disabled or VSS service may not be running: $_" "Red"
     }
-
     # Add to Startup if not already
     if (-not (Test-Path $StartupShortcut)) {
         Write-Log "Adding script shortcut to Startup folder." "Gray"
