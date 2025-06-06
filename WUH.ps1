@@ -118,22 +118,7 @@ function Get-Script {
     Log "Downloading $ScriptName from $url..."
     try {
         Invoke-WebRequest -Uri $url -OutFile $scriptPath -UseBasicParsing | Out-Null
-        Log "$ScriptName downloaded successfully."
-
-        # Basic integrity check
-        if (Test-Path $scriptPath) {
-            try {
-                $fileInfo = Get-Item $scriptPath
-                if ($fileInfo.Length -lt 1024) {
-                    Log "Warning: Downloaded $ScriptName appears too small—possible download error. Please verify the file integrity or retry the download."
-                }
-    }
-    catch {
-        Log "Failed to check file size for ${ScriptName}: $_"
-    }
-    } else {
-    Log "Downloaded file $ScriptName not found for integrity check."
-    }
+        Log "$ScriptName downloaded successfully."     
     }
     catch {
         Log "Failed to download ${ScriptName}: $_"
