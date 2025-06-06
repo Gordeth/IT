@@ -197,4 +197,23 @@ try {
 } catch {
     Log "Failed to set File Explorer default view: $_"
 }
+# ================== 10. Define Desktop Items ==================
+try {
+    Log "Defining common desktop items (This PC, Network, Control Panel, User's Files)..."
+
+    # Enable 'This PC'
+    Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\NewStartPanel" -Name "{20D04FE0-3AEA-1069-A2D8-08002B30309D}" -Value 0
+    # Enable 'Network'
+    Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\NewStartPanel" -Name "{F02C1A0D-BE21-4350-88B0-7367FC96EF3C}" -Value 0
+    # Enable 'Control Panel'
+    Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\NewStartPanel" -Name "{5399E694-6CE5-4D6C-8FCE-1D8870FDCBA0}" -Value 0
+    # Enable 'User's Files'
+    Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\NewStartPanel" -Name "{59031A47-3F72-44A7-89C5-5595FE6B30EE}" -Value 0
+
+    Log "Desktop items defined successfully."
+} catch {
+    Log "Failed to define desktop items: $_"
+}
+
+# ================== End of script ==================
 Log "==== MACHINEPREP Script Completed ===="
