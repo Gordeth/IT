@@ -76,7 +76,6 @@ if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
     }
 }
 
-
 # ================== REGISTER PSGALLERY ==================
 Log "Checking PSGallery repository..."
 if (-not (Get-PSRepository | Where-Object { $_.Name -eq "PSGallery" })) {
@@ -129,7 +128,7 @@ function Download-Script {
         Log "Failed to download ${ScriptName}: $_"
         Exit 1
     }
-} # This was missing
+}
 
 # ================== RUN SCRIPT FUNCTION ==================
 function Run-Script {
@@ -150,6 +149,7 @@ function Run-Script {
         Exit 1
     }
 }
+
 # ================== TASK SELECTION ==================
 switch ($task) {
     "1" {
@@ -164,10 +164,8 @@ switch ($task) {
         Log "Task selected: Windows Maintenance"
         Download-Script -ScriptName "WU.ps1"
         Run-Script -ScriptName "WU.ps1"
-
         Download-Script -ScriptName "WGET.ps1"
         Run-Script -ScriptName "WGET.ps1"
-
         Download-Script -ScriptName "MSO_UPDATE.ps1"
         Run-Script -ScriptName "MSO_UPDATE.ps1"
     }
