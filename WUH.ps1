@@ -2,7 +2,7 @@
 $BaseUrl = "https://raw.githubusercontent.com/Gordeth/IT/main"
 $ScriptDir = "$env:TEMP\ITScripts"
 $LogDir = "$ScriptDir\Log"
-$LogFile = "$LogDir\WUH_log.txt"
+$LogFile = "$LogDir\WUH.txt"
 $PowerPlanName = "TempMaxPerformance"
 
 # ================== CREATE DIRECTORIES ==================
@@ -21,7 +21,8 @@ function Log {
         Write-Host "$timestamp $Message"
     }
 }
-
+# ================== SAVE ORIGINAL EXECUTION POLICY ==================
+$OriginalPolicy = Get-ExecutionPolicy
 # ================== ASK FOR MODE ==================
 Write-Host ""
 Write-Host "Select Mode:"
@@ -46,7 +47,15 @@ Write-Host "Select Task:"
 Write-Host "[1] Machine Preparation (semi-automated)"
 Write-Host "[2] Windows Maintenance"
 $task = Read-Host "Choose task [1/2]"
-
+# ================== CHECK INTERNET CONNECTIVITY ==================
+Log "Checking internet connectivity..."
+try {
+    $null = Invoke-WebRequest -Uri "https://www.microsoft.com" -UseBasicParsing -TimeoutSec 10
+    Log "Internet connectivity check passed."
+} catch {
+    Log "Internet connectivity check failed. Please check your network connection."
+    Exit 1
+}
 # ================== SET EXECUTION POLICY ==================
 Log "Setting Execution Policy to Bypass..."
 Set-ExecutionPolicy Bypass -Scope Process -Force -ErrorAction SilentlyContinue
@@ -106,12 +115,16 @@ function Download-Script {
     try {
         Invoke-WebRequest -Uri $url -OutFile $scriptPath -UseBasicParsing | Out-Null
         Log "$ScriptName downloaded successfully."
+
+        # Basic integrity check
+        if ((Get-Item $scriptPath).Length -lt 1024) {
+            Log "Warning: Downloaded $ScriptName appears too small—possible download error."
+        }
     } catch {
         Log "Failed to download ${ScriptName}: $_"
         Exit 1
     }
 }
-
 # ================== RUN SCRIPT FUNCTION ==================
 function Run-Script {
     param (
@@ -121,9 +134,9 @@ function Run-Script {
     Log "Running $ScriptName..."
     try {
         if ($VerboseMode) {
-            & $scriptPath
+            & $scriptPath -ErrorAction Stop
         } else {
-            & $scriptPath *>&1 | Out-Null
+            & $scriptPath -ErrorAction Stop *>&1 | Out-Null
         }
         Log "$ScriptName executed successfully."
     } catch {
