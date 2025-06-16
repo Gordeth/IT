@@ -166,8 +166,14 @@ function Invoke-Script {
     Log "Running $ScriptName..."
     try {
         if ($VerboseMode) {
+            # Ensure output is shown
+            Write-Host ""
+            Write-Host "========= Running $ScriptName =========" -ForegroundColor Cyan
             & $scriptPath -ErrorAction Stop
+            Write-Host "========= Finished $ScriptName =========" -ForegroundColor Cyan
+            Write-Host ""
         } else {
+            # Run silently
             & $scriptPath -ErrorAction Stop *>&1 | Out-Null
         }
         Log "$ScriptName executed successfully."
