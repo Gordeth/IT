@@ -166,15 +166,9 @@ function Invoke-Script {
     Log "Running $ScriptName..."
     try {
         if ($VerboseMode) {
-            # Ensure output is shown
-            Write-Host ""
-            Write-Host "========= Running $ScriptName =========" -ForegroundColor Cyan
-            & $scriptPath -ErrorAction Stop
-            Write-Host "========= Finished $ScriptName =========" -ForegroundColor Cyan
-            Write-Host ""
+            & $scriptPath -VerboseMode:$true -LogFile $LogFile
         } else {
-            # Run silently
-            & $scriptPath -ErrorAction Stop *>&1 | Out-Null
+            & $scriptPath -VerboseMode:$false -LogFile $LogFile *>&1 | Out-Null
         }
         Log "$ScriptName executed successfully."
     } catch {
@@ -182,7 +176,6 @@ function Invoke-Script {
         Exit 1
     }
 }
-
 # ================== TASK SELECTION ==================
 switch ($task) {
     "1" {

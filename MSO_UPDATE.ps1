@@ -1,6 +1,3 @@
-param (
-    [switch]$VerboseMode = $false
-)
 function Log {
     param (
         [string]$Message,
