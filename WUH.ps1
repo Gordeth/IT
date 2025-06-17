@@ -122,7 +122,7 @@ try {
 }
 
 # ================== FUNCTION: CHECK IF OFFICE IS INSTALLED ==================
-function Test-OfficeInstalled {
+function Confirm-OfficeInstalled {
     $officePaths = @(
         "${env:ProgramFiles(x86)}\Microsoft Office",
         "${env:ProgramFiles}\Microsoft Office",
@@ -184,7 +184,7 @@ switch ($task) {
         Get-Script -ScriptName "MACHINEPREP.ps1"
         Get-Script -ScriptName "WU.ps1"
         Get-Script -ScriptName "WGET.ps1"
-        if (Test-OfficeInstalled) {
+        if (Confirm-OfficeInstalled) {
             Get-Script -ScriptName "MSO_UPDATE.ps1"
         } else {
             Log "Microsoft Office not detected. Skipping Office update script download."
@@ -197,7 +197,7 @@ switch ($task) {
         Invoke-Script -ScriptName "WU.ps1"
         Get-Script -ScriptName "WGET.ps1"
         Invoke-Script -ScriptName "WGET.ps1"
-        if (Test-OfficeInstalled) {
+        if (Confirm-OfficeInstalled) {
             Get-Script -ScriptName "MSO_UPDATE.ps1"
             Invoke-Script -ScriptName "MSO_UPDATE.ps1"
         } else {
