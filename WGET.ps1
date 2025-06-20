@@ -32,17 +32,32 @@ function Log {
 }
 
 # ==================== Begin Script Execution ====================
-Log "Starting WGET.ps1 script."
-Log "Checking for package updates with winget..."
+Log "Starting WGET.ps1 script. VerboseMode=$VerboseMode"
+Log "Fetching list of upgradeable packages..."
 
 try {
-    if ($VerboseMode) {
-        Start-Process -FilePath "winget" -ArgumentList "upgrade --all" -Wait -NoNewWindow
+    $packages = winget upgrade --source winget --accept-source-agreements --output json | ConvertFrom-Json
+
+    if (-not $packages) {
+        Log "No upgradable packages found."
     } else {
-        Start-Process -FilePath "winget" -ArgumentList "upgrade --all" -Wait -NoNewWindow | Out-Null
+        foreach ($pkg in $packages) {
+            $name = $pkg.Name
+            $id = $pkg.Id
+
+            Log "Upgrading: $name ($id)..."
+
+            try {
+                $proc = Start-Process -FilePath "winget" -ArgumentList "upgrade --id `"$id`" --silent --accept-package-agreements" -Wait -PassThru -NoNewWindow
+                $proc.WaitForExit()
+                Log "$name upgraded successfully."
+            } catch {
+                Log "Failed to upgrade $name ($id): $_" "ERROR"
+            }
+        }
     }
-    Log "All packages updated successfully."
 } catch {
-    Log "Failed to update packages: $_" "ERROR"
+    Log "Failed to fetch or process winget packages: $_" "ERROR"
 }
+
 Log "WGET.ps1 script completed successfully."
