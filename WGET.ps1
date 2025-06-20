@@ -1,8 +1,4 @@
-param (
-    [switch]$VerboseMode = $false,
-    [string]$LogFile
-)
-
+# ==================== Define Log Function ====================
 function Log {
     param (
         [string]$Message,
@@ -30,7 +26,6 @@ function Log {
         Write-Host $logEntry -ForegroundColor $color
     }
 }
-
 Log "Checking for package updates with winget..."
 try {
     if ($VerboseMode) {
