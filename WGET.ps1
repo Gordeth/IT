@@ -2,13 +2,6 @@ param (
     [switch]$VerboseMode = $false,
     [string]$LogFile
 )
-
-# ==================== Validate LogFile ====================
-if (-not $LogFile -or $LogFile.Trim() -eq "") {
-    Write-Host "ERROR: LogFile path is not defined or is empty." -ForegroundColor Red
-    exit 1
-}
-
 # ==================== Define Log Function ====================
 function Log {
     param (
@@ -39,14 +32,14 @@ function Log {
 }
 
 # ==================== Begin Script Execution ====================
-Log "Starting WGET.ps1 script. VerboseMode=$VerboseMode"
+Log "Starting WGET.ps1 script."
 Log "Checking for package updates with winget..."
 
 try {
     if ($VerboseMode) {
-        winget upgrade --all
+        Start-Process -FilePath "winget" -ArgumentList "upgrade --all" -Wait -NoNewWindow
     } else {
-        winget upgrade --all | Out-Null
+        Start-Process -FilePath "winget" -ArgumentList "upgrade --all" -Wait -NoNewWindow | Out-Null
     }
     Log "All packages updated successfully."
 } catch {
