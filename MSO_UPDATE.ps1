@@ -1,5 +1,6 @@
 param (
-    [switch]$VerboseMode = $false
+    [switch]$VerboseMode = $false,
+    [string]$LogFile
 )
 
 function Log {
