@@ -1,4 +1,8 @@
 # MACHINEPREP.ps1
+param (
+    [switch]$VerboseMode = $false,
+    [string]$LogFile
+)
 
 # ================== LOG FUNCTION ==================
 function Log {
