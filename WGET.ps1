@@ -37,9 +37,9 @@ Log "Checking for package updates with winget..."
 
 try {
     if ($VerboseMode) {
-        winget upgrade --all
+        winget upgrade --all --accept-source-agreements --accept-package-agreements
     } else {
-        winget upgrade --all | Out-Null
+        winget upgrade --all --accept-source-agreements --accept-package-agreements | Out-Null
     }
     Log "All packages updated successfully."
 } catch {
