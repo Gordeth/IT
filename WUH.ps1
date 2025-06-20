@@ -100,7 +100,22 @@ try {
     Log "Failed to configure PSGallery repository: $_" -Level "ERROR"
     Exit 1
 }
+# ================== UPDATE CORE POWERSHELLGET MODULES ==================
+# This step is crucial as PowerShellGet sometimes prompts for NuGet provider
+# if its own version or dependencies are not up-to-date.
+Log "Attempting to update PowerShellGet and PackageManagement modules..."
+try {
+    # Pipe 'Y' to auto-confirm any prompts during module updates.
+    "Y" | Update-Module -Name PowerShellGet -Force -AcceptLicense -ErrorAction SilentlyContinue
+    Log "PowerShellGet module update attempted."
 
+    "Y" | Update-Module -Name PackageManagement -Force -AcceptLicense -ErrorAction SilentlyContinue
+    Log "PackageManagement module update attempted."
+
+} catch {
+    Log "Failed to update PowerShellGet or PackageManagement modules: $_" -Level "WARN"
+    # Do not exit here, as the script might still proceed or the modules might not need updating.
+}
 # ================== INSTALL NUGET PROVIDER ==================
 Log "Checking for NuGet provider..."
 if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
