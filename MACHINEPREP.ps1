@@ -69,7 +69,7 @@ try {
     }
 
     Log "Running WU.ps1..."
-    & $WUPath | Out-Null
+    & $WUPath -VerboseMode:$VerboseMode -LogFile $LogFile
     Log "WU.ps1 executed successfully."
 } catch {
     Log "Error with WU.ps1: $_"
@@ -88,7 +88,7 @@ try {
     }
 
     Log "Running WGET.ps1..."
-    & $WGETPath | Out-Null
+    & $WGETPath -VerboseMode:$VerboseMode -LogFile $LogFile
     Log "WGET.ps1 executed successfully."
 } catch {
     Log "Error with WGET.ps1: $_"
