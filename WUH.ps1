@@ -1,59 +1,91 @@
+# ==============================================================================
+# PowerShell Maintenance Script
+# This script automates various machine preparation and Windows maintenance tasks.
+# It includes robust logging, internet connectivity checks, execution policy handling,
+# and a focus on silent execution for automation.
+# ==============================================================================
+
 # ================== CONFIGURATION ==================
-$BaseUrl = "https://raw.githubusercontent.com/Gordeth/IT/main"
-$ScriptDir = "$env:TEMP\ITScripts"
-$LogDir = "$ScriptDir\Log"
-$LogFile = "$LogDir\WUH.txt"
-$PowerPlanName = "TempMaxPerformance"
+# Define essential paths, file names, and settings for the script's operation.
+$BaseUrl = "https://raw.githubusercontent.com/Gordeth/IT/main" # Base URL for downloading external scripts
+$ScriptDir = "$env:TEMP\ITScripts"                            # Local directory to store temporary scripts and logs
+$LogDir = "$ScriptDir\Log"                                    # Subdirectory specifically for log files
+$LogFile = "$LogDir\WUH.txt"                                  # Full path to the main log file
+$PowerPlanName = "TempMaxPerformance"                         # Name for the temporary maximum performance power plan
 
 # ================== CREATE DIRECTORIES ==================
-if (-not (Test-Path $ScriptDir)) { New-Item -ItemType Directory -Path $ScriptDir | Out-Null }
-if (-not (Test-Path $LogDir)) { New-Item -ItemType Directory -Path $LogDir | Out-Null }
-if (-not (Test-Path $LogFile)) { "[{0}] Log file created." -f (Get-Date) | Out-File $LogFile -Append }
+# Ensure the necessary temporary directories and log file exist before proceeding.
+# If they don't exist, create them. Output is suppressed with Out-Null for silent operation.
+if (-not (Test-Path $ScriptDir)) {
+    New-Item -ItemType Directory -Path $ScriptDir | Out-Null
+    # Log the creation of the script directory
+    # (Note: Cannot use Log function yet as it might not be defined if script is run first time)
+}
+if (-not (Test-Path $LogDir)) {
+    New-Item -ItemType Directory -Path $LogDir | Out-Null
+    # Log the creation of the log directory
+}
+# Create the log file if it doesn't exist and add an initial entry.
+# This ensures the Add-Content in the Log function doesn't fail on first use.
+if (-not (Test-Path $LogFile)) {
+    "[{0}] Log file created." -f (Get-Date) | Out-File $LogFile -Append
+}
 
 # ================== DEFINE LOG FUNCTION ==================
+# A custom logging function to write messages to the console (if verbose mode is on)
+# and to a persistent log file.
 function Log {
     param (
-        [string]$Message,
-        [ValidateSet("INFO", "WARN", "ERROR", "DEBUG")]
-        [string]$Level = "INFO"
+        [string]$Message,                               # The message to be logged
+        [ValidateSet("INFO", "WARN", "ERROR", "DEBUG")] # Validation for log level
+        [string]$Level = "INFO"                         # Default log level is INFO
     )
 
-    $timestamp = Get-Date -Format "dd-MM-yyyy HH:mm:ss"
-    $logEntry = "[$timestamp] [$Level] $Message"
+    $timestamp = Get-Date -Format "dd-MM-yyyy HH:mm:ss" # Format the current date and time
+    $logEntry = "[$timestamp] [$Level] $Message"       # Construct the full log entry string
 
     try {
+        # Attempt to append the log entry to the specified log file.
         Add-Content -Path $LogFile -Value $logEntry
     } catch {
+        # If writing to the log file fails, output an error to the console.
         Write-Host "Failed to write to log file: $_" -ForegroundColor Red
     }
 
+    # If VerboseMode is enabled or the log level is ERROR, also output to the console.
     if ($VerboseMode -or $Level -eq "ERROR") {
+        # Determine the console foreground color based on the log level.
         $color = switch ($Level) {
             "INFO"  { "White" }
             "WARN"  { "Yellow" }
             "ERROR" { "Red" }
             "DEBUG" { "Gray" }
-            default { "White" }
+            default { "White" } # Default color if level is not recognized
         }
-        Write-Host $logEntry -ForegroundColor $color
+        Write-Host $logEntry -ForegroundColor $color # Output the log entry to the console
     }
 }
 
 # ================== SAVE ORIGINAL EXECUTION POLICY ==================
+# Store the current PowerShell execution policy to restore it later.
+# This is crucial for maintaining system security posture after script execution.
 $OriginalPolicy = Get-ExecutionPolicy
 
 # ================== ASK FOR MODE ==================
+# Prompt the user to select between silent (logs only) or verbose (console and logs) mode.
 Write-Host ""
 Write-Host "Select Mode:"
 Write-Host "[S] Silent (logs only)"
 Write-Host "[V] Verbose (console and logs)"
-$mode = Read-Host "Choose mode [S/V]"
+$mode = Read-Host "Choose mode [S/V]" # Read user input
 if ($mode.ToUpper() -eq "V") {
-    $VerboseMode = $true
+    $VerboseMode = $true # Set internal flag for console output
     Log "Verbose mode selected."
 } else {
-    $VerboseMode = $false
+    $VerboseMode = $false # Set internal flag to suppress console output
     Log "Silent mode selected."
+    # Suppress various PowerShell preference variables for silent operation.
+    # This prevents non-essential output like progress bars, information streams, and warnings.
     $VerbosePreference = "SilentlyContinue"
     $InformationPreference = "SilentlyContinue"
     $ProgressPreference = "SilentlyContinue"
@@ -61,199 +93,262 @@ if ($mode.ToUpper() -eq "V") {
 }
 
 # ================== ASK FOR TASK ==================
+# Prompt the user to select the task to perform: Machine Preparation or Windows Maintenance.
 Write-Host ""
 Write-Host "Select Task:"
 Write-Host "[1] Machine Preparation (semi-automated)"
 Write-Host "[2] Windows Maintenance"
-$task = Read-Host "Choose task [1/2]"
+$task = Read-Host "Choose task [1/2]" # Read user input for task selection
 
 # ================== CHECK INTERNET CONNECTIVITY ==================
+# Verify that the system has active internet connectivity before attempting downloads.
 Log "Checking internet connectivity..."
 try {
+    # Attempt to invoke a web request to a reliable Microsoft URL.
+    # UseBasicParsing is faster and avoids parsing HTML. TimeoutSec prevents indefinite hang.
     $null = Invoke-WebRequest -Uri "https://www.microsoft.com" -UseBasicParsing -TimeoutSec 10
     Log "Internet connectivity check passed."
 } catch {
-    Log "Internet connectivity check failed. Please check your network connection."
-    Exit 1
+    # Log an error and exit if connectivity fails.
+    Log "Internet connectivity check failed. Please check your network connection." -Level "ERROR"
+    Exit 1 # Terminate script execution upon critical failure
 }
 
 # ================== SET EXECUTION POLICY ==================
+# Temporarily set the execution policy for the current process to Bypass.
+# This allows unsigned scripts (like those downloaded from GitHub) to run without prompts.
+# -Force suppresses prompts for this action, -ErrorAction SilentlyContinue prevents breaking if already set.
 Log "Setting Execution Policy to Bypass..."
 Set-ExecutionPolicy Bypass -Scope Process -Force -ErrorAction SilentlyContinue
 
-# ================== REGISTER AND TRUST PSGALLERY ==================
-# This block is moved and modified to ensure PSGallery is trusted before NuGet provider installation.
-Log "Checking and configuring PSGallery repository..."
-try {
-    # Ensure PSGallery is set to Trusted. This is crucial to avoid the untrusted repository prompt.
-    Set-PSRepository -Name PSGallery -InstallationPolicy Trusted -ErrorAction Stop
-    Log "PSGallery repository set to Trusted."
-
-} catch {
-    Log "Failed to trust PSGallery repository: $_" -Level "ERROR"
-    Exit 1
-}
-
 # ================== INSTALL NUGET PROVIDER ==================
+# This block attempts to install the NuGet package provider.
+# It's placed early as many package management operations depend on NuGet.
 Log "Checking for NuGet provider..."
+# Check if NuGet provider is already installed. SilentlyContinue prevents error if not found.
 if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
     try {
-        $OriginalConfirmPreference = $ConfirmPreference # Save current preference
-        Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -ForceBootstrap -Force -Scope CurrentUser -Confirm:$false -ErrorAction Stop -SkipPublisherCheck
+        # Pipe 'Y' to the command to automatically answer 'Yes' to any interactive prompts.
+        # This is crucial for bypassing prompts like "NuGet provider is required to continue...Do you want PowerShellGet to install and import the NuGet provider now?".
+        # -ForceBootstrap ensures the provider is downloaded if needed.
+        # -Force handles other confirmations/overwrites.
+        # -Confirm:$false is for standard cmdlet confirmations, which may not always cover deep prompts.
+        # -SkipPublisherCheck allows installation from publishers not explicitly trusted.
+        Log "Attempting to install NuGet provider by piping 'Y' to auto-answer prompt."
+        "Y" | Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -ForceBootstrap -Force -Scope CurrentUser -Confirm:$false -ErrorAction Stop -SkipPublisherCheck
         Log "NuGet provider installed successfully."
-} catch {
-        Log "Failed to install NuGet provider: $_"
+    } catch {
+        # Log an error and exit if NuGet provider installation fails.
+        Log "Failed to install NuGet provider: $_" -Level "ERROR"
         Exit 1
     }
+} else {
+    Log "NuGet provider is already installed."
 }
 
+
+# ================== UPDATE CORE POWERSHELLGET MODULES ==================
+# Attempt to update the PowerShellGet and PackageManagement modules.
+# These modules are fundamental for package and module management and rely on NuGet.
+# Updating them ensures compatibility and access to latest features/fixes.
+Log "Attempting to update PowerShellGet and PackageManagement modules..."
+try {
+    # Update PowerShellGet module. Pipe 'Y' for auto-confirmation, -Force for overwrite, -AcceptLicense for EULA.
+    "Y" | Update-Module -Name PowerShellGet -Force -AcceptLicense -ErrorAction SilentlyContinue
+    Log "PowerShellGet module update attempted."
+
+    # Update PackageManagement module. Similar piping and parameters.
+    "Y" | Update-Module -Name PackageManagement -Force -AcceptLicense -ErrorAction SilentlyContinue
+    Log "PackageManagement module update attempted."
+
+} catch {
+    # Log a warning if updates fail but do not exit, as the script might still function.
+    Log "Failed to update PowerShellGet or PackageManagement modules: $_" -Level "WARN"
+}
 
 
 # ================== CREATE TEMPORARY MAX PERFORMANCE POWER PLAN ==================
+# Create and activate a temporary "Maximum Performance" power plan.
+# This ensures optimal performance during script execution, particularly for lengthy tasks.
 Log "Creating temporary Maximum Performance power plan..."
 try {
+    # Find the GUID of the existing "High performance" power plan.
     $baseScheme = (powercfg -list | Where-Object { $_ -match "High performance" } | ForEach-Object { ($_ -split '\s+')[3] })
     if ($null -eq $baseScheme) {
-        Log "High Performance power plan not found. Skipping power plan changes."
+        # Log a warning if the "High performance" plan isn't found.
+        Log "High Performance power plan not found. Skipping power plan changes." -Level "WARN"
     } else {
+        # Duplicate the "High performance" plan to create a new one.
         $guid = (powercfg -duplicatescheme $baseScheme).Trim()
+        # Rename the duplicated plan to the specified temporary name.
         powercfg -changename $guid $PowerPlanName "Temporary Maximum Performance"
+        # Set the newly created plan as the active power scheme.
         powercfg -setactive $guid
         Log "Temporary Maximum Performance power plan activated."
     }
 } catch {
-    Log "Failed to create or set temporary power plan: $_"
+    # Log an error if power plan operations fail.
+    Log "Failed to create or set temporary power plan: $_" -Level "ERROR"
 }
 
 # ================== FUNCTION: CHECK IF OFFICE IS INSTALLED ==================
+# Helper function to confirm if Microsoft Office is installed on the system.
+# This is used to conditionally download/run Office-related update scripts.
 function Confirm-OfficeInstalled {
+    # Define common installation paths for Microsoft Office (32-bit and 64-bit).
     $officePaths = @(
-        "${env:ProgramFiles(x86)}\Microsoft Office",
-        "${env:ProgramFiles}\Microsoft Office",
-        "${env:ProgramW6432}\Microsoft Office"
+        "${env:ProgramFiles(x86)}\Microsoft Office", # Common 32-bit path on 64-bit OS
+        "${env:ProgramFiles}\Microsoft Office",       # Common 64-bit path
+        "${env:ProgramW6432}\Microsoft Office"        # Alternative 64-bit path
     )
+    # Iterate through the paths to check for existence.
     foreach ($path in $officePaths) {
         if (Test-Path $path) {
-            return $true
+            return $true # Return true if any Office path is found
         }
     }
-    return $false
+    return $false # Return false if no Office paths are found
 }
 
 # ================== DOWNLOAD SCRIPT FUNCTION ==================
+# Generic function to download a PowerShell script from the defined BaseUrl.
 function Get-Script {
     param (
-        [string]$ScriptName
+        [string]$ScriptName # The name of the script file to download
     )
-    $scriptPath = Join-Path $ScriptDir $ScriptName
+    $scriptPath = Join-Path $ScriptDir $ScriptName # Construct the full local path for the script
     if (Test-Path $scriptPath) {
+        # If the script already exists locally, delete it to ensure a fresh download.
         Log "Deleting existing $ScriptName for fresh download."
         Remove-Item -Path $scriptPath -Force
     }
-    $url = "$BaseUrl/$ScriptName"
+    $url = "$BaseUrl/$ScriptName" # Construct the full URL for the script
     Log "Downloading $ScriptName from $url..."
     try {
+        # Use Invoke-WebRequest to download the script.
+        # Out-File saves it locally, UseBasicParsing improves performance.
         Invoke-WebRequest -Uri $url -OutFile $scriptPath -UseBasicParsing | Out-Null
         Log "$ScriptName downloaded successfully."
     } catch {
-        Log "Failed to download ${ScriptName}: $_"
+        # Log an error and exit if download fails.
+        Log "Failed to download ${ScriptName}: $_" -Level "ERROR"
         Exit 1
     }
 }
 
 # ================== RUN SCRIPT FUNCTION ==================
+# Generic function to invoke a downloaded PowerShell script.
 function Invoke-Script {
     param (
-        [string]$ScriptName
+        [string]$ScriptName # The name of the script file to run
     )
-    $scriptPath = Join-Path $ScriptDir $ScriptName
+    $scriptPath = Join-Path $ScriptDir $ScriptName # Construct the full local path for the script
     Log "Running $ScriptName..."
     try {
+        # Execute the script using the call operator (&).
+        # Pass VerboseMode and LogFile parameters to the child script for consistent logging/output.
         if ($VerboseMode) {
             & $scriptPath -VerboseMode:$true -LogFile $LogFile
         } else {
+            # In silent mode, redirect all output streams to null to prevent any console output.
             & $scriptPath -VerboseMode:$false -LogFile $LogFile *>&1 | Out-Null
         }
         Log "$ScriptName executed successfully."
     } catch {
-        Log "Error during execution of ${ScriptName}: $_"
+        # Log an error if the child script execution fails.
+        Log "Error during execution of ${ScriptName}: $_" -Level "ERROR"
         Exit 1
     }
 }
 # ================== TASK SELECTION ==================
+# Execute specific tasks based on the user's initial selection.
 switch ($task) {
     "1" {
         Log "Task selected: Machine Preparation (semi-automated)"
         Log "Downloading necessary scripts..."
-        Get-Script -ScriptName "MACHINEPREP.ps1"
-        Get-Script -ScriptName "WU.ps1"
-        Get-Script -ScriptName "WGET.ps1"
+        Get-Script -ScriptName "MACHINEPREP.ps1" # Download machine preparation script
+        Get-Script -ScriptName "WU.ps1"         # Download Windows Update script
+        Get-Script -ScriptName "WGET.ps1"       # Download script for general Windows maintenance/cleanup
         if (Confirm-OfficeInstalled) {
-            Get-Script -ScriptName "MSO_UPDATE.ps1"
+            Get-Script -ScriptName "MSO_UPDATE.ps1" # Conditionally download Office update script
         } else {
             Log "Microsoft Office not detected. Skipping Office update script download."
         }
-        Invoke-Script -ScriptName "MACHINEPREP.ps1"
+        Invoke-Script -ScriptName "MACHINEPREP.ps1" # Execute the machine preparation script
     }
     "2" {
         Log "Task selected: Windows Maintenance"
-        Get-Script -ScriptName "WU.ps1"
-        Invoke-Script -ScriptName "WU.ps1"
-        Get-Script -ScriptName "WGET.ps1"
-        Invoke-Script -ScriptName "WGET.ps1"
+        Get-Script -ScriptName "WU.ps1"         # Download Windows Update script
+        Invoke-Script -ScriptName "WU.ps1"       # Execute Windows Update script
+        Get-Script -ScriptName "WGET.ps1"       # Download script for general Windows maintenance/cleanup
+        Invoke-Script -ScriptName "WGET.ps1"     # Execute script for general Windows maintenance/cleanup
         if (Confirm-OfficeInstalled) {
-            Get-Script -ScriptName "MSO_UPDATE.ps1"
-            Invoke-Script -ScriptName "MSO_UPDATE.ps1"
+            Get-Script -ScriptName "MSO_UPDATE.ps1"   # Conditionally download Office update script
+            Invoke-Script -ScriptName "MSO_UPDATE.ps1" # Execute Office update script
         } else {
             Log "Microsoft Office not detected. Skipping Office update."
         }
     }
     default {
-        Log "Invalid task selection. Exiting script."
-        Exit 1
+        Log "Invalid task selection. Exiting script." -Level "ERROR"
+        Exit 1 # Terminate script due to invalid input
     }
 }
 
 # ================== RESET POWER PLAN TO BALANCED ==================
+# Restore the system's power plan to the default 'Balanced' scheme.
+# This reverts changes made earlier for temporary performance boost.
 Log "Resetting power plan to Balanced..."
 try {
-    powercfg -restoredefaultschemes
+    powercfg -restoredefaultschemes # Restores default power schemes, effectively recreating Balanced.
     Log "Power plan schemes restored to default."
-    powercfg -setactive SCHEME_BALANCED
+    powercfg -setactive SCHEME_BALANCED # Activates the Balanced power plan.
     Log "Power plan reset to Balanced."
 } catch {
-    Log "Failed to reset power plan to Balanced: $_"
+    Log "Failed to reset power plan to Balanced: $_" -Level "ERROR"
 }
+
 # ================== RESTORE PSGALLERY TRUST POLICY ==================
-# This block handles restoring the PSGallery InstallationPolicy.
-# Since the registration and trusting of PSGallery is now removed, this block
-# will only attempt to set the policy if PSGallery happens to exist.
+# This block attempts to reset the PSGallery InstallationPolicy back to Untrusted.
+# It ensures the system's security posture is restored after the script's operations,
+# regardless of whether PSGallery was initially registered by this script or existed.
 Log "Restoring PSGallery InstallationPolicy to Untrusted if it exists..."
 try {
     # Check if PSGallery exists before attempting to set its policy.
+    # SilentlyContinue prevents an error if the repository is not found, allowing the 'if' condition to handle it.
     if (Get-PSRepository -Name PSGallery -ErrorAction SilentlyContinue) {
+        # Set the InstallationPolicy back to Untrusted. SilentlyContinue prevents prompt if already untrusted.
         Set-PSRepository -Name PSGallery -InstallationPolicy Untrusted -ErrorAction SilentlyContinue
         Log "PSGallery InstallationPolicy reset to Untrusted."
     } else {
         Log "PSGallery repository not found, skipping InstallationPolicy reset." -Level "WARN"
     }
 } catch {
+    # Log a warning if resetting the policy fails but do not exit, as it might be a minor issue.
     Log "Failed to reset PSGallery InstallationPolicy: $_" -Level "WARN"
 }
 
 # ================== RESTORE EXECUTION POLICY ==================
+# Revert the PowerShell execution policy for the current process to its original state.
+# This is a critical security measure to return the system to its pre-script security level.
 Log "Restoring Execution Policy..."
 try {
+    # Check if the original policy was not "Restricted". If it was, no change is needed for this scope.
+    # The script explicitly sets Process scope to Bypass, so restoring to Restricted is a safe default
+    # for the process after script execution, unless the original policy was already Restricted.
     if ($OriginalPolicy -ne "Restricted") {
-        Log "Original policy was $OriginalPolicy; resetting to Restricted as default."
+        Log "Original policy was $OriginalPolicy; resetting to Restricted for the current process scope."
+        # Set to Restricted for the current process scope. -Force suppresses prompts.
         Set-ExecutionPolicy Restricted -Scope Process -Force -ErrorAction SilentlyContinue
         Log "Execution Policy set to Restricted."
     } else {
-        Log "Original policy was Restricted; no change needed."
+        Log "Original policy was Restricted; no change needed for the current process scope."
     }
 } catch {
-    Log "Failed to restore Execution Policy: $_"
+    # Log an error if restoring the execution policy fails.
+    Log "Failed to restore Execution Policy: $_" -Level "ERROR"
 }
 
 # ================== SCRIPT COMPLETION ===================
+# Final log entry indicating successful script completion.
 Log "Script completed successfully."
