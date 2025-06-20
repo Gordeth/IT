@@ -88,7 +88,7 @@ try {
     # Check if PSGallery exists. If not, register it.
     # -ErrorAction SilentlyContinue prevents an error if it doesn't exist, allowing the 'if' to handle it.
     if (-not (Get-PSRepository -Name PSGallery -ErrorAction SilentlyContinue)) {
-        Register-PSRepository -Default -ErrorAction Stop
+        Register-PSRepository -Default -Force -ErrorAction Stop
         Log "PSGallery repository registered."
     }
 
