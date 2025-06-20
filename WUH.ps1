@@ -85,8 +85,9 @@ Set-ExecutionPolicy Bypass -Scope Process -Force -ErrorAction SilentlyContinue
 Log "Checking for NuGet provider..."
 if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
     try {
+        $ConfirmPreference = 'None'
         Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -ForceBootstrap -Force -Scope CurrentUser -Confirm:$false -ErrorAction Stop -SkipPublisherCheck
-
+        $ConfirmPreference = 'High' # Or whatever your default preference was
         Log "NuGet provider installed successfully."
     } catch {
         Log "Failed to install NuGet provider: $_"
