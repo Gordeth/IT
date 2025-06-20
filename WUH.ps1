@@ -213,6 +213,8 @@ switch ($task) {
 # ================== RESET POWER PLAN TO BALANCED ==================
 Log "Resetting power plan to Balanced..."
 try {
+    powercfg -restoredefaultschemes
+    Log "Power plan schemes restored to default."
     powercfg -setactive SCHEME_BALANCED
     Log "Power plan reset to Balanced."
 } catch {
