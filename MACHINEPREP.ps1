@@ -33,8 +33,6 @@ function Log {
     }
 }
 
-# ================== SCRIPT START ==================
-Log "==== MACHINEPREP Script Started ===="
 
 # ========== 1. Check if TeamViewer is installed ==========
 try {
