@@ -105,9 +105,11 @@ try {
 Log "Checking for NuGet provider..."
 if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
     try {
-        $ConfirmPreference = 'None'
-        Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -ForceBootstrap -Force -Scope CurrentUser -Confirm:$false -ErrorAction Stop -SkipPublisherCheck
-        $ConfirmPreference = 'High' # Or whatever your default preference was
+        $OriginalConfirmPreference = $ConfirmPreference # Save current preference
+        $ConfirmPreference = 'None' # Set to 'None' to auto-answer 'Yes'
+        "Y" | Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -ForceBootstrap -Force -Scope CurrentUser -Confirm:$false -ErrorAction Stop -SkipPublisherCheck        Log "NuGet provider installed successfully."
+        $ConfirmPreference = $OriginalConfirmPreference # Restore original preference
+        Log "Confirmation preference restored."
         Log "NuGet provider installed successfully."
     } catch {
         Log "Failed to install NuGet provider: $_"
