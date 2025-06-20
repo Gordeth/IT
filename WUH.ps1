@@ -81,6 +81,26 @@ try {
 Log "Setting Execution Policy to Bypass..."
 Set-ExecutionPolicy Bypass -Scope Process -Force -ErrorAction SilentlyContinue
 
+# ================== REGISTER AND TRUST PSGALLERY ==================
+# This block is moved and modified to ensure PSGallery is trusted before NuGet provider installation.
+Log "Checking and configuring PSGallery repository..."
+try {
+    # Check if PSGallery exists. If not, register it.
+    # -ErrorAction SilentlyContinue prevents an error if it doesn't exist, allowing the 'if' to handle it.
+    if (-not (Get-PSRepository -Name PSGallery -ErrorAction SilentlyContinue)) {
+        Register-PSRepository -Default -ErrorAction Stop
+        Log "PSGallery repository registered."
+    }
+
+    # Ensure PSGallery is set to Trusted. This is crucial to avoid the untrusted repository prompt.
+    Set-PSRepository -Name PSGallery -InstallationPolicy Trusted -ErrorAction Stop
+    Log "PSGallery repository set to Trusted."
+
+} catch {
+    Log "Failed to configure PSGallery repository: $_" -Level "ERROR"
+    Exit 1
+}
+
 # ================== INSTALL NUGET PROVIDER ==================
 Log "Checking for NuGet provider..."
 if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
@@ -95,17 +115,7 @@ if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
     }
 }
 
-# ================== REGISTER PSGALLERY ==================
-Log "Checking PSGallery repository..."
-if (-not (Get-PSRepository | Where-Object { $_.Name -eq "PSGallery" })) {
-    try {
-        Register-PSRepository -Default
-        Log "PSGallery repository registered."
-    } catch {
-        Log "Failed to register PSGallery: $_"
-        Exit 1
-    }
-}
+
 
 # ================== CREATE TEMPORARY MAX PERFORMANCE POWER PLAN ==================
 Log "Creating temporary Maximum Performance power plan..."
