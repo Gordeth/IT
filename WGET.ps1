@@ -45,3 +45,4 @@ try {
 } catch {
     Log "Failed to update packages: $_" "ERROR"
 }
+Log "WGET.ps1 script completed successfully."
