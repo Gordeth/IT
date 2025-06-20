@@ -85,49 +85,23 @@ Set-ExecutionPolicy Bypass -Scope Process -Force -ErrorAction SilentlyContinue
 # This block is moved and modified to ensure PSGallery is trusted before NuGet provider installation.
 Log "Checking and configuring PSGallery repository..."
 try {
-    # Check if PSGallery exists. If not, register it.
-    # -ErrorAction SilentlyContinue prevents an error if it doesn't exist, allowing the 'if' to handle it.
-    if (-not (Get-PSRepository -Name PSGallery -ErrorAction SilentlyContinue)) {
-         "Y" | Register-PSRepository -Default -ErrorAction Stop | Out-Null
-        Log "PSGallery repository registered."
-    }
-
     # Ensure PSGallery is set to Trusted. This is crucial to avoid the untrusted repository prompt.
     Set-PSRepository -Name PSGallery -InstallationPolicy Trusted -ErrorAction Stop
     Log "PSGallery repository set to Trusted."
 
 } catch {
-    Log "Failed to configure PSGallery repository: $_" -Level "ERROR"
+    Log "Failed to trust PSGallery repository: $_" -Level "ERROR"
     Exit 1
 }
-# ================== UPDATE CORE POWERSHELLGET MODULES ==================
-# This step is crucial as PowerShellGet sometimes prompts for NuGet provider
-# if its own version or dependencies are not up-to-date.
-Log "Attempting to update PowerShellGet and PackageManagement modules..."
-try {
-    # Pipe 'Y' to auto-confirm any prompts during module updates.
-    "Y" | Update-Module -Name PowerShellGet -Force -AcceptLicense -ErrorAction SilentlyContinue
-    Log "PowerShellGet module update attempted."
 
-    "Y" | Update-Module -Name PackageManagement -Force -AcceptLicense -ErrorAction SilentlyContinue
-    Log "PackageManagement module update attempted."
-
-} catch {
-    Log "Failed to update PowerShellGet or PackageManagement modules: $_" -Level "WARN"
-    # Do not exit here, as the script might still proceed or the modules might not need updating.
-}
 # ================== INSTALL NUGET PROVIDER ==================
 Log "Checking for NuGet provider..."
 if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
     try {
         $OriginalConfirmPreference = $ConfirmPreference # Save current preference
-        $ConfirmPreference = 'None' # Set to 'None' to auto-answer 'Yes'
-        "Y" | Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -ForceBootstrap -Force -Scope CurrentUser -Confirm:$false -ErrorAction Stop -SkipPublisherCheck
+        Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -ForceBootstrap -Force -Scope CurrentUser -Confirm:$false -ErrorAction Stop -SkipPublisherCheck
         Log "NuGet provider installed successfully."
-        $ConfirmPreference = $OriginalConfirmPreference # Restore original preference
-        Log "Confirmation preference restored."
-        Log "NuGet provider installed successfully."
-    } catch {
+} catch {
         Log "Failed to install NuGet provider: $_"
         Exit 1
     }
@@ -249,6 +223,22 @@ try {
     Log "Power plan reset to Balanced."
 } catch {
     Log "Failed to reset power plan to Balanced: $_"
+}
+# ================== RESTORE PSGALLERY TRUST POLICY ==================
+# This block handles restoring the PSGallery InstallationPolicy.
+# Since the registration and trusting of PSGallery is now removed, this block
+# will only attempt to set the policy if PSGallery happens to exist.
+Log "Restoring PSGallery InstallationPolicy to Untrusted if it exists..."
+try {
+    # Check if PSGallery exists before attempting to set its policy.
+    if (Get-PSRepository -Name PSGallery -ErrorAction SilentlyContinue) {
+        Set-PSRepository -Name PSGallery -InstallationPolicy Untrusted -ErrorAction SilentlyContinue
+        Log "PSGallery InstallationPolicy reset to Untrusted."
+    } else {
+        Log "PSGallery repository not found, skipping InstallationPolicy reset." -Level "WARN"
+    }
+} catch {
+    Log "Failed to reset PSGallery InstallationPolicy: $_" -Level "WARN"
 }
 
 # ================== RESTORE EXECUTION POLICY ==================
