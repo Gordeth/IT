@@ -128,9 +128,13 @@ Log "Checking for NuGet provider..."
 # Check if NuGet provider is already installed. SilentlyContinue prevents error if not found.
 if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
     try {
-        # This is crucial for bypassing prompts like "NuGet provider is required to continue...Do you want PowerShellGet to install and import the NuGet provider now?".
+        # --- Temporarily Trust PSGallery for Provider Installation ---
+        # PSGallery's InstallationPolicy must be 'Trusted' for PackageManagement
+        # to download providers without an "Untrusted repository" prompt.
+        # This line directly sets the policy, assuming PSGallery is already registered.
+        Log "Temporarily setting PSGallery InstallationPolicy to Trusted for NuGet provider download."
         Set-PSRepository -Name PSGallery -InstallationPolicy Trusted -ErrorAction Stop | Out-Null
-        Log "PSGallery repository temporarily set to Trusted."
+        Log "PSGallery InstallationPolicy successfully set to Trusted."
         # -ForceBootstrap ensures the provider is downloaded if needed.
         # -Force handles other confirmations/overwrites.
         # -Confirm:$false is for standard cmdlet confirmations, which may not always cover deep prompts.
