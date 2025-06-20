@@ -1,3 +1,7 @@
+param (
+    [switch]$VerboseMode = $false
+)
+
 function Log {
     param (
         [string]$Message,
@@ -39,13 +43,26 @@ Log "Starting Office update..."
 
 try {
     $OfficeClient = "C:\Program Files\Common Files\microsoft shared\ClickToRun\OfficeC2RClient.exe"
+
     if (Test-Path $OfficeClient) {
-        Log "Launching Office update silently..."
-        Start-Process -FilePath $OfficeClient -ArgumentList "/update user forceappshutdown=true" -WindowStyle Hidden -Wait
-        Log "Office update launched."
+        Log "Office Click-to-Run client found. Launching update..."
+
+        $process = Start-Process -FilePath $OfficeClient `
+                                 -ArgumentList "/update user forceappshutdown=true" `
+                                 -WindowStyle Hidden `
+                                 -Wait `
+                                 -PassThru
+
+        Log "Office update process exited with code $($process.ExitCode)." "INFO"
+
+        if ($process.ExitCode -eq 0) {
+            Log "Office update completed successfully." "INFO"
+        } else {
+            Log "Office update exited with code $($process.ExitCode). Review logs for more info." "WARN"
+        }
     } else {
-        Log "OfficeC2RClient.exe not found."
+        Log "OfficeC2RClient.exe not found. Office may not be installed." "WARN"
     }
 } catch {
-    Log "Failed to launch Office update: $_"
+    Log "Failed to launch Office update: $_" "ERROR"
 }
