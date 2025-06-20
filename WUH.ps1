@@ -128,14 +128,15 @@ Log "Checking for NuGet provider..."
 # Check if NuGet provider is already installed. SilentlyContinue prevents error if not found.
 if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
     try {
-        # Pipe 'Y' to the command to automatically answer 'Yes' to any interactive prompts.
         # This is crucial for bypassing prompts like "NuGet provider is required to continue...Do you want PowerShellGet to install and import the NuGet provider now?".
+        Set-PSRepository -Name PSGallery -InstallationPolicy Trusted -ErrorAction Stop | Out-Null
+        Log "PSGallery repository temporarily set to Trusted."
         # -ForceBootstrap ensures the provider is downloaded if needed.
         # -Force handles other confirmations/overwrites.
         # -Confirm:$false is for standard cmdlet confirmations, which may not always cover deep prompts.
         # -SkipPublisherCheck allows installation from publishers not explicitly trusted.
-        Log "Attempting to install NuGet provider by piping 'Y' to auto-answer prompt."
-        "Y" | Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -ForceBootstrap -Force -Scope CurrentUser -Confirm:$false -ErrorAction Stop -SkipPublisherCheck
+        Log "Attempting to install NuGet provider."
+        Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -ForceBootstrap -Force -Scope CurrentUser -ErrorAction Stop
         Log "NuGet provider installed successfully."
     } catch {
         # Log an error and exit if NuGet provider installation fails.
@@ -145,27 +146,6 @@ if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
 } else {
     Log "NuGet provider is already installed."
 }
-
-
-# ================== UPDATE CORE POWERSHELLGET MODULES ==================
-# Attempt to update the PowerShellGet and PackageManagement modules.
-# These modules are fundamental for package and module management and rely on NuGet.
-# Updating them ensures compatibility and access to latest features/fixes.
-Log "Attempting to update PowerShellGet and PackageManagement modules..."
-try {
-    # Update PowerShellGet module. Pipe 'Y' for auto-confirmation, -Force for overwrite, -AcceptLicense for EULA.
-    "Y" | Update-Module -Name PowerShellGet -Force -AcceptLicense -ErrorAction SilentlyContinue
-    Log "PowerShellGet module update attempted."
-
-    # Update PackageManagement module. Similar piping and parameters.
-    "Y" | Update-Module -Name PackageManagement -Force -AcceptLicense -ErrorAction SilentlyContinue
-    Log "PackageManagement module update attempted."
-
-} catch {
-    # Log a warning if updates fail but do not exit, as the script might still function.
-    Log "Failed to update PowerShellGet or PackageManagement modules: $_" -Level "WARN"
-}
-
 
 # ================== CREATE TEMPORARY MAX PERFORMANCE POWER PLAN ==================
 # Create and activate a temporary "Maximum Performance" power plan.
