@@ -110,7 +110,7 @@ if (-not $VerboseMode) {
 # use the Click-to-Run (C2R) technology. It locates the OfficeC2RClient.exe and
 # executes it with specific arguments to force an update.
 #
-Log "Starting Office update..."
+Log "Updating Microsoft Office..." "INFO"
 
 try {
     # Define the typical path to the Office Click-to-Run client executable.
@@ -118,7 +118,7 @@ try {
 
     # Check if the Office Click-to-Run client executable exists at the defined path.
     if (Test-Path $OfficeClient) {
-        Log "Office Click-to-Run client found. Launching update..."
+        Log "Office Click-to-Run client found. Launching update..." "INFO"
 
         # Start the Office update process.
         # -FilePath: Specifies the path to the executable.

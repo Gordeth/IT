@@ -69,19 +69,10 @@ function Log {
 # ensuring proper file locations for logging and script execution.
 #
 
-# Get the directory where the current script (`WU.ps1`) is located.
-$ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-
-# Construct the full path for the "Log" directory within the script's root.
-$LogDir = Join-Path $ScriptRoot "Log"
-
 # Check if the "Log" directory exists. If not, create it.
 if (-not (Test-Path $LogDir)) {
     New-Item -Path $LogDir -ItemType Directory | Out-Null # `Out-Null` suppresses output of the new directory object.
 }
-
-# Define the full path for the main log file (`WU.txt`) within the Log directory.
-$LogFile = Join-Path $LogDir "WU.txt"
 
 # Set the global verbosity mode for console output.
 # Set this to `$true` to see all INFO/WARN/DEBUG messages on the console.
@@ -89,7 +80,7 @@ $LogFile = Join-Path $LogDir "WU.txt"
 $VerboseMode = $true # Example: Set to $false for less console output
 
 # Log the initial message indicating the script has started, using the `Log` function.
-Log "WU.ps1 Script started."
+Log "WU Script started." "INFO"
 
 # Get the full path of the current script, which is needed for creating the startup shortcut.
 $ScriptPath = $MyInvocation.MyCommand.Path
@@ -106,32 +97,6 @@ $StartupShortcut = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\W
 #
 $OriginalPolicy = Get-ExecutionPolicy
 Log "Original Execution Policy: $OriginalPolicy"
-
-# ==================== Set Execution Policy ====================
-#
-# Temporarily set the execution policy for the *current process session* to `RemoteSigned`.
-# This is often necessary to allow the installation of modules downloaded from the internet
-# (e.g., PSWindowsUpdate from PSGallery). The `-Force` parameter bypasses confirmation prompts.
-# The policy will be restored to `$OriginalPolicy` at the end of the script.
-#
-Log "Setting execution policy to RemoteSigned for this session..."
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process -Force
-
-# ==================== Ensure NuGet Provider ====================
-#
-# The `Install-Module` cmdlet (used later for PSWindowsUpdate) relies on the NuGet provider.
-# This section checks if NuGet is installed and, if not, installs it.
-#
-Log "Checking for NuGet provider..."
-if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
-    Log "NuGet provider not found. Installing..."
-    # Install the NuGet package provider. `-MinimumVersion` ensures compatibility,
-    # and `-Force` prevents prompts.
-    Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
-    Log "NuGet provider installed successfully."
-} else {
-    Log "NuGet provider already installed."
-}
 
 # ==================== Ensure PSWindowsUpdate Module ====================
 #

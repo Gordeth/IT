@@ -213,7 +213,11 @@ function Get-Script {
     try {
         # Use Invoke-WebRequest to download the script.
         # Out-File saves it locally, UseBasicParsing improves performance.
-        Invoke-WebRequest -Uri $url -OutFile $scriptPath -UseBasicParsing | Out-Null
+        if ($VerboseMode) {
+            Invoke-WebRequest -Uri $url -OutFile $scriptPath -UseBasicParsing -Verbose
+        } else {
+            Invoke-WebRequest -Uri $url -OutFile $scriptPath -UseBasicParsing | Out-Null
+        }
         Log "$ScriptName downloaded successfully."
     } catch {
         # Log an error and exit if download fails.
@@ -237,7 +241,7 @@ function Invoke-Script {
             & $scriptPath -VerboseMode:$true -LogFile $LogFile
         } else {
             # In silent mode, redirect all output streams to null to prevent any console output.
-            & $scriptPath -VerboseMode:$false -LogFile $LogFile *>&1 | Out-Null
+            & $scriptPath -VerboseMode:$false -LogFile $LogFile *>> $LogFile # Appends all streams (including errors) to the main log
         }
         Log "$ScriptName executed successfully."
     } catch {
