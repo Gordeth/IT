@@ -4,7 +4,9 @@
 # It includes robust logging, internet connectivity checks, execution policy handling,
 # and a focus on silent execution for automation.
 # ==============================================================================
-
+param (
+    [switch]$VerboseMode = $false # Define VerboseMode as a script parameter
+)
 # ================== CONFIGURATION ==================
 # Define essential paths, file names, and settings for the script's operation.
 $BaseUrl = "https://raw.githubusercontent.com/Gordeth/IT/main" # Base URL for downloading external scripts
@@ -12,24 +14,6 @@ $ScriptDir = "$env:TEMP\ITScripts"                            # Local directory 
 $LogDir = "$ScriptDir\Log"                                    # Subdirectory specifically for log files
 $LogFile = "$LogDir\WUH.txt"                                  # Full path to the main log file
 $PowerPlanName = "TempMaxPerformance"                         # Name for the temporary maximum performance power plan
-
-# ================== CREATE DIRECTORIES ==================
-# Ensure the necessary temporary directories and log file exist before proceeding.
-# If they don't exist, create them. Output is suppressed with Out-Null for silent operation.
-if (-not (Test-Path $ScriptDir)) {
-    New-Item -ItemType Directory -Path $ScriptDir | Out-Null
-    # Log the creation of the script directory
-    # (Note: Cannot use Log function yet as it might not be defined if script is run first time)
-}
-if (-not (Test-Path $LogDir)) {
-    New-Item -ItemType Directory -Path $LogDir | Out-Null
-    # Log the creation of the log directory
-}
-# Create the log file if it doesn't exist and add an initial entry.
-# This ensures the Add-Content in the Log function doesn't fail on first use.
-if (-not (Test-Path $LogFile)) {
-    "[{0}] Log file created." -f (Get-Date) | Out-File $LogFile -Append
-}
 
 # ================== DEFINE LOG FUNCTION ==================
 # A custom logging function to write messages to the console (if verbose mode is on)
@@ -64,6 +48,24 @@ function Log {
         }
         Write-Host $logEntry -ForegroundColor $color # Output the log entry to the console
     }
+}
+
+# ================== CREATE DIRECTORIES ==================
+# Ensure the necessary temporary directories and log file exist before proceeding.
+# If they don't exist, create them. Output is suppressed with Out-Null for silent operation.
+if (-not (Test-Path $ScriptDir)) {
+    New-Item -ItemType Directory -Path $ScriptDir | Out-Null
+    # Log the creation of the script directory
+    # (Note: Cannot use Log function yet as it might not be defined if script is run first time)
+}
+if (-not (Test-Path $LogDir)) {
+    New-Item -ItemType Directory -Path $LogDir | Out-Null
+    # Log the creation of the log directory
+}
+# Create the log file if it doesn't exist and add an initial entry.
+# This ensures the Add-Content in the Log function doesn't fail on first use.
+if (-not (Test-Path $LogFile)) {
+    "[{0}] Log file created." -f (Get-Date) | Out-File $LogFile -Append
 }
 
 # ================== SAVE ORIGINAL EXECUTION POLICY ==================

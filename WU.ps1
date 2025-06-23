@@ -1,3 +1,7 @@
+param (
+    [switch]$VerboseMode = $false,
+    [string]$LogFile
+)
 # ==================== Define Log Function ====================
 #
 # Function: Log
