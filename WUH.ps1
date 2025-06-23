@@ -4,9 +4,7 @@
 # It includes robust logging, internet connectivity checks, execution policy handling,
 # and a focus on silent execution for automation.
 # ==============================================================================
-param (
-    [switch]$VerboseMode = $false # Define VerboseMode as a script parameter
-)
+
 # ================== CONFIGURATION ==================
 # Define essential paths, file names, and settings for the script's operation.
 $BaseUrl = "https://raw.githubusercontent.com/Gordeth/IT/main" # Base URL for downloading external scripts
@@ -15,6 +13,23 @@ $LogDir = "$ScriptDir\Log"                                    # Subdirectory spe
 $LogFile = "$LogDir\WUH.txt"                                  # Full path to the main log file
 $PowerPlanName = "TempMaxPerformance"                         # Name for the temporary maximum performance power plan
 
+# ================== CREATE DIRECTORIES ==================
+# Ensure the necessary temporary directories and log file exist before proceeding.
+# If they don't exist, create them. Output is suppressed with Out-Null for silent operation.
+if (-not (Test-Path $ScriptDir)) {
+    New-Item -ItemType Directory -Path $ScriptDir | Out-Null
+    Log "Creation of the script directory."
+        if (-not (Test-Path $LogDir)) {
+    New-Item -ItemType Directory -Path $LogDir | Out-Null
+    Log "Creation of the log directory"
+    }
+    # Create the log file if it doesn't exist and add an initial entry.
+    # This ensures the Add-Content in the Log function doesn't fail on first use.
+    if (-not (Test-Path $LogFile)) {
+    "[{0}] Log file created." -f (Get-Date) | Out-File $LogFile -Append
+    Log "Log file created at $LogFile"
+    }
+}
 # ================== DEFINE LOG FUNCTION ==================
 # A custom logging function to write messages to the console (if verbose mode is on)
 # and to a persistent log file.
@@ -49,24 +64,74 @@ function Log {
         Write-Host $logEntry -ForegroundColor $color # Output the log entry to the console
     }
 }
-
-# ================== CREATE DIRECTORIES ==================
-# Ensure the necessary temporary directories and log file exist before proceeding.
-# If they don't exist, create them. Output is suppressed with Out-Null for silent operation.
-if (-not (Test-Path $ScriptDir)) {
-    New-Item -ItemType Directory -Path $ScriptDir | Out-Null
-    Log "Creation of the script directory."
-        if (-not (Test-Path $LogDir)) {
-    New-Item -ItemType Directory -Path $LogDir | Out-Null
-    Log "Creation of the log directory"
+# ================== FUNCTION: CHECK IF OFFICE IS INSTALLED ==================
+# Helper function to confirm if Microsoft Office is installed on the system.
+# This is used to conditionally download/run Office-related update scripts.
+function Confirm-OfficeInstalled {
+    # Define common installation paths for Microsoft Office (32-bit and 64-bit).
+    $officePaths = @(
+        "${env:ProgramFiles(x86)}\Microsoft Office", # Common 32-bit path on 64-bit OS
+        "${env:ProgramFiles}\Microsoft Office",       # Common 64-bit path
+        "${env:ProgramW6432}\Microsoft Office"        # Alternative 64-bit path
+    )
+    # Iterate through the paths to check for existence.
+    foreach ($path in $officePaths) {
+        if (Test-Path $path) {
+            return $true # Return true if any Office path is found
+        }
     }
-    # Create the log file if it doesn't exist and add an initial entry.
-    # This ensures the Add-Content in the Log function doesn't fail on first use.
-    if (-not (Test-Path $LogFile)) {
-    "[{0}] Log file created." -f (Get-Date) | Out-File $LogFile -Append
-    Log "Log file created at $LogFile"
+    return $false # Return false if no Office paths are found
+}
+# ================== DOWNLOAD SCRIPT FUNCTION ==================
+# Generic function to download a PowerShell script from the defined BaseUrl.
+function Get-Script {
+    param (
+        [string]$ScriptName # The name of the script file to download
+    )
+    $scriptPath = Join-Path $ScriptDir $ScriptName # Construct the full local path for the script
+    if (Test-Path $scriptPath) {
+        # If the script already exists locally, delete it to ensure a fresh download.
+        Log "Deleting existing $ScriptName for fresh download."
+        Remove-Item -Path $scriptPath -Force
+    }
+    $url = "$BaseUrl/$ScriptName" # Construct the full URL for the script
+    Log "Downloading $ScriptName from $url..."
+    try {
+        # Use Invoke-WebRequest to download the script.
+        # Out-File saves it locally, UseBasicParsing improves performance.
+        if ($VerboseMode) {
+            Invoke-WebRequest -Uri $url -OutFile $scriptPath -UseBasicParsing -Verbose
+        } else {
+            Invoke-WebRequest -Uri $url -OutFile $scriptPath -UseBasicParsing | Out-Null
+        }
+        Log "$ScriptName downloaded successfully."
+    } catch {
+        # Log an error and exit if download fails.
+        Log "Failed to download ${ScriptName}: $_" -Level "ERROR"
+        Exit 1
     }
 }
+# ================== INVOKE SCRIPT FUNCTION ==================
+# Generic function to invoke a downloaded PowerShell script.
+function Invoke-Script {
+    param (
+        [string]$ScriptName # The name of the script file to run
+    )
+    $scriptPath = Join-Path $ScriptDir $ScriptName # Construct the full local path for the script
+    Log "Running $ScriptName..."
+    try {
+        # Execute the script using the call operator (&).
+        # Pass VerboseMode and LogFile parameters to the child script for consistent logging/output.
+        & $scriptPath -VerboseMode:$VerboseMode -LogFile $LogFile
+        Log "$ScriptName executed successfully." "INFO"
+    } catch {
+        Log "Error during execution of ${ScriptName}: $_" "ERROR"
+        Exit 1 # Still exit on critical error from child script
+        Exit 1
+    }
+}
+# Log the initial message indicating the script has started, using the `Log` function.
+Log "WUH Script started."
 # ================== SAVE ORIGINAL EXECUTION POLICY ==================
 # Store the current PowerShell execution policy to restore it later.
 # This is crucial for maintaining system security posture after script execution.
@@ -74,6 +139,10 @@ $OriginalPolicy = Get-ExecutionPolicy
 
 # ================== ASK FOR MODE ==================
 # Prompt the user to select between silent (logs only) or verbose (console and logs) mode.
+# Define $VerboseMode at the script scope, allowing it to be modified by user input.
+param (
+    [switch]$VerboseMode = $false # Default to false, can be set to true by user input
+)
 Write-Host ""
 Write-Host "Select Mode:"
 Write-Host "[S] Silent (logs only)"
@@ -175,75 +244,6 @@ try {
     # Log an error if power plan operations fail.
     Log "Failed to create or set temporary power plan: $_" -Level "ERROR"
 }
-
-# ================== FUNCTION: CHECK IF OFFICE IS INSTALLED ==================
-# Helper function to confirm if Microsoft Office is installed on the system.
-# This is used to conditionally download/run Office-related update scripts.
-function Confirm-OfficeInstalled {
-    # Define common installation paths for Microsoft Office (32-bit and 64-bit).
-    $officePaths = @(
-        "${env:ProgramFiles(x86)}\Microsoft Office", # Common 32-bit path on 64-bit OS
-        "${env:ProgramFiles}\Microsoft Office",       # Common 64-bit path
-        "${env:ProgramW6432}\Microsoft Office"        # Alternative 64-bit path
-    )
-    # Iterate through the paths to check for existence.
-    foreach ($path in $officePaths) {
-        if (Test-Path $path) {
-            return $true # Return true if any Office path is found
-        }
-    }
-    return $false # Return false if no Office paths are found
-}
-
-# ================== DOWNLOAD SCRIPT FUNCTION ==================
-# Generic function to download a PowerShell script from the defined BaseUrl.
-function Get-Script {
-    param (
-        [string]$ScriptName # The name of the script file to download
-    )
-    $scriptPath = Join-Path $ScriptDir $ScriptName # Construct the full local path for the script
-    if (Test-Path $scriptPath) {
-        # If the script already exists locally, delete it to ensure a fresh download.
-        Log "Deleting existing $ScriptName for fresh download."
-        Remove-Item -Path $scriptPath -Force
-    }
-    $url = "$BaseUrl/$ScriptName" # Construct the full URL for the script
-    Log "Downloading $ScriptName from $url..."
-    try {
-        # Use Invoke-WebRequest to download the script.
-        # Out-File saves it locally, UseBasicParsing improves performance.
-        if ($VerboseMode) {
-            Invoke-WebRequest -Uri $url -OutFile $scriptPath -UseBasicParsing -Verbose
-        } else {
-            Invoke-WebRequest -Uri $url -OutFile $scriptPath -UseBasicParsing | Out-Null
-        }
-        Log "$ScriptName downloaded successfully."
-    } catch {
-        # Log an error and exit if download fails.
-        Log "Failed to download ${ScriptName}: $_" -Level "ERROR"
-        Exit 1
-    }
-}
-
-# ================== INVOKE SCRIPT FUNCTION ==================
-# Generic function to invoke a downloaded PowerShell script.
-function Invoke-Script {
-    param (
-        [string]$ScriptName # The name of the script file to run
-    )
-    $scriptPath = Join-Path $ScriptDir $ScriptName # Construct the full local path for the script
-    Log "Running $ScriptName..."
-    try {
-        # Execute the script using the call operator (&).
-        # Pass VerboseMode and LogFile parameters to the child script for consistent logging/output.
-        & $scriptPath -VerboseMode:$VerboseMode -LogFile $LogFile
-        Log "$ScriptName executed successfully." "INFO"
-    } catch {
-        Log "Error during execution of ${ScriptName}: $_" "ERROR"
-        Exit 1 # Still exit on critical error from child script
-        Exit 1
-    }
-}
 # ================== TASK SELECTION ==================
 # Execute specific tasks based on the user's initial selection.
 switch ($task) {
@@ -278,7 +278,6 @@ switch ($task) {
         Exit 1 # Terminate script due to invalid input
     }
 }
-
 # ================== RESET POWER PLAN TO BALANCED ==================
 # Restore the system's power plan to the default 'Balanced' scheme.
 # This reverts changes made earlier for temporary performance boost.
@@ -291,7 +290,6 @@ try {
 } catch {
     Log "Failed to reset power plan to Balanced: $_" -Level "ERROR"
 }
-
 # ================== RESTORE PSGALLERY TRUST POLICY ==================
 # This block attempts to reset the PSGallery InstallationPolicy back to Untrusted.
 # It ensures the system's security posture is restored after the script's operations,
@@ -311,7 +309,6 @@ try {
     # Log a warning if resetting the policy fails but do not exit, as it might be a minor issue.
     Log "Failed to reset PSGallery InstallationPolicy: $_" -Level "WARN"
 }
-
 # ================== RESTORE EXECUTION POLICY ==================
 # Revert the PowerShell execution policy for the current process to its original state.
 # This is a critical security measure to return the system to its pre-script security level.
@@ -332,7 +329,6 @@ try {
     # Log an error if restoring the execution policy fails.
     Log "Failed to restore Execution Policy: $_" -Level "ERROR"
 }
-
 # ================== SCRIPT COMPLETION ===================
 # Final log entry indicating successful script completion.
 Log "Script completed successfully."
