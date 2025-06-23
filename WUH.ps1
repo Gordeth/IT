@@ -4,7 +4,9 @@
 # It includes robust logging, internet connectivity checks, execution policy handling,
 # and a focus on silent execution for automation.
 # ==============================================================================
-
+param (
+    [switch]$VerboseMode = $false # Default to false, can be set to true by user input
+)
 # ================== CONFIGURATION ==================
 # Define essential paths, file names, and settings for the script's operation.
 $BaseUrl = "https://raw.githubusercontent.com/Gordeth/IT/main" # Base URL for downloading external scripts
@@ -140,9 +142,6 @@ $OriginalPolicy = Get-ExecutionPolicy
 # ================== ASK FOR MODE ==================
 # Prompt the user to select between silent (logs only) or verbose (console and logs) mode.
 # Define $VerboseMode at the script scope, allowing it to be modified by user input.
-param (
-    [switch]$VerboseMode = $false # Default to false, can be set to true by user input
-)
 Write-Host ""
 Write-Host "Select Mode:"
 Write-Host "[S] Silent (logs only)"
