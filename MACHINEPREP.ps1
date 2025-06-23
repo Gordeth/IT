@@ -17,25 +17,12 @@
 # Dependencies:
 #   - winget (Windows Package Manager) must be installed and configured.
 #   - Internet connectivity for downloading files and installing packages.
-#   - Assumes WU.ps1 and WGET.ps1 are available at a specified `$ScriptDir` and `$BaseUrl`.
+#   - Optional: Chocolatey (will be installed by this script if needed)
 #
-# Author: Your Name/Organization (Optional)
-# Date: June 23, 2025 (Adjust as needed)
-# Version: 1.0 (Optional)
-
 param (
-    # Parameter: VerboseMode
-    # Type: [switch]
-    # Description: Controls the verbosity of console output.
-    #              When present (`-VerboseMode`), all log levels (INFO, WARN, ERROR, DEBUG)
-    #              will be displayed on the console. If omitted, only ERROR messages appear.
+    # Parameter passed from the orchestrator script (WUH.ps1) to control console verbosity.
     [switch]$VerboseMode = $false,
-    
-    # Parameter: LogFile
-    # Type: [string]
-    # Description: Specifies the absolute path to the log file. All script activities,
-    #              successes, and failures will be appended to this file.
-    #              This parameter is required for the logging mechanism to function.
+    # Parameter passed from the orchestrator script (WUH.ps1) for centralized logging.
     [string]$LogFile
 )
 
@@ -98,13 +85,97 @@ function Log {
         Write-Host $logEntry -ForegroundColor $color
     }
 }
+# ==================== Helper Function: Install Chocolatey ====================
+#
+# Function: Install-Chocolatey
+# Description: Checks if Chocolatey is installed and, if not, installs it.
+#              This function is critical for installing software packages not
+#              available via Winget.
+#
+# Prerequisites:
+#   - Internet connectivity.
+#   - PowerShell Execution Policy set to Bypass (handled by WUH.ps1 or temporarily here).
+#
+# Returns:
+#   - $true if Chocolatey is successfully installed or already present.
+#   - $false if Chocolatey installation fails.
+#
+function Install-Chocolatey {
+    Log "Checking for Chocolatey installation..." "INFO"
+    if (-not (Get-Command choco.exe -ErrorAction SilentlyContinue)) {
+        Log "Chocolatey not found. Attempting to install Chocolatey..." "INFO"
+        try {
+            # Temporarily set execution policy to Bypass for the current process
+            # to allow the Chocolatey installation script to run.
+            # This is safer than modifying global policy.
+            $originalProcessPolicy = Get-ExecutionPolicy -Scope Process
+            Set-ExecutionPolicy Bypass -Scope Process -Force
 
-# Assume $ScriptDir and $BaseUrl are defined globally or passed somehow
-# For this script, these variables are not explicitly defined in the provided snippet.
-# In a full script, they would typically be defined near the top or passed as parameters.
-# Example:
-# $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-# $BaseUrl = "https://your-repo.com/scripts" # Example URL where WU.ps1/WGET.ps1 might be hosted
+            # Ensure TLS1.2 is enabled for the download.
+            [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor [System.Net.SecurityProtocolType]::Tls12
+
+            # Download and execute the Chocolatey installation script.
+            Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
+
+            # Check if choco.exe is now available to confirm installation.
+            if (Get-Command choco.exe -ErrorAction SilentlyContinue) {
+                Log "Chocolatey installed successfully." "INFO"
+                return $true
+            } else {
+                Log "Chocolatey installation completed, but choco.exe not found. Something went wrong." "ERROR"
+                return $false
+            }
+        } catch {
+            Log "Failed to install Chocolatey: $_" "ERROR"
+            return $false
+        } finally {
+            # Restore the execution policy for the current process.
+            Set-ExecutionPolicy $originalProcessPolicy -Scope Process -Force
+        }
+    } else {
+        Log "Chocolatey is already installed." "INFO"
+        return $true
+    }
+}
+
+# ==================== Helper Function: Uninstall Chocolatey ====================
+#
+# Function: Uninstall-Chocolatey
+# Description: Uninstalls Chocolatey from the system. This is intended for cleanup
+#              if Chocolatey was only needed temporarily for machine preparation.
+#
+# Returns:
+#   - $true if Chocolatey is successfully uninstalled or not found.
+#   - $false if Chocolatey uninstallation fails.
+#
+function Uninstall-Chocolatey {
+    Log "Checking for Chocolatey to uninstall..." "INFO"
+    if (Get-Command choco.exe -ErrorAction SilentlyContinue) {
+        Log "Chocolatey found. Attempting to uninstall Chocolatey..." "INFO"
+        try {
+            # Uninstall Chocolatey using its own uninstaller.
+            # -y: Automatically answers yes to prompts.
+            choco uninstall chocolatey -y
+            
+            # Check if the uninstallation was successful by verifying choco.exe is gone.
+            if (-not (Get-Command choco.exe -ErrorAction SilentlyContinue)) {
+                Log "Chocolatey uninstalled successfully." "INFO"
+                return $true
+            } else {
+                Log "Chocolatey uninstallation completed, but choco.exe still present. Check logs." "WARN"
+                return $false
+            }
+        } catch {
+            Log "Failed to uninstall Chocolatey: $_" "ERROR"
+            return $false
+        }
+    } else {
+        Log "Chocolatey is not installed. No uninstallation needed." "INFO"
+        return $true
+    }
+}
+# ==================== Begin Script Execution ====================
+Log "Starting MACHINEPREP.ps1 script." "INFO"
 
 # ================== 1. Check if TeamViewer is installed ==================
 #
@@ -333,7 +404,31 @@ try {
 
     # Use a switch statement with wildcard matching to install the appropriate disk management tool.
     switch -Wildcard ($diskBrand) {
-        "*Samsung*" { winget install --id=Samsung.SamsungMagician -e --silent --accept-package-agreements --accept-source-agreements; Log "Samsung Magician installed." }
+        "*Samsung*" {
+            Log "Detected Samsung disk. Attempting to install Samsung Magician." "INFO"
+            # Attempt to install Chocolatey first.
+            if (Install-Chocolatey) {
+                # If Chocolatey is installed, proceed with Samsung Magician via choco.
+                try {
+                    Log "Installing Samsung Magician via Chocolatey..." "INFO"
+                    # -y: automatically answers yes to all prompts.
+                    choco install samsung-magician -y
+
+                    # Check Chocolatey's exit code for installation status.
+                    if ($LASTEXITCODE -eq 0) {
+                        Log "Samsung Magician installed successfully via Chocolatey." "INFO"
+                    } elseif ($LASTEXITCODE -eq 1) {
+                        Log "Samsung Magician installation via Chocolatey completed with a known issue (e.g., already installed, reboot needed). Check Chocolatey logs." "WARN"
+                    } else {
+                        Log "Samsung Magician installation via Chocolatey failed with exit code $LASTEXITCODE. Review Chocolatey logs." "ERROR"
+                    }
+                } catch {
+                    Log "Error during Chocolatey installation of Samsung Magician: $_" "ERROR"
+                }
+            } else {
+                Log "Chocolatey installation failed, skipping Samsung Magician." "ERROR"
+            }
+        }
         "*Kingston*" { winget install --id=Kingston.SSDManager -e --silent --accept-package-agreements --accept-source-agreements; Log "Kingston SSD Manager installed." }
         "*Crucial*" { winget install --id=Micron.CrucialStorageExecutive -e --silent --accept-package-agreements --accept-source-agreements; Log "Crucial Storage Executive installed." }
         "*WesternDigital*" { winget install --id=WesternDigital.WDSSDDashboard -e --silent --accept-package-agreements --accept-source-agreements; Log "WD SSD Dashboard installed." }
@@ -427,7 +522,13 @@ try {
     # Log any errors that prevent setting desktop icon visibility.
     Log "Failed to define desktop items: $_" -Level "ERROR"
 }
-
+# ==================== Final Cleanup ====================
+# Uninstall Chocolatey if it was installed by this script and is no longer needed.
+if (Uninstall-Chocolatey) {
+    Log "Chocolatey uninstallation completed."
+} else {
+    Log "Chocolatey uninstallation failed or skipped." "WARN"
+}
 # ================== End of script ==================
 #
 # This final log entry marks the successful completion of the MACHINEPREP script's execution.
