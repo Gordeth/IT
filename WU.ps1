@@ -69,10 +69,6 @@ function Log {
 # ensuring proper file locations for logging and script execution.
 #
 
-# Check if the "Log" directory exists. If not, create it.
-if (-not (Test-Path $LogDir)) {
-    New-Item -Path $LogDir -ItemType Directory | Out-Null # `Out-Null` suppresses output of the new directory object.
-}
 
 # Set the global verbosity mode for console output.
 # Set this to `$true` to see all INFO/WARN/DEBUG messages on the console.

@@ -55,19 +55,18 @@ function Log {
 # If they don't exist, create them. Output is suppressed with Out-Null for silent operation.
 if (-not (Test-Path $ScriptDir)) {
     New-Item -ItemType Directory -Path $ScriptDir | Out-Null
-    # Log the creation of the script directory
-    # (Note: Cannot use Log function yet as it might not be defined if script is run first time)
-}
-if (-not (Test-Path $LogDir)) {
+    Log "Creation of the script directory."
+        if (-not (Test-Path $LogDir)) {
     New-Item -ItemType Directory -Path $LogDir | Out-Null
-    # Log the creation of the log directory
-}
-# Create the log file if it doesn't exist and add an initial entry.
-# This ensures the Add-Content in the Log function doesn't fail on first use.
-if (-not (Test-Path $LogFile)) {
+    Log "Creation of the log directory"
+    }
+    # Create the log file if it doesn't exist and add an initial entry.
+    # This ensures the Add-Content in the Log function doesn't fail on first use.
+    if (-not (Test-Path $LogFile)) {
     "[{0}] Log file created." -f (Get-Date) | Out-File $LogFile -Append
+    Log "Log file created at $LogFile"
+    }
 }
-
 # ================== SAVE ORIGINAL EXECUTION POLICY ==================
 # Store the current PowerShell execution policy to restore it later.
 # This is crucial for maintaining system security posture after script execution.
@@ -226,7 +225,7 @@ function Get-Script {
     }
 }
 
-# ================== RUN SCRIPT FUNCTION ==================
+# ================== INVOKE SCRIPT FUNCTION ==================
 # Generic function to invoke a downloaded PowerShell script.
 function Invoke-Script {
     param (
@@ -237,16 +236,11 @@ function Invoke-Script {
     try {
         # Execute the script using the call operator (&).
         # Pass VerboseMode and LogFile parameters to the child script for consistent logging/output.
-        if ($VerboseMode) {
-            & $scriptPath -VerboseMode:$true -LogFile $LogFile
-        } else {
-            # In silent mode, redirect all output streams to null to prevent any console output.
-            & $scriptPath -VerboseMode:$false -LogFile $LogFile *>> $LogFile # Appends all streams (including errors) to the main log
-        }
-        Log "$ScriptName executed successfully."
+        & $scriptPath -VerboseMode:$VerboseMode -LogFile $LogFile
+        Log "$ScriptName executed successfully." "INFO"
     } catch {
-        # Log an error if the child script execution fails.
-        Log "Error during execution of ${ScriptName}: $_" -Level "ERROR"
+        Log "Error during execution of ${ScriptName}: $_" "ERROR"
+        Exit 1 # Still exit on critical error from child script
         Exit 1
     }
 }
