@@ -85,15 +85,6 @@ $ScriptPath = $MyInvocation.MyCommand.Path
 # can re-run automatically after a system reboot if updates require it.
 $StartupShortcut = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\WU.lnk"
 
-# ==================== Save Original Execution Policy ====================
-#
-# Before making any changes, retrieve and store the current PowerShell execution policy.
-# This allows the script to restore the original policy upon completion,
-# maintaining system security settings.
-#
-$OriginalPolicy = Get-ExecutionPolicy
-Log "Original Execution Policy: $OriginalPolicy"
-
 # ==================== Ensure PSWindowsUpdate Module ====================
 #
 # This section verifies the presence of the `PSWindowsUpdate` module, which is crucial
@@ -234,10 +225,6 @@ if ($UpdateList) {
 # This final section performs necessary cleanup, like restoring the execution policy,
 # and logs the script's completion.
 #
-
-# Restore the PowerShell execution policy to its original setting that was saved at the start.
-Log "Restoring original execution policy: $OriginalPolicy"
-Set-ExecutionPolicy -ExecutionPolicy $OriginalPolicy -Scope Process -Force
 
 # Log a final message indicating the script has finished its execution.
 Log "Script execution completed."
