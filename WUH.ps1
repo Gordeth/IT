@@ -15,6 +15,24 @@ $LogDir = "$ScriptDir\Log"                                    # Subdirectory spe
 $LogFile = "$LogDir\WUH.txt"                                  # Full path to the main log file
 $PowerPlanName = "TempMaxPerformance"                         # Name for the temporary maximum performance power plan
 
+# ================== CREATE DIRECTORIES ==================
+# Ensure the necessary temporary directories and log file exist before proceeding.
+# If they don't exist, create them. Output is suppressed with Out-Null for silent operation.
+if (-not (Test-Path $ScriptDir)) {
+    New-Item -ItemType Directory -Path $ScriptDir | Out-Null
+    Log "Creation of the script directory."
+        if (-not (Test-Path $LogDir)) {
+    New-Item -ItemType Directory -Path $LogDir | Out-Null
+    Log "Creation of the log directory"
+    }
+    # Create the log file if it doesn't exist and add an initial entry.
+    # This ensures the Add-Content in the Log function doesn't fail on first use.
+    if (-not (Test-Path $LogFile)) {
+    "[{0}] Log file created." -f (Get-Date) | Out-File $LogFile -Append
+    Log "Log file created at $LogFile"
+    }
+}
+
 if (-not (Test-Path $LogFile)) {
     "[{0}] WUH.ps1 log file created." -f (Get-Date -Format "dd-MM-yyyy HH:mm:ss") | Out-File $LogFile
 }
@@ -77,23 +95,6 @@ if (-not (Test-Path $LogFile)) {
     Log "Log file already exists. Appending to it." "INFO"
 }
 
-# ================== CREATE DIRECTORIES ==================
-# Ensure the necessary temporary directories and log file exist before proceeding.
-# If they don't exist, create them. Output is suppressed with Out-Null for silent operation.
-if (-not (Test-Path $ScriptDir)) {
-    New-Item -ItemType Directory -Path $ScriptDir | Out-Null
-    Log "Creation of the script directory."
-        if (-not (Test-Path $LogDir)) {
-    New-Item -ItemType Directory -Path $LogDir | Out-Null
-    Log "Creation of the log directory"
-    }
-    # Create the log file if it doesn't exist and add an initial entry.
-    # This ensures the Add-Content in the Log function doesn't fail on first use.
-    if (-not (Test-Path $LogFile)) {
-    "[{0}] Log file created." -f (Get-Date) | Out-File $LogFile -Append
-    Log "Log file created at $LogFile"
-    }
-}
 
 # ================== FUNCTION: CHECK IF OFFICE IS INSTALLED ==================
 # Helper function to confirm if Microsoft Office is installed on the system.
