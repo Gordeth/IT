@@ -14,6 +14,11 @@ $ScriptDir = "$env:TEMP\ITScripts"                            # Local directory 
 $LogDir = "$ScriptDir\Log"                                    # Subdirectory specifically for log files
 $LogFile = "$LogDir\WUH.txt"                                  # Full path to the main log file
 $PowerPlanName = "TempMaxPerformance"                         # Name for the temporary maximum performance power plan
+
+if (-not (Test-Path $LogFile)) {
+    "[{0}] WUH.ps1 log file created." -f (Get-Date -Format "dd-MM-yyyy HH:mm:ss") | Out-File $LogFile
+}
+
 # ================== DEFINE LOG FUNCTION ==================
 # A custom logging function to write messages to the console (if verbose mode is on)
 # and to a persistent log file.
@@ -49,13 +54,18 @@ function Log {
     }
 }
 
-Log "Checking and creating log directory: $LogDir" "INFO"
+# Ensure the script and log directories exist before any logging
+if (-not (Test-Path $ScriptDir)) {
+    New-Item -ItemType Directory -Path $ScriptDir -Force | Out-Null
+}
 if (-not (Test-Path $LogDir)) {
     New-Item -ItemType Directory -Path $LogDir -Force | Out-Null
-    Log "Log directory created." "INFO"
-} else {
-    Log "Log directory already exists." "INFO"
 }
+
+# Now safe to log
+Log "Script directory ensured: $ScriptDir" "INFO"
+Log "Log directory ensured: $LogDir" "INFO"
+
 
 # Create the initial log file entry using Out-File directly,
 # as the Log function itself needs a valid log file path.
