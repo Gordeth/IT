@@ -150,6 +150,8 @@ function Install-Chocolatey {
 #
 function Uninstall-Chocolatey {
     Log "Checking for Chocolatey to uninstall..." "INFO"
+    $chocoInstallPath = "$env:ProgramData\chocolatey" # Default Chocolatey installation path
+
     if (Get-Command choco.exe -ErrorAction SilentlyContinue) {
         Log "Chocolatey found. Attempting to uninstall Chocolatey..." "INFO"
         try {
@@ -160,6 +162,11 @@ function Uninstall-Chocolatey {
             # Check if the uninstallation was successful by verifying choco.exe is gone.
             if (-not (Get-Command choco.exe -ErrorAction SilentlyContinue)) {
                 Log "Chocolatey uninstalled successfully." "INFO"
+                # Explicitly delete the Chocolatey installation folder if it still exists after choco uninstall
+                if (Test-Path $chocoInstallPath) {
+                    Log "Chocolatey executable removed, but folder still exists. Deleting folder: $chocoInstallPath" "INFO"
+                    Remove-Item -Path $chocoInstallPath -Recurse -Force -ErrorAction SilentlyContinue
+                }
                 return $true
             } else {
                 Log "Chocolatey uninstallation completed, but choco.exe still present. Check logs." "WARN"
@@ -170,8 +177,22 @@ function Uninstall-Chocolatey {
             return $false
         }
     } else {
-        Log "Chocolatey is not installed. No uninstallation needed." "INFO"
-        return $true
+        Log "Chocolatey is not installed. No uninstallation needed for the package." "INFO"
+        # If choco.exe is not found, check if the folder still exists and delete it.
+        if (Test-Path $chocoInstallPath) {
+            Log "Chocolatey is not installed, but its folder exists. Attempting to delete folder: $chocoInstallPath" "INFO"
+            try {
+                Remove-Item -Path $chocoInstallPath -Recurse -Force -ErrorAction Stop
+                Log "Chocolatey installation folder deleted successfully." "INFO"
+                return $true
+            } catch {
+                Log "Failed to delete Chocolatey installation folder: $_" "ERROR"
+                return $false
+            }
+        } else {
+            Log "Chocolatey installation folder not found. No deletion needed." "INFO"
+            return $true
+        }
     }
 }
 # ==================== Begin Script Execution ====================
@@ -406,27 +427,32 @@ try {
     switch -Wildcard ($diskBrand) {
         "*Samsung*" {
             Log "Detected Samsung disk. Attempting to install Samsung Magician." "INFO"
-            # Attempt to install Chocolatey first.
-            if (Install-Chocolatey) {
-                # If Chocolatey is installed, proceed with Samsung Magician via choco.
-                try {
-                    Log "Installing Samsung Magician via Chocolatey..." "INFO"
-                    # -y: automatically answers yes to all prompts.
-                    choco install samsung-magician -y
-
-                    # Check Chocolatey's exit code for installation status.
-                    if ($LASTEXITCODE -eq 0) {
-                        Log "Samsung Magician installed successfully via Chocolatey." "INFO"
-                    } elseif ($LASTEXITCODE -eq 1) {
-                        Log "Samsung Magician installation via Chocolatey completed with a known issue (e.g., already installed, reboot needed). Check Chocolatey logs." "WARN"
-                    } else {
-                        Log "Samsung Magician installation via Chocolatey failed with exit code $LASTEXITCODE. Review Chocolatey logs." "ERROR"
-                    }
-                } catch {
-                    Log "Error during Chocolatey installation of Samsung Magician: $_" "ERROR"
-                }
+            # Check for specific unsupported disk model
+            if ($disk.Model -eq "MZALQ256HAJD-000L2") {
+                Log "Detected Samsung disk model MZALQ256HAJD-000L2 which is not supported by Samsung Magician. Skipping installation." "INFO"
             } else {
-                Log "Chocolatey installation failed, skipping Samsung Magician." "ERROR"
+                # Attempt to install Chocolatey first.
+                if (Install-Chocolatey) {
+                    # If Chocolatey is installed, proceed with Samsung Magician via choco.
+                    try {
+                        Log "Installing Samsung Magician via Chocolatey..." "INFO"
+                        # -y: automatically answers yes to all prompts.
+                        choco install samsung-magician -y
+
+                        # Check Chocolatey's exit code for installation status.
+                        if ($LASTEXITCODE -eq 0) {
+                            Log "Samsung Magician installed successfully via Chocolatey." "INFO"
+                        } elseif ($LASTEXITCODE -eq 1) {
+                            Log "Samsung Magician installation via Chocolatey completed with a known issue (e.g., already installed, reboot needed). Check Chocolatey logs." "WARN"
+                        } else {
+                            Log "Samsung Magician installation via Chocolatey failed with exit code $LASTEXITCODE. Review Chocolatey logs." "ERROR"
+                        }
+                    } catch {
+                        Log "Error during Chocolatey installation of Samsung Magician: $_" "ERROR"
+                    }
+                } else {
+                    Log "Chocolatey installation failed, skipping Samsung Magician." "ERROR"
+                }
             }
         }
         "*Kingston*" { winget install --id=Kingston.SSDManager -e --silent --accept-package-agreements --accept-source-agreements; Log "Kingston SSD Manager installed." }
