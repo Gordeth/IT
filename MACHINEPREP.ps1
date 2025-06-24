@@ -437,7 +437,7 @@ try {
                     try {
                         Log "Installing Samsung Magician via Chocolatey..." "INFO"
                         # -y: automatically answers yes to all prompts.
-                        choco install samsung-magician -y
+                        choco install samsung-magician --force -y
 
                         # Check Chocolatey's exit code for installation status.
                         if ($LASTEXITCODE -eq 0) {
