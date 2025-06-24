@@ -11,8 +11,8 @@ param (
 # Define essential paths, file names, and settings for the script's operation.
 $BaseUrl = "https://raw.githubusercontent.com/Gordeth/IT/main" # Base URL for downloading external scripts
 $ScriptDir = "$env:TEMP\ITScripts"                            # Local directory to store temporary scripts and logs
-$LogDir = "$ScriptDir\Log"                                    # Subdirectory specifically for log files
-$LogFile = "$LogDir\WUH.txt"                                  # Full path to the main log file
+$LogDir = Join-Path -Path $ScriptDir -ChildPath "Log"         # Subdirectory specifically for log files
+$LogFile = Join-Path -Path $LogDir -ChildPath "WUH.txt"       # Full path to the main log file
 $PowerPlanName = "TempMaxPerformance"                         # Name for the temporary maximum performance power plan
 
 # ================== CREATE DIRECTORIES ==================
@@ -20,23 +20,13 @@ $PowerPlanName = "TempMaxPerformance"                         # Name for the tem
 # If they don't exist, create them. Output is suppressed with Out-Null for silent operation.
 if (-not (Test-Path $ScriptDir)) {
     New-Item -ItemType Directory -Path $ScriptDir | Out-Null
-    Log "Creation of the script directory."
-        if (-not (Test-Path $LogDir)) {
+    if (-not (Test-Path $LogDir)) {
     New-Item -ItemType Directory -Path $LogDir | Out-Null
-    Log "Creation of the log directory"
     }
-    # Create the log file if it doesn't exist and add an initial entry.
-    # This ensures the Add-Content in the Log function doesn't fail on first use.
     if (-not (Test-Path $LogFile)) {
-    "[{0}] Log file created." -f (Get-Date) | Out-File $LogFile -Append
-    Log "Log file created at $LogFile"
+    "[{0}] WUH.ps1 log file created." -f (Get-Date -Format "dd-MM-yyyy HH:mm:ss") | Out-File $LogFile
     }
 }
-
-if (-not (Test-Path $LogFile)) {
-    "[{0}] WUH.ps1 log file created." -f (Get-Date -Format "dd-MM-yyyy HH:mm:ss") | Out-File $LogFile
-}
-
 # ================== DEFINE LOG FUNCTION ==================
 # A custom logging function to write messages to the console (if verbose mode is on)
 # and to a persistent log file.
@@ -79,8 +69,6 @@ if (-not (Test-Path $ScriptDir)) {
 if (-not (Test-Path $LogDir)) {
     New-Item -ItemType Directory -Path $LogDir -Force | Out-Null
 }
-
-# Now safe to log
 Log "Script directory ensured: $ScriptDir" "INFO"
 Log "Log directory ensured: $LogDir" "INFO"
 
@@ -159,7 +147,6 @@ function Invoke-Script {
     } catch {
         Log "Error during execution of ${ScriptName}: $_" "ERROR"
         Exit 1 # Still exit on critical error from child script
-        Exit 1
     }
 }
 # Log the initial message indicating the script has started, using the `Log` function.
@@ -263,6 +250,10 @@ try {
     } else {
         # Duplicate the "High performance" plan to create a new one.
         $guid = (powercfg -duplicatescheme $baseScheme).Trim()
+        if (-not $guid) {
+            Log "Failed to duplicate power plan." -Level "ERROR"
+            return
+        }
         # Rename the duplicated plan to the specified temporary name.
         powercfg -changename $guid $PowerPlanName "Temporary Maximum Performance"
         # Set the newly created plan as the active power scheme.
