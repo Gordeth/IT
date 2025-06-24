@@ -155,38 +155,76 @@ function Uninstall-Chocolatey {
     if (Get-Command choco.exe -ErrorAction SilentlyContinue) {
         Log "Chocolatey found. Attempting to uninstall Chocolatey..." "INFO"
         try {
-            # Uninstall Chocolatey using its own uninstaller.
-            # -y: Automatically answers yes to prompts.
+            # Attempt to uninstall Chocolatey package
             choco uninstall chocolatey -y
             
-            # Check if the uninstallation was successful by verifying choco.exe is gone.
+            # Perform additional cleanup for Chocolatey-related directories and environment variables
+            Log "Performing additional cleanup for Chocolatey directories and environment variables." "INFO"
+
+            # Delete ChocolateyBinRoot if it exists and unset its environment variable
+            if ($env:ChocolateyBinRoot -ne '' -and $env:ChocolateyBinRoot -ne $null -and (Test-Path "$env:ChocolateyBinRoot")) {
+                Log "Deleting ChocolateyBinRoot: $($env:ChocolateyBinRoot)" "INFO"
+                Remove-Item -Recurse -Force "$env:ChocolateyBinRoot" -ErrorAction SilentlyContinue
+                [System.Environment]::SetEnvironmentVariable("ChocolateyBinRoot", $null, 'Machine') # Unset machine-wide
+                [System.Environment]::SetEnvironmentVariable("ChocolateyBinRoot", $null, 'User')    # Unset user-specific
+            }
+
+            # Delete ChocolateyToolsRoot if it exists and unset its environment variable
+            if ($env:ChocolateyToolsRoot -ne '' -and $env:ChocolateyToolsRoot -ne $null -and (Test-Path "$env:ChocolateyToolsRoot")) {
+                Log "Deleting ChocolateyToolsRoot: $($env:ChocolateyToolsRoot)" "INFO"
+                Remove-Item -Recurse -Force "$env:ChocolateyToolsRoot" -ErrorAction SilentlyContinue
+                [System.Environment]::SetEnvironmentVariable("ChocolateyToolsRoot", $null, 'Machine') # Unset machine-wide
+                [System.Environment]::SetEnvironmentVariable("ChocolateyToolsRoot", $null, 'User')    # Unset user-specific
+            }
+            
+            # Check and delete the main Chocolatey installation folder if it still exists
+            if (Test-Path $chocoInstallPath) {
+                Log "Main Chocolatey installation folder still exists: $chocoInstallPath. Deleting it." "INFO"
+                Remove-Item -Path $chocoInstallPath -Recurse -Force -ErrorAction SilentlyContinue
+            }
+
+            # Final verification if choco.exe is gone
             if (-not (Get-Command choco.exe -ErrorAction SilentlyContinue)) {
-                Log "Chocolatey uninstalled successfully." "INFO"
-                # Explicitly delete the Chocolatey installation folder if it still exists after choco uninstall
-                if (Test-Path $chocoInstallPath) {
-                    Log "Chocolatey executable removed, but folder still exists. Deleting folder: $chocoInstallPath" "INFO"
-                    Remove-Item -Path $chocoInstallPath -Recurse -Force -ErrorAction SilentlyContinue
-                }
+                Log "Chocolatey uninstalled and directories cleaned successfully." "INFO"
                 return $true
             } else {
-                Log "Chocolatey uninstallation completed, but choco.exe still present. Check logs." "WARN"
+                Log "Chocolatey uninstallation completed, but choco.exe still present despite cleanup attempts. Check logs." "WARN"
                 return $false
             }
         } catch {
-            Log "Failed to uninstall Chocolatey: $_" "ERROR"
+            Log "Failed during Chocolatey uninstallation or cleanup: $_" "ERROR"
             return $false
         }
     } else {
         Log "Chocolatey is not installed. No uninstallation needed for the package." "INFO"
-        # If choco.exe is not found, check if the folder still exists and delete it.
+        # If choco.exe is not found, perform cleanup for lingering folders/environment variables.
+        Log "Chocolatey executable not found, performing cleanup for lingering folders and environment variables." "INFO"
+
+        # Delete ChocolateyBinRoot if it exists and unset its environment variable
+        if ($env:ChocolateyBinRoot -ne '' -and $env:ChocolateyBinRoot -ne $null -and (Test-Path "$env:ChocolateyBinRoot")) {
+            Log "Deleting lingering ChocolateyBinRoot: $($env:ChocolateyBinRoot)" "INFO"
+            Remove-Item -Recurse -Force "$env:ChocolateyBinRoot" -ErrorAction SilentlyContinue
+            [System.Environment]::SetEnvironmentVariable("ChocolateyBinRoot", $null, 'Machine')
+            [System.Environment]::SetEnvironmentVariable("ChocolateyBinRoot", $null, 'User')
+        }
+
+        # Delete ChocolateyToolsRoot if it exists and unset its environment variable
+        if ($env:ChocolateyToolsRoot -ne '' -and $env:ChocolateyToolsRoot -ne $null -and (Test-Path "$env:ChocolateyToolsRoot")) {
+            Log "Deleting lingering ChocolateyToolsRoot: $($env:ChocolateyToolsRoot)" "INFO"
+            Remove-Item -Recurse -Force "$env:ChocolateyToolsRoot" -ErrorAction SilentlyContinue
+            [System.Environment]::SetEnvironmentVariable("ChocolateyToolsRoot", $null, 'Machine')
+            [System.Environment]::SetEnvironmentVariable("ChocolateyToolsRoot", $null, 'User')
+        }
+
+        # Delete main Chocolatey install path if it exists
         if (Test-Path $chocoInstallPath) {
-            Log "Chocolatey is not installed, but its folder exists. Attempting to delete folder: $chocoInstallPath" "INFO"
+            Log "Lingering Chocolatey installation folder exists: $chocoInstallPath. Deleting it." "INFO"
             try {
                 Remove-Item -Path $chocoInstallPath -Recurse -Force -ErrorAction Stop
                 Log "Chocolatey installation folder deleted successfully." "INFO"
                 return $true
             } catch {
-                Log "Failed to delete Chocolatey installation folder: $_" "ERROR"
+                Log "Failed to delete lingering Chocolatey installation folder: $_" "ERROR"
                 return $false
             }
         } else {
