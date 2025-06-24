@@ -426,7 +426,7 @@ try {
     # Use a switch statement with wildcard matching to install the appropriate disk management tool.
     switch -Wildcard ($diskBrand) {
         "*Samsung*" {
-            Log "Detected Samsung disk. Attempting to install Samsung Magician." "INFO"
+            Log "Detected Samsung disk model: $disk.Model . Attempting to install Samsung Magician." "INFO"
             # Check for specific unsupported disk model
             if ($disk.Model -eq "MZALQ256HAJD-000L2") {
                 Log "Detected Samsung disk model MZALQ256HAJD-000L2 which is not supported by Samsung Magician. Skipping installation." "INFO"
