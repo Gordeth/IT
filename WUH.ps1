@@ -14,6 +14,9 @@ $ScriptDir = "$env:TEMP\ITScripts"                            # Local directory 
 $LogDir = "$ScriptDir\Log"                                    # Subdirectory specifically for log files
 $LogFile = "$LogDir\WUH.txt"                                  # Full path to the main log file
 $PowerPlanName = "TempMaxPerformance"                         # Name for the temporary maximum performance power plan
+# ================== DEFINE LOG FUNCTION ==================
+# A custom logging function to write messages to the console (if verbose mode is on)
+# and to a persistent log file.
 function Log {
     param (
         [string]$Message,                               # The message to be logged
@@ -45,6 +48,7 @@ function Log {
         Write-Host $logEntry -ForegroundColor $color # Output the log entry to the console
     }
 }
+
 Log "Checking and creating log directory: $LogDir" "INFO"
 if (-not (Test-Path $LogDir)) {
     New-Item -ItemType Directory -Path $LogDir -Force | Out-Null
@@ -62,9 +66,6 @@ if (-not (Test-Path $LogFile)) {
     "[{0}] WUH.ps1 script restarted or resumed." -f (Get-Date -Format "dd-MM-yyyy HH:mm:ss") | Out-File $LogFile -Append
     Log "Log file already exists. Appending to it." "INFO"
 }
-# ================== DEFINE LOG FUNCTION ==================
-# A custom logging function to write messages to the console (if verbose mode is on)
-# and to a persistent log file.
 
 # ================== CREATE DIRECTORIES ==================
 # Ensure the necessary temporary directories and log file exist before proceeding.
