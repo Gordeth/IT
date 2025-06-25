@@ -21,10 +21,10 @@ $PowerPlanName = "TempMaxPerformance"                         # Name for the tem
 if (-not (Test-Path $ScriptDir)) {
     New-Item -ItemType Directory -Path $ScriptDir | Out-Null
     if (-not (Test-Path $LogDir)) {
-    New-Item -ItemType Directory -Path $LogDir | Out-Null
+        New-Item -ItemType Directory -Path $LogDir | Out-Null
     }
     if (-not (Test-Path $LogFile)) {
-    "[{0}] WUH.ps1 log file created." -f (Get-Date -Format "dd-MM-yyyy HH:mm:ss") | Out-File $LogFile
+        "[{0}] WUH.ps1 log file created." -f (Get-Date -Format "dd-MM-yyyy HH:mm:ss") | Out-File $LogFile -Append
     }
 }
 # ================== DEFINE LOG FUNCTION ==================
@@ -61,29 +61,6 @@ function Log {
         Write-Host $logEntry -ForegroundColor $color # Output the log entry to the console
     }
 }
-
-# Ensure the script and log directories exist before any logging
-if (-not (Test-Path $ScriptDir)) {
-    New-Item -ItemType Directory -Path $ScriptDir -Force | Out-Null
-}
-if (-not (Test-Path $LogDir)) {
-    New-Item -ItemType Directory -Path $LogDir -Force | Out-Null
-}
-Log "Script directory ensured: $ScriptDir" "INFO"
-Log "Log directory ensured: $LogDir" "INFO"
-
-
-# Create the initial log file entry using Out-File directly,
-# as the Log function itself needs a valid log file path.
-if (-not (Test-Path $LogFile)) {
-    "[{0}] WUH.ps1 log file created." -f (Get-Date -Format "dd-MM-yyyy HH:mm:ss") | Out-File $LogFile -Append
-    Log "Initial log file created at $LogFile" "INFO"
-} else {
-    "[{0}] WUH.ps1 script restarted or resumed." -f (Get-Date -Format "dd-MM-yyyy HH:mm:ss") | Out-File $LogFile -Append
-    Log "Log file already exists. Appending to it." "INFO"
-}
-
-
 # ================== FUNCTION: CHECK IF OFFICE IS INSTALLED ==================
 # Helper function to confirm if Microsoft Office is installed on the system.
 # This is used to conditionally download/run Office-related update scripts.
