@@ -68,13 +68,6 @@ function Log {
 # This section initializes essential paths and variables used throughout the script,
 # ensuring proper file locations for logging and script execution.
 #
-
-
-# Set the global verbosity mode for console output.
-# Set this to `$true` to see all INFO/WARN/DEBUG messages on the console.
-# Set to `$false` to only see ERROR messages on the console.
-$VerboseMode = $true # Example: Set to $false for less console output
-
 # Log the initial message indicating the script has started, using the `Log` function.
 Log "WU Script started." "INFO"
 
