@@ -126,6 +126,19 @@ function Invoke-Script {
         Exit 1 # Still exit on critical error from child script
     }
 }
+# ================== DOWNLOAD AND INVOKE SCRIPT HELPER ==================
+# Combines the functionality of Get-Script and Invoke-Script to download and then run a script.
+function Get-And-Invoke-Script {
+    param (
+        [string]$ScriptName
+    )
+    Log "Attempting to download and invoke $ScriptName."
+    # Use the existing Get-Script function to download
+    Get-Script -ScriptName $ScriptName
+    # Use the existing Invoke-Script function to run
+    Invoke-Script -ScriptName $ScriptName
+    Log "Finished download and invocation for $ScriptName."
+}
 # Log the initial message indicating the script has started, using the `Log` function.
 Log "WUH Script started."
 # ================== SAVE ORIGINAL EXECUTION POLICY ==================
@@ -224,27 +237,47 @@ if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
 # This ensures optimal performance during script execution, particularly for lengthy tasks.
 Log "Creating temporary Maximum Performance power plan..."
 try {
-    # Find the GUID of the existing "High performance" power plan.
-    $baseScheme = (powercfg -list | Where-Object { $_ -match "High performance" } | ForEach-Object { ($_ -split '\s+')[3] })
-    if ($null -eq $baseScheme) {
-        # Log a warning if the "High performance" plan isn't found.
-        Log "High Performance power plan not found. Skipping power plan changes." -Level "WARN"
+    # Well-known GUID for the "High performance" power plan.
+    # This avoids language-dependent string matching.
+    $highPerformanceGuid = "8c5e7fd1-ce92-466d-be55-c3230502e679"
+
+    # Verify if the High Performance plan (by its GUID) actually exists before trying to duplicate.
+    # Use powercfg -list to check for the GUID in its output.
+    $baseSchemeExists = (powercfg -list | Select-String -Pattern $highPerformanceGuid -Quiet)
+
+    if (-not $baseSchemeExists) {
+        Log "High Performance power plan (GUID: $highPerformanceGuid) not found on this system. Skipping power plan changes." -Level "WARN"
     } else {
         # Duplicate the "High performance" plan to create a new one.
-        $guid = (powercfg -duplicatescheme $baseScheme).Trim()
+        Log "Duplicating High Performance power plan using GUID: $highPerformanceGuid..."
+        $guid = (powercfg -duplicatescheme $highPerformanceGuid).Trim()
+        
         if (-not $guid) {
-            Log "Failed to duplicate power plan." -Level "ERROR"
-            return
+            Log "Failed to duplicate power plan. The 'powercfg -duplicatescheme' command returned no new GUID." -Level "ERROR"
+            # Attempt to find if our custom plan already exists and use its GUID if so.
+            # This handles cases where a previous run might have created it but failed to activate.
+            $existingTempPlan = (powercfg -list | Where-Object { $_ -match [regex]::Escape($PowerPlanName) } | ForEach-Object { ($_ -split '\s+')[3] })
+            if ($existingTempPlan) {
+                $guid = $existingTempPlan
+                Log "Found an existing temporary power plan named '$PowerPlanName' with GUID: $guid. Will attempt to activate it instead." -Level "WARN"
+            } else {
+                Log "Could not find or duplicate the power plan, and no existing temporary plan named '$PowerPlanName' was found. Aborting power plan changes." -Level "ERROR"
+                return # Exit this try block as we can't proceed.
+            }
         }
+        
         # Rename the duplicated plan to the specified temporary name.
+        Log "Renaming duplicated power plan (GUID: $guid) to '$PowerPlanName'..."
         powercfg -changename $guid $PowerPlanName "Temporary Maximum Performance"
+        
         # Set the newly created plan as the active power scheme.
+        Log "Activating '$PowerPlanName' power plan with GUID: $guid..."
         powercfg -setactive $guid
-        Log "Temporary Maximum Performance power plan activated."
+        Log "Temporary Maximum Performance power plan activated successfully."
     }
 } catch {
-    # Log an error if power plan operations fail.
-    Log "Failed to create or set temporary power plan: $_" -Level "ERROR"
+    # Log any unexpected errors during power plan operations.
+    Log "An error occurred while creating or setting the temporary power plan: $_" -Level "ERROR"
 }
 # ================== TASK SELECTION ==================
 # Execute specific tasks based on the user's initial selection.
@@ -252,11 +285,11 @@ switch ($task) {
     "1" {
         Log "Task selected: Machine Preparation (semi-automated)"
         Log "Downloading necessary scripts..."
-        Get-Script -ScriptName "MACHINEPREP.ps1" # Download machine preparation script
-        Get-Script -ScriptName "WU.ps1"         # Download Windows Update script
-        Get-Script -ScriptName "WGET.ps1"       # Download script for general Windows maintenance/cleanup
+        Download-And-Invoke-Script -ScriptName "MACHINEPREP.ps1" 
+        Download-And-Invoke-Script -ScriptName "WU.ps1"         
+        Download-And-Invoke-Script -ScriptName "WGET.ps1"       
         if (Confirm-OfficeInstalled) {
-            Get-Script -ScriptName "MSO_UPDATE.ps1" # Conditionally download Office update script
+            Download-And-Invoke-Script -ScriptName "MSO_UPDATE.ps1" # Conditionally download Office update script
         } else {
             Log "Microsoft Office not detected. Skipping Office update script download."
         }
@@ -264,13 +297,10 @@ switch ($task) {
     }
     "2" {
         Log "Task selected: Windows Maintenance"
-        Get-Script -ScriptName "WU.ps1"         # Download Windows Update script
-        Invoke-Script -ScriptName "WU.ps1"       # Execute Windows Update script
-        Get-Script -ScriptName "WGET.ps1"       # Download script for general Windows maintenance/cleanup
-        Invoke-Script -ScriptName "WGET.ps1"     # Execute script for general Windows maintenance/cleanup
+        Download-And-Invoke-Script -ScriptName "WU.ps1"
+        Download-And-Invoke-Script -ScriptName "WGET.ps1"
         if (Confirm-OfficeInstalled) {
-            Get-Script -ScriptName "MSO_UPDATE.ps1"   # Conditionally download Office update script
-            Invoke-Script -ScriptName "MSO_UPDATE.ps1" # Execute Office update script
+            Download-And-Invoke-Script -ScriptName "MSO_UPDATE.ps1"
         } else {
             Log "Microsoft Office not detected. Skipping Office update."
         }
@@ -291,6 +321,23 @@ try {
     Log "Power plan reset to Balanced."
 } catch {
     Log "Failed to reset power plan to Balanced: $_" -Level "ERROR"
+}
+# ================== REMOVE TEMPORARY MAX PERFORMANCE POWER PLAN ==================
+Log "Attempting to remove temporary Maximum Performance power plan..."
+try {
+    # Find the GUID of the temporary power plan by its name.
+    # We use regex::Escape to ensure special characters in $PowerPlanName are treated literally.
+    $tempPlanGuid = (powercfg -list | Where-Object { $_ -match [regex]::Escape($PowerPlanName) } | ForEach-Object { ($_ -split '\s+')[3] })
+    
+    if ($tempPlanGuid) {
+        Log "Found temporary power plan '$PowerPlanName' with GUID: $tempPlanGuid. Deleting it."
+        powercfg -delete $tempPlanGuid -Force # Use -Force to suppress any confirmation prompts
+        Log "Temporary Maximum Performance power plan removed."
+    } else {
+        Log "Temporary Maximum Performance power plan '$PowerPlanName' not found, no deletion needed." -Level "INFO"
+    }
+} catch {
+    Log "Failed to remove temporary power plan: $_" -Level "ERROR"
 }
 # ================== RESTORE PSGALLERY TRUST POLICY ==================
 # This block attempts to reset the PSGallery InstallationPolicy back to Untrusted.
