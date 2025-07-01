@@ -218,7 +218,7 @@ if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
         # to download providers without an "Untrusted repository" prompt.
         # This line directly sets the policy, assuming PSGallery is already registered.
         Log "Temporarily setting PSGallery InstallationPolicy to Trusted for NuGet provider download."
-        Set-PSRepository -Name PSGallery -InstallationPolicy Trusted -ErrorAction Stop
+        Set-PSRepository -Name PSGallery -ForceBootstrap -Force -InstallationPolicy Trusted -ErrorAction Stop
         Log "PSGallery InstallationPolicy successfully set to Trusted."
         # -ForceBootstrap ensures the provider is downloaded if needed.
         # -Force handles other confirmations/overwrites.
