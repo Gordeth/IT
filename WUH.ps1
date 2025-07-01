@@ -187,6 +187,22 @@ Set-ExecutionPolicy Bypass -Scope Process -Force -ErrorAction SilentlyContinue
 # ================== INSTALL NUGET PROVIDER ==================
 # This block attempts to install the NuGet package provider.
 # It's placed early as many package management operations depend on NuGet.
+Log "Ensuring PSGallery is trusted before checking NuGet provider..."
+
+try {
+    $psGallery = Get-PSRepository -Name PSGallery -ErrorAction Stop
+    if ($psGallery.InstallationPolicy -ne 'Trusted') {
+        Log "PSGallery is not trusted. Temporarily setting InstallationPolicy to Trusted."
+        Set-PSRepository -Name PSGallery -InstallationPolicy Trusted -ErrorAction Stop
+        Log "PSGallery InstallationPolicy successfully set to Trusted."
+    } else {
+        Log "PSGallery is already trusted."
+    }
+} catch {
+    Log "Failed to verify or modify PSGallery trust settings: $_" -Level "ERROR"
+    Exit 1
+}
+
 Log "Checking for NuGet provider..."
 # Check if NuGet provider is already installed. SilentlyContinue prevents error if not found.
 if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
