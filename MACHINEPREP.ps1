@@ -460,6 +460,15 @@ try {
     # to facilitate better wildcard matching against known brand names.
     $diskBrand = $diskBrand.ToUpper() -replace '[^A-Z0-9]', ''  # Remove non-alphanumeric and normalize
     Log "Normalized disk brand: $diskBrand"
+    
+    switch -Regex ($diskBrand) {
+    'SAMSUNG'     { $diskBrand = "Samsung" }
+    'KINGSTON'    { $diskBrand = "Kingston" }
+    'CRUCIAL'     { $diskBrand = "Crucial" }
+    'WDC|WESTERN' { $diskBrand = "WesternDigital" }
+    'INTEL'       { $diskBrand = "Intel" }
+    'SANDISK'     { $diskBrand = "SanDisk" }
+    }
 
     # Use a switch statement with wildcard matching to install the appropriate disk management tool.
     switch -Wildcard ($diskBrand) {
