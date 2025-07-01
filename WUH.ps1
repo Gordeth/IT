@@ -199,7 +199,7 @@ try {
     $psGallery = Get-PSRepository -Name PSGallery -ErrorAction Stop
     if ($psGallery.InstallationPolicy -ne 'Trusted') {
         Log "PSGallery is not trusted. Temporarily setting InstallationPolicy to Trusted."
-        Set-PSRepository -Name PSGallery -InstallationPolicy Trusted -ErrorAction Stop -Force
+        Set-PSRepository -Name PSGallery -InstallationPolicy Trusted -ErrorAction Stop SilentlyContinue
         Log "PSGallery InstallationPolicy successfully set to Trusted."
     } else {
         Log "PSGallery is already trusted."
