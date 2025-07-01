@@ -201,44 +201,67 @@ function Set-PSGalleryTrustedWithoutNuGet {
     }
 
     try {
-        [xml]$xml = Get-Content -Path $repoPath -ErrorAction Stop
-
-        $psGalleryNode = $xml.PSRepositories.Repository | Where-Object { $_.Name -eq "PSGallery" }
-
-        if (-not $psGalleryNode) {
-            Write-Host "Adding PSGallery to existing PSRepositories.xml..."
-            $newRepo = $xml.CreateElement("Repository")
-
-            $name = $xml.CreateElement("Name"); $name.InnerText = "PSGallery"
-            $src = $xml.CreateElement("SourceLocation"); $src.InnerText = "https://www.powershellgallery.com/api/v2/"
-            $scriptSrc = $xml.CreateElement("ScriptSourceLocation"); $scriptSrc.InnerText = "https://www.powershellgallery.com/api/v2/items/psscript/"
-            $pub = $xml.CreateElement("PublishLocation"); $pub.InnerText = "https://www.powershellgallery.com/api/v2/package/"
-            $policy = $xml.CreateElement("InstallationPolicy"); $policy.InnerText = "Trusted"
-
-            $newRepo.AppendChild($name) | Out-Null
-            $newRepo.AppendChild($src) | Out-Null
-            $newRepo.AppendChild($scriptSrc) | Out-Null
-            $newRepo.AppendChild($pub) | Out-Null
-            $newRepo.AppendChild($policy) | Out-Null
-
-            $xml.PSRepositories.AppendChild($newRepo) | Out-Null
-            $xml.Save($repoPath)
-            Write-Host "PSGallery added and marked as Trusted."
-        }
-        elseif ($psGalleryNode.InstallationPolicy -ne "Trusted") {
-            Write-Host "Setting existing PSGallery InstallationPolicy to Trusted..."
-            $psGalleryNode.InstallationPolicy = "Trusted"
-            $xml.Save($repoPath)
-            Write-Host "PSGallery trust updated successfully."
-        }
-        else {
-            Write-Host "PSGallery is already marked as Trusted."
+        # Validate and load XML, or create new if corrupted
+        $xmlText = Get-Content -Path $repoPath -Raw -ErrorAction Stop
+        if ([string]::IsNullOrWhiteSpace($xmlText) -or -not $xmlText.Trim().StartsWith("<")) {
+            throw "PSRepositories.xml appears empty or invalid."
         }
 
+        [xml]$xml = $xmlText
+        if (-not $xml.PSRepositories) {
+            throw "PSRepositories.xml missing root node."
+        }
     } catch {
-        Write-Error "Failed to read or update PSRepositories.xml: $_"
+        Write-Host "PSRepositories.xml is invalid. Recreating it with PSGallery entry..."
+        $xmlContent = @"
+<PSRepositories>
+  <Repository>
+    <Name>PSGallery</Name>
+    <SourceLocation>https://www.powershellgallery.com/api/v2/</SourceLocation>
+    <ScriptSourceLocation>https://www.powershellgallery.com/api/v2/items/psscript/</ScriptSourceLocation>
+    <PublishLocation>https://www.powershellgallery.com/api/v2/package/</PublishLocation>
+    <InstallationPolicy>Trusted</InstallationPolicy>
+  </Repository>
+</PSRepositories>
+"@
+        $xmlContent | Out-File -FilePath $repoPath -Encoding UTF8 -Force
+        Write-Host "PSGallery added and marked as Trusted."
+        return
+    }
+
+    $psGalleryNode = $xml.PSRepositories.Repository | Where-Object { $_.Name -eq "PSGallery" }
+
+    if (-not $psGalleryNode) {
+        Write-Host "Adding PSGallery to existing PSRepositories.xml..."
+        $newRepo = $xml.CreateElement("Repository")
+
+        $name = $xml.CreateElement("Name"); $name.InnerText = "PSGallery"
+        $src = $xml.CreateElement("SourceLocation"); $src.InnerText = "https://www.powershellgallery.com/api/v2/"
+        $scriptSrc = $xml.CreateElement("ScriptSourceLocation"); $scriptSrc.InnerText = "https://www.powershellgallery.com/api/v2/items/psscript/"
+        $pub = $xml.CreateElement("PublishLocation"); $pub.InnerText = "https://www.powershellgallery.com/api/v2/package/"
+        $policy = $xml.CreateElement("InstallationPolicy"); $policy.InnerText = "Trusted"
+
+        $newRepo.AppendChild($name) | Out-Null
+        $newRepo.AppendChild($src) | Out-Null
+        $newRepo.AppendChild($scriptSrc) | Out-Null
+        $newRepo.AppendChild($pub) | Out-Null
+        $newRepo.AppendChild($policy) | Out-Null
+
+        $xml.PSRepositories.AppendChild($newRepo) | Out-Null
+        $xml.Save($repoPath)
+        Write-Host "PSGallery added and marked as Trusted."
+    }
+    elseif ($psGalleryNode.InstallationPolicy -ne "Trusted") {
+        Write-Host "Setting existing PSGallery InstallationPolicy to Trusted..."
+        $psGalleryNode.InstallationPolicy = "Trusted"
+        $xml.Save($repoPath)
+        Write-Host "PSGallery trust updated successfully."
+    }
+    else {
+        Write-Host "PSGallery is already marked as Trusted."
     }
 }
+
 
 # ================== ENSURE PSGALLERY IS TRUSTED ==================
 
