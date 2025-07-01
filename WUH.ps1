@@ -285,11 +285,11 @@ switch ($task) {
     "1" {
         Log "Task selected: Machine Preparation (semi-automated)"
         Log "Downloading necessary scripts..."
-        Download-And-Invoke-Script -ScriptName "MACHINEPREP.ps1" 
-        Download-And-Invoke-Script -ScriptName "WU.ps1"         
-        Download-And-Invoke-Script -ScriptName "WGET.ps1"       
+        Get-And-Invoke-Script -ScriptName "MACHINEPREP.ps1" 
+        Get-And-Invoke-Script -ScriptName "WU.ps1"         
+        Get-And-Invoke-Script -ScriptName "WGET.ps1"       
         if (Confirm-OfficeInstalled) {
-            Download-And-Invoke-Script -ScriptName "MSO_UPDATE.ps1" # Conditionally download Office update script
+            Get-And-Invoke-Script -ScriptName "MSO_UPDATE.ps1" # Conditionally download Office update script
         } else {
             Log "Microsoft Office not detected. Skipping Office update script download."
         }
@@ -297,10 +297,10 @@ switch ($task) {
     }
     "2" {
         Log "Task selected: Windows Maintenance"
-        Download-And-Invoke-Script -ScriptName "WU.ps1"
-        Download-And-Invoke-Script -ScriptName "WGET.ps1"
+        Get-And-Invoke-Script -ScriptName "WU.ps1"
+        Get-And-Invoke-Script -ScriptName "WGET.ps1"
         if (Confirm-OfficeInstalled) {
-            Download-And-Invoke-Script -ScriptName "MSO_UPDATE.ps1"
+            Get-And-Invoke-Script -ScriptName "MSO_UPDATE.ps1"
         } else {
             Log "Microsoft Office not detected. Skipping Office update."
         }
