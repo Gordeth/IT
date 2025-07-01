@@ -191,7 +191,7 @@ Set-ExecutionPolicy Bypass -Scope Process -Force -ErrorAction SilentlyContinue
 
 # Ensure PSGallery is trusted before installing NuGet, as it requires a trusted repository to download providers.
 # If PSGallery is not trusted, it will fail to download the NuGet provider.
-Set-PSGalleryTrustedWithoutNuGet
+
 
 Log "Ensuring PSGallery is trusted before checking NuGet provider..."
 
