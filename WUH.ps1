@@ -182,30 +182,64 @@ try {
 function Set-PSGalleryTrustedWithoutNuGet {
     $repoPath = Join-Path $env:LOCALAPPDATA "Microsoft\Windows\PowerShell\PowerShellGet\PSRepositories.xml"
 
-    if (Test-Path $repoPath) {
-        try {
-            [xml]$xml = Get-Content -Path $repoPath -ErrorAction Stop
+    if (-not (Test-Path $repoPath)) {
+        Write-Host "Creating PSRepositories.xml with PSGallery entry..."
+        $xmlContent = @"
+<PSRepositories>
+  <Repository>
+    <Name>PSGallery</Name>
+    <SourceLocation>https://www.powershellgallery.com/api/v2/</SourceLocation>
+    <ScriptSourceLocation>https://www.powershellgallery.com/api/v2/items/psscript/</ScriptSourceLocation>
+    <PublishLocation>https://www.powershellgallery.com/api/v2/package/</PublishLocation>
+    <InstallationPolicy>Trusted</InstallationPolicy>
+  </Repository>
+</PSRepositories>
+"@
+        $xmlContent | Out-File -FilePath $repoPath -Encoding UTF8 -Force
+        Write-Host "PSGallery added and marked as Trusted."
+        return
+    }
 
-            $psGalleryNode = $xml.PSRepositories.Repository | Where-Object { $_.Name -eq "PSGallery" }
-            if ($psGalleryNode) {
-                if ($psGalleryNode.InstallationPolicy -ne "Trusted") {
-                    Write-Host "Setting PSGallery InstallationPolicy to Trusted (manual patch)..."
-                    $psGalleryNode.InstallationPolicy = "Trusted"
-                    $xml.Save($repoPath)
-                    Write-Host "PSGallery trust updated successfully."
-                } else {
-                    Write-Host "PSGallery is already marked as Trusted."
-                }
-            } else {
-                Write-Warning "PSGallery entry not found in PSRepositories.xml."
-            }
-        } catch {
-            Write-Error "Failed to read or update PSRepositories.xml: $_"
+    try {
+        [xml]$xml = Get-Content -Path $repoPath -ErrorAction Stop
+
+        $psGalleryNode = $xml.PSRepositories.Repository | Where-Object { $_.Name -eq "PSGallery" }
+
+        if (-not $psGalleryNode) {
+            Write-Host "Adding PSGallery to existing PSRepositories.xml..."
+            $newRepo = $xml.CreateElement("Repository")
+
+            $name = $xml.CreateElement("Name"); $name.InnerText = "PSGallery"
+            $src = $xml.CreateElement("SourceLocation"); $src.InnerText = "https://www.powershellgallery.com/api/v2/"
+            $scriptSrc = $xml.CreateElement("ScriptSourceLocation"); $scriptSrc.InnerText = "https://www.powershellgallery.com/api/v2/items/psscript/"
+            $pub = $xml.CreateElement("PublishLocation"); $pub.InnerText = "https://www.powershellgallery.com/api/v2/package/"
+            $policy = $xml.CreateElement("InstallationPolicy"); $policy.InnerText = "Trusted"
+
+            $newRepo.AppendChild($name) | Out-Null
+            $newRepo.AppendChild($src) | Out-Null
+            $newRepo.AppendChild($scriptSrc) | Out-Null
+            $newRepo.AppendChild($pub) | Out-Null
+            $newRepo.AppendChild($policy) | Out-Null
+
+            $xml.PSRepositories.AppendChild($newRepo) | Out-Null
+            $xml.Save($repoPath)
+            Write-Host "PSGallery added and marked as Trusted."
         }
-    } else {
-        Write-Warning "PSRepositories.xml not found. PSGallery may not be registered yet."
+        elseif ($psGalleryNode.InstallationPolicy -ne "Trusted") {
+            Write-Host "Setting existing PSGallery InstallationPolicy to Trusted..."
+            $psGalleryNode.InstallationPolicy = "Trusted"
+            $xml.Save($repoPath)
+            Write-Host "PSGallery trust updated successfully."
+        }
+        else {
+            Write-Host "PSGallery is already marked as Trusted."
+        }
+
+    } catch {
+        Write-Error "Failed to read or update PSRepositories.xml: $_"
     }
 }
+
 # ================== ENSURE PSGALLERY IS TRUSTED ==================
 
 # ================== SET EXECUTION POLICY ==================
