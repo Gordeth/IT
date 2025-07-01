@@ -176,6 +176,37 @@ try {
     Log "Internet connectivity check failed. Please check your network connection." -Level "ERROR"
     Exit 1 # Terminate script execution upon critical failure
 }
+# ================== ENSURE PSGALLERY IS TRUSTED ==================
+# This function ensures that the PSGallery repository is marked as Trusted.
+# It modifies the PSRepositories.xml file directly if necessary, as a workaround for issues with Set-PSRepository.
+function Set-PSGalleryTrustedWithoutNuGet {
+    $repoPath = Join-Path $env:LOCALAPPDATA "Microsoft\Windows\PowerShell\PowerShellGet\PSRepositories.xml"
+
+    if (Test-Path $repoPath) {
+        try {
+            [xml]$xml = Get-Content -Path $repoPath -ErrorAction Stop
+
+            $psGalleryNode = $xml.PSRepositories.Repository | Where-Object { $_.Name -eq "PSGallery" }
+            if ($psGalleryNode) {
+                if ($psGalleryNode.InstallationPolicy -ne "Trusted") {
+                    Write-Host "Setting PSGallery InstallationPolicy to Trusted (manual patch)..."
+                    $psGalleryNode.InstallationPolicy = "Trusted"
+                    $xml.Save($repoPath)
+                    Write-Host "PSGallery trust updated successfully."
+                } else {
+                    Write-Host "PSGallery is already marked as Trusted."
+                }
+            } else {
+                Write-Warning "PSGallery entry not found in PSRepositories.xml."
+            }
+        } catch {
+            Write-Error "Failed to read or update PSRepositories.xml: $_"
+        }
+    } else {
+        Write-Warning "PSRepositories.xml not found. PSGallery may not be registered yet."
+    }
+}
+# ================== ENSURE PSGALLERY IS TRUSTED ==================
 
 # ================== SET EXECUTION POLICY ==================
 # Temporarily set the execution policy for the current process to Bypass.
@@ -187,6 +218,11 @@ Set-ExecutionPolicy Bypass -Scope Process -Force -ErrorAction SilentlyContinue
 # ================== INSTALL NUGET PROVIDER ==================
 # This block attempts to install the NuGet package provider.
 # It's placed early as many package management operations depend on NuGet.
+
+# Ensure PSGallery is trusted before installing NuGet, as it requires a trusted repository to download providers.
+# If PSGallery is not trusted, it will fail to download the NuGet provider.
+Set-PSGalleryTrustedWithoutNuGet
+
 Log "Ensuring PSGallery is trusted before checking NuGet provider..."
 
 try {
