@@ -458,8 +458,8 @@ try {
 
     # Clean up the disk brand string by removing parenthesized text, brackets, spaces, and hyphens
     # to facilitate better wildcard matching against known brand names.
-    $diskBrand = $diskBrand -replace '\(.*?\)|\[.*?\]', '' -replace '\s+', '' -replace '-', ''
-    Log "Detected disk brand: $diskBrand"
+    $diskBrand = $diskBrand.ToUpper() -replace '[^A-Z0-9]', ''  # Remove non-alphanumeric and normalize
+    Log "Normalized disk brand: $diskBrand"
 
     # Use a switch statement with wildcard matching to install the appropriate disk management tool.
     switch -Wildcard ($diskBrand) {
