@@ -505,8 +505,25 @@ try {
         "*Kingston*" { winget install --id=Kingston.SSDManager -e --silent --accept-package-agreements --accept-source-agreements; Log "Kingston SSD Manager installed." }
         "*Crucial*" { winget install --id=Micron.CrucialStorageExecutive -e --silent --accept-package-agreements --accept-source-agreements; Log "Crucial Storage Executive installed." }
         { $_ -like "*WesternDigital*" -or $_ -like "*WDC*" } {
-        winget install --id=WesternDigital.Dashboard -e --silent --accept-package-agreements --accept-source-agreements
-        Log "WD SSD Dashboard installed."
+        # Install via Chocolatey as requested, and due to potential winget issues.
+            if (Install-Chocolatey) {
+                try {
+                    Log "Installing Western Digital Dashboard via Chocolatey..." "INFO"
+                    choco install wd-dashboard --force -y
+
+                    if ($LASTEXITCODE -eq 0) {
+                        Log "Western Digital Dashboard installed successfully via Chocolatey." "INFO"
+                    } elseif ($LASTEXITCODE -eq 1) {
+                        Log "Western Digital Dashboard installation via Chocolatey completed with a known issue (e.g., already installed, reboot needed). Check Chocolatey logs." "WARN"
+                    } else {
+                        Log "Western Digital Dashboard installation via Chocolatey failed with exit code $LASTEXITCODE. Review Chocolatey logs." "ERROR"
+                    }
+                } catch {
+                    Log "Error during Chocolatey installation of Western Digital Dashboard: $_" "ERROR"
+                }
+            } else {
+                Log "Chocolatey installation failed, skipping Western Digital Dashboard." "ERROR"
+            }
     }
         "*Intel*" { winget install --id=Intel.MemoryAndStorageTool -e --silent --accept-package-agreements --accept-source-agreements; Log "Intel Memory and Storage Tool installed." }
         "*SanDisk*" { winget install --id=SanDisk.Dashboard -e --silent --accept-package-agreements --accept-source-agreements; Log "SanDisk SSD Dashboard installed." }
