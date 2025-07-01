@@ -505,7 +505,7 @@ try {
         "*Kingston*" { winget install --id=Kingston.SSDManager -e --silent --accept-package-agreements --accept-source-agreements; Log "Kingston SSD Manager installed." }
         "*Crucial*" { winget install --id=Micron.CrucialStorageExecutive -e --silent --accept-package-agreements --accept-source-agreements; Log "Crucial Storage Executive installed." }
         { $_ -like "*WesternDigital*" -or $_ -like "*WDC*" } {
-        winget install --id=WesternDigital.WDSSDDashboard -e --silent --accept-package-agreements --accept-source-agreements
+        winget install --id=WesternDigital.Dashboard -e --silent --accept-package-agreements --accept-source-agreements
         Log "WD SSD Dashboard installed."
     }
         "*Intel*" { winget install --id=Intel.MemoryAndStorageTool -e --silent --accept-package-agreements --accept-source-agreements; Log "Intel Memory and Storage Tool installed." }
