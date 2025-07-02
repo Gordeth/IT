@@ -156,25 +156,31 @@ function Repair-SystemFiles {
         Log "SFC /verifyonly raw output:`n$sfcVerifyOutput"
         Log "SFC /verifyonly exit code: $sfcVerifyExitCode"
 
-        # Ensure clean joined string
-        if ($sfcVerifyOutput -isnot [string]) {
-            $sfcVerifyOutput = [string]::Join("", $sfcVerifyOutput)
-        }
-
         # Improved normalization
         $normalizedOutput = (
             $sfcVerifyOutput `
+                -replace '\x00', ' ' `
                 -replace '[^\u0009\u000A\u000D\u0020-\u007E]', ' ' `
                 -replace '[\r\n]+', ' ' `
                 -replace '\s{2,}', ' '
             ).ToLower().Trim()
 
-        Log "Normalized SFC output for matching: '$normalizedOutput'"
-        Log "Length of normalized output: $($normalizedOutput.Length)"
-
-        # Optional hex dump
+        # Optional hex dump (keep for now, might be useful if other issues arise)
         $hexOutput = [System.BitConverter]::ToString([System.Text.Encoding]::UTF8.GetBytes($normalizedOutput))
         Log "Normalized output (hex): $hexOutput"
+
+        # --- Character-by-character analysis (using robust concatenation) ---
+        Log "--- Normalized Output Character Analysis ---"
+        for ($i = 0; $i -lt $normalizedOutput.Length; $i++) {
+            $char = $normalizedOutput[$i]
+            $unicodeValue = [int]$char
+            $formattedUnicode = ($unicodeValue).ToString('X4') 
+            $charName = if ([System.Char]::IsWhiteSpace($char)) { "Whitespace" } else { "" }
+            # Using explicit string concatenation for maximum compatibility
+            Log ("Index " + $i + ": Character: '" + $char + "' (Unicode: U+" + $formattedUnicode + ") " + $charName)
+        }
+        Log "--- End Character Analysis ---"
+        # --- END Character-by-character analysis ---
 
         # Target phrase and pattern
         $targetPhrase = "windows resource protection found integrity violations"
@@ -183,13 +189,13 @@ function Repair-SystemFiles {
         # Primary match
         $violationsFound = $normalizedOutput -match $regexPattern
 
-        # Fallback: wildcard against normalized
+        # Fallback: wildcard against normalized (if primary regex fails, check with simpler pattern)
         if (-not $violationsFound -and $normalizedOutput -like "*$targetPhrase*") {
             Log "Fallback wildcard match for '$targetPhrase' succeeded."
             $violationsFound = $true
         }
 
-        # Fallback: pattern match in raw output
+        # Fallback: pattern match in raw output (final check before giving up)
         if (-not $violationsFound -and $sfcVerifyOutput -match $regexPattern) {
             Log "Pattern matched in raw output as final fallback."
             $violationsFound = $true
@@ -231,7 +237,6 @@ function Repair-SystemFiles {
         Log "An error occurred during SFC operation: $_"
     }
 }
-
 
 # Log the initial message indicating the script has started, using the `Log` function.
 Log "WUH Script started."
