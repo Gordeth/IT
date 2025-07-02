@@ -143,38 +143,38 @@ function Get-And-Invoke-Script {
 # Runs SFC (System File Checker) to verify and optionally repair Windows system files.
 # Uses 'verifyonly' first, and if corruption is found, runs 'scannow'.
 function Repair-SystemFiles {
-    Log "Starting System File Checker (SFC) integrity check..." "INFO"
+    Log "Starting System File Checker (SFC) integrity check..."
 
     try {
-        Log "Running 'sfc /verifyonly' to check for corrupted system files..." "INFO"
+        Log "Running 'sfc /verifyonly' to check for corrupted system files..."
         # Execute sfc /verifyonly and capture its output
         $sfcVerifyOutput = sfc.exe /verifyonly 2>&1 | Out-String
 
         # Log the output for review, especially if verbose mode is on
-        Log "SFC /verifyonly output: `n$sfcVerifyOutput" "DEBUG"
+        Log "SFC /verifyonly output: `n$sfcVerifyOutput"
 
         # Check if corruption was found. The output typically contains "Windows Resource Protection found integrity violations"
         if ($sfcVerifyOutput -match "Windows Resource Protection found integrity violations") {
-            Log "SFC /verifyonly detected corrupted system files. Proceeding with 'sfc /scannow'..." "WARN"
-            Log "This process may take a while and could prompt for a reboot." "WARN"
+            Log "SFC /verifyonly detected corrupted system files. Proceeding with 'sfc /scannow'..."
+            Log "This process may take a while and could prompt for a reboot."
             
             # Execute sfc /scannow
             $sfcScanOutput = sfc.exe /scannow 2>&1 | Out-String
-            Log "SFC /scannow output: `n$sfcScanOutput" "DEBUG"
+            Log "SFC /scannow output: `n$sfcScanOutput"
 
             if ($sfcScanOutput -match "Windows Resource Protection did not find any integrity violations" -or $sfcScanOutput -match "Windows Resource Protection found integrity violations and successfully repaired them") {
-                Log "SFC /scannow completed. System files repaired or no further violations found." "GREEN"
+                Log "SFC /scannow completed. System files repaired or no further violations found."
             } elseif ($sfcScanOutput -match "Windows Resource Protection found integrity violations but was unable to fix some of them") {
-                Log "SFC /scannow completed, but was unable to repair all corrupted files. Manual intervention may be required." "ERROR"
+                Log "SFC /scannow completed, but was unable to repair all corrupted files. Manual intervention may be required."
             } else {
-                Log "SFC /scannow completed with unknown status. Review debug logs for details." "WARN"
+                Log "SFC /scannow completed with unknown status. Review debug logs for details."
             }
 
         } else {
-            Log "SFC /verifyonly found no integrity violations. System files are healthy." "GREEN"
+            Log "SFC /verifyonly found no integrity violations. System files are healthy."
         }
     } catch {
-        Log "An error occurred during SFC operation: $_" "ERROR"
+        Log "An error occurred during SFC operation: $_"
     }
 }
 # Log the initial message indicating the script has started, using the `Log` function.
