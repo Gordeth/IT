@@ -157,11 +157,12 @@ function Repair-SystemFiles {
         Log "SFC /verifyonly exit code: $sfcVerifyExitCode"
 
         # Improved normalization
-        $normalizedOutput = $sfcVerifyOutput `
-            -replace '[^\u0009\u000A\u000D\u0020-\u007E]', ' ' `      # Remove non-printables
-            -replace '[\r\n]+', ' ' `                                # Replace newlines with space
-            -replace '\s{2,}', ' ' `                                 # Collapse multiple spaces
-            | ForEach-Object { $_.ToLower().Trim() }
+        $normalizedOutput = (
+            $sfcVerifyOutput `
+                -replace '[^\u0009\u000A\u000D\u0020-\u007E]', ' ' `
+                -replace '[\r\n]+', ' ' `
+                -replace '\s{2,}', ' '
+            ).ToLower().Trim()
 
         Log "Normalized SFC output for matching: '$normalizedOutput'"
         Log "Length of normalized output: $($normalizedOutput.Length)"
