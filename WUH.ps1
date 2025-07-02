@@ -151,6 +151,9 @@ function Get-And-Invoke-Script {
 # ================== FUNCTION: REPAIR SYSTEM FILES (SFC) ==================
 # Runs SFC (System File Checker) to verify and optionally repair Windows system files.
 # Uses 'verifyonly' first, and if corruption is found, runs 'scannow'.
+# ================== FUNCTION: REPAIR SYSTEM FILES (SFC) ==================
+# Runs SFC (System File Checker) to verify and optionally repair Windows system files.
+# Uses 'verifyonly' first, and if corruption is found, runs 'scannow'.
 function Repair-SystemFiles {
     Log "Starting System File Checker (SFC) integrity check..."
 
@@ -172,11 +175,16 @@ function Repair-SystemFiles {
 
         Log "SFC /verifyonly normalized output for matching: '$normalizedOutput'"
 
+        # --- NEW DEBUGGING STEP: Dump Hexadecimal representation ---
+        # Convert the normalized string to a byte array and then to hex.
+        $hexOutput = ([System.BitConverter]::ToString([System.Text.Encoding]::UTF8.GetBytes($normalizedOutput)))
+        Log "SFC /verifyonly normalized output (HEX): $hexOutput"
+        # --- END NEW DEBUGGING STEP ---
+
         # Define the target string
         $targetString = "windows resource protection found integrity violations"
         
         # Check if corruption was found by explicitly looking for the substring
-        # and logging the boolean result.
         $violationsFound = $normalizedOutput.Contains($targetString)
 
         Log "Checking for '$targetString' in normalized output. Result: $violationsFound"
