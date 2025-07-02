@@ -145,6 +145,9 @@ function Get-And-Invoke-Script {
 # ================== FUNCTION: REPAIR SYSTEM FILES (SFC) ==================
 # Runs SFC (System File Checker) to verify and optionally repair Windows system files.
 # Uses 'verifyonly' first, and if corruption is found, runs 'scannow'.
+# ================== FUNCTION: REPAIR SYSTEM FILES (SFC) ==================
+# Runs SFC (System File Checker) to verify and optionally repair Windows system files.
+# Uses 'verifyonly' first, and if corruption is found, runs 'scannow'.
 function Repair-SystemFiles {
     Log "Starting System File Checker (SFC) integrity check..."
 
@@ -155,13 +158,21 @@ function Repair-SystemFiles {
         $sfcVerifyOutput = sfc.exe /verifyonly 2>&1 | Out-String
         $sfcVerifyExitCode = $LASTEXITCODE
 
-        Log "SFC /verifyonly output: `n$sfcVerifyOutput"
+        Log "SFC /verifyonly raw output: `n$sfcVerifyOutput"
         Log "SFC /verifyonly exit code: $sfcVerifyExitCode"
 
-        # Check if corruption was found by parsing the output string,
-        # as the exit code might be unreliable in some cases.
-        # Using -match with a more forgiving regex to capture the core message.
-        $violationsFound = $sfcVerifyOutput -match "Windows Resource Protection found integrity violations"
+        # Normalize the output string for robust matching:
+        # 1. Convert to lowercase
+        # 2. Trim leading/trailing whitespace
+        # 3. Replace multiple spaces (including newlines) with a single space
+        $normalizedOutput = ($sfcVerifyOutput.ToLower()).Trim() -replace '\s+', ' '
+
+        Log "SFC /verifyonly normalized output for matching: '$normalizedOutput'"
+
+        # Check if corruption was found by parsing the normalized output string.
+        # The pattern looks for "windows resource protection found integrity violations"
+        # This is the most reliable phrase to indicate a problem.
+        $violationsFound = $normalizedOutput -match "windows resource protection found integrity violations"
 
         if ($violationsFound) {
             Log "SFC /verifyonly detected corrupted system files. Proceeding with 'sfc /scannow'..."
@@ -171,15 +182,18 @@ function Repair-SystemFiles {
             $sfcScanOutput = sfc.exe /scannow 2>&1 | Out-String
             $sfcScanExitCode = $LASTEXITCODE
 
-            Log "SFC /scannow output: `n$sfcScanOutput"
+            Log "SFC /scannow raw output: `n$sfcScanOutput"
             Log "SFC /scannow exit code: $sfcScanExitCode"
 
+            # Normalize scan output for matching as well
+            $normalizedScanOutput = ($sfcScanOutput.ToLower()).Trim() -replace '\s+', ' '
+
             # Interpret sfc /scannow results based on common patterns or exit code
-            if ($sfcScanExitCode -eq 0 -or $sfcScanOutput -match "successfully repaired them") {
+            if ($sfcScanExitCode -eq 0 -or $normalizedScanOutput -match "successfully repaired them") {
                 Log "SFC /scannow completed successfully. System files repaired or no further violations found."
             } elseif ($sfcScanExitCode -eq 1641 -or $sfcScanExitCode -eq 3010) { # Common reboot required codes
                 Log "SFC /scannow completed and requires a reboot to finalize repairs."
-            } elseif ($sfcScanOutput -match "Windows Resource Protection found integrity violations but was unable to fix some of them") {
+            } elseif ($normalizedScanOutput -match "windows resource protection found integrity violations but was unable to fix some of them") {
                 Log "SFC /scannow completed, but was unable to repair all corrupted files. Manual intervention may be required."
             } else {
                 Log "SFC /scannow completed with unknown status (Exit Code: $sfcScanExitCode). Review logs for details."
