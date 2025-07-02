@@ -148,82 +148,80 @@ function Repair-SystemFiles {
 
     try {
         Log "Running 'sfc /verifyonly' to check for corrupted system files..."
-        
-        # Execute sfc /verifyonly and capture its output and exit code
+
+        # Execute sfc /verifyonly
         $sfcVerifyOutput = sfc.exe /verifyonly 2>&1 | Out-String
         $sfcVerifyExitCode = $LASTEXITCODE
 
-        Log "SFC /verifyonly raw output: `n$sfcVerifyOutput"
+        Log "SFC /verifyonly raw output:`n$sfcVerifyOutput"
         Log "SFC /verifyonly exit code: $sfcVerifyExitCode"
 
-        # Normalize the output string for robust matching:
-        # 1. Convert to lowercase
-        # 2. Trim leading/trailing whitespace
-        # 3. Replace multiple spaces (including newlines) with a single space
-        $normalizedOutput = ($sfcVerifyOutput.ToLower()).Trim() -replace '\s+', ' '
+        # Aggressively normalize the output
+        $normalizedOutput = ($sfcVerifyOutput.ToLowerInvariant()) `
+            -replace '[^\x20-\x7E]', ' ' `
+            -replace '\u00A0', ' ' `
+            -replace '\s+', ' ' `
+            -replace '\.{2,}', '.' `
+            -replace '\s+\.', '.' `
+            -replace '\.+\s*', '. ' `
+            -replace '^\s+|\s+$', ''
 
-        Log "SFC /verifyonly normalized output for matching: '$normalizedOutput'"
+        Log "Normalized SFC output for matching: '$normalizedOutput'"
 
-        # --- DEBUGGING STEP: Dump Hexadecimal representation (keep for now) ---
-        $hexOutput = ([System.BitConverter]::ToString([System.Text.Encoding]::UTF8.GetBytes($normalizedOutput)))
-        Log "SFC /verifyonly normalized output (HEX): $hexOutput"
-        # --- END DEBUGGING STEP ---
+        # Optional hex dump of the normalized string
+        $hexOutput = [System.BitConverter]::ToString([System.Text.Encoding]::UTF8.GetBytes($normalizedOutput))
+        Log "Normalized output (hex): $hexOutput"
 
-        # --- NEW DEBUGGING STEP: Character-by-character analysis ---
-        Log "--- Normalized Output Character Analysis ---"
-        for ($i = 0; $i -lt $normalizedOutput.Length; $i++) {
-            $char = $normalizedOutput[$i]
-            $unicodeValue = [int]$char
-            # Pre-calculate the formatted Unicode string
-            $formattedUnicode = ($unicodeValue).ToString('X4') 
-            $charName = if ([System.Char]::IsWhiteSpace($char)) { "Whitespace" } else { "" }
-            # CORRECTED LINE: Using explicit string concatenation (temporarily removed "U+" prefix)
-            Log ("Index " + $i + ": Character: '" + $char + "' (Unicode: " + $formattedUnicode + ") " + $charName)
-        }
-        Log "--- End Character Analysis ---"
-        # --- END NEW DEBUGGING STEP ---
-
-        # Define the target string
-        $targetString = "windows resource protection found integrity violations"
-        
-        # Check if corruption was found using regex (most robust method)
+        # Define the target match string
+        $targetPhrase = "windows resource protection found integrity violations"
         $regexPattern = "windows\s+resource\s+protection\s+found\s+integrity\s+violations"
+
+        # Attempt match
         $violationsFound = $normalizedOutput -match $regexPattern
 
-        Log "Checking for '$targetString' using regex '$regexPattern'. Result: $violationsFound"
+        # Fallback match in case regex fails due to subtle encoding issues
+        if (-not $violationsFound -and $normalizedOutput -like "*$targetPhrase*") {
+            Log "Fallback wildcard match for '$targetPhrase' succeeded."
+            $violationsFound = $true
+        }
+
+        Log "Violation check result: $violationsFound"
 
         if ($violationsFound) {
-            Log "SFC /verifyonly detected corrupted system files. Proceeding with 'sfc /scannow'..."
-            Log "This process may take a while and could prompt for a reboot."
-            
-            # Execute sfc /scannow
+            Log "SFC /verifyonly detected integrity violations. Running 'sfc /scannow'..."
+
             $sfcScanOutput = sfc.exe /scannow 2>&1 | Out-String
             $sfcScanExitCode = $LASTEXITCODE
 
-            Log "SFC /scannow raw output: `n$sfcScanOutput"
+            Log "SFC /scannow raw output:`n$sfcScanOutput"
             Log "SFC /scannow exit code: $sfcScanExitCode"
 
-            # Normalize scan output for matching as well
-            $normalizedScanOutput = ($sfcScanOutput.ToLower()).Trim() -replace '\s+', ' '
+            $normalizedScanOutput = ($sfcScanOutput.ToLowerInvariant()) `
+                -replace '[^\x20-\x7E]', ' ' `
+                -replace '\s+', ' ' `
+                -replace '^\s+|\s+$', ''
 
-            # Interpret sfc /scannow results based on common patterns or exit code
-            if ($sfcScanExitCode -eq 0 -or $normalizedScanOutput.Contains("successfully repaired them")) {
-                Log "SFC /scannow completed successfully. System files repaired or no further violations found."
-            } elseif ($sfcScanExitCode -eq 1641 -or $sfcScanExitCode -eq 3010) { # Common reboot required codes
-                Log "SFC /scannow completed and requires a reboot to finalize repairs."
-            } elseif ($normalizedScanOutput.Contains("windows resource protection found integrity violations but was unable to fix some of them")) {
-                Log "SFC /scannow completed, but was unable to repair all corrupted files. Manual intervention may be required."
-            } else {
-                Log "SFC /scannow completed with unknown status (Exit Code: $sfcScanExitCode). Review logs for details."
+            if ($sfcScanExitCode -eq 0 -or $normalizedScanOutput -like "*successfully repaired them*") {
+                Log "System file issues were successfully repaired."
             }
-
-        } else {
-            Log "SFC /verifyonly found no integrity violations. System files are healthy."
+            elseif ($sfcScanExitCode -eq 1641 -or $sfcScanExitCode -eq 3010) {
+                Log "SFC completed and a reboot is required to finalize repairs."
+            }
+            elseif ($normalizedScanOutput -like "*found integrity violations but was unable to fix some of them*") {
+                Log "SFC could not repair all issues. Manual repair may be needed."
+            }
+            else {
+                Log "SFC completed with unknown result (Exit Code: $sfcScanExitCode). Review logs for details."
+            }
+        }
+        else {
+            Log "No integrity violations found. System files appear healthy."
         }
     } catch {
         Log "An error occurred during SFC operation: $_"
     }
 }
+
 # Log the initial message indicating the script has started, using the `Log` function.
 Log "WUH Script started."
 # ================== SAVE ORIGINAL EXECUTION POLICY ==================
