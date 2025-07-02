@@ -157,15 +157,8 @@ function Repair-SystemFiles {
         Log "SFC /verifyonly exit code: $sfcVerifyExitCode"
 
         # Aggressively normalize the output
-        $normalizedOutput = ($sfcVerifyOutput.ToLowerInvariant()) `
-            -replace '[^\x20-\x7E]', ' ' `
-            -replace '\u00A0', ' ' `
-            -replace '\s+', ' ' `
-            -replace '\.{2,}', '.' `
-            -replace '\s+\.', '.' `
-            -replace '\.+\s*', '. ' `
-            -replace '^\s+|\s+$', ''
-
+        $normalizedOutput = ($sfcVerifyOutput -replace '[\r\n]+', ' ').ToLower().Trim()
+        $normalizedOutput = $normalizedOutput -replace '\s{2,}', ' '
         Log "Normalized SFC output for matching: '$normalizedOutput'"
 
         # Optional hex dump of the normalized string
