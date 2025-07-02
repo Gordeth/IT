@@ -139,6 +139,44 @@ function Get-And-Invoke-Script {
     Invoke-Script -ScriptName $ScriptName
     Log "Finished download and invocation for $ScriptName."
 }
+# ================== FUNCTION: REPAIR SYSTEM FILES (SFC) ==================
+# Runs SFC (System File Checker) to verify and optionally repair Windows system files.
+# Uses 'verifyonly' first, and if corruption is found, runs 'scannow'.
+function Repair-SystemFiles {
+    Log "Starting System File Checker (SFC) integrity check..." "INFO"
+
+    try {
+        Log "Running 'sfc /verifyonly' to check for corrupted system files..." "INFO"
+        # Execute sfc /verifyonly and capture its output
+        $sfcVerifyOutput = sfc.exe /verifyonly 2>&1 | Out-String
+
+        # Log the output for review, especially if verbose mode is on
+        Log "SFC /verifyonly output: `n$sfcVerifyOutput" "DEBUG"
+
+        # Check if corruption was found. The output typically contains "Windows Resource Protection found integrity violations"
+        if ($sfcVerifyOutput -match "Windows Resource Protection found integrity violations") {
+            Log "SFC /verifyonly detected corrupted system files. Proceeding with 'sfc /scannow'..." "WARN"
+            Log "This process may take a while and could prompt for a reboot." "WARN"
+            
+            # Execute sfc /scannow
+            $sfcScanOutput = sfc.exe /scannow 2>&1 | Out-String
+            Log "SFC /scannow output: `n$sfcScanOutput" "DEBUG"
+
+            if ($sfcScanOutput -match "Windows Resource Protection did not find any integrity violations" -or $sfcScanOutput -match "Windows Resource Protection found integrity violations and successfully repaired them") {
+                Log "SFC /scannow completed. System files repaired or no further violations found." "GREEN"
+            } elseif ($sfcScanOutput -match "Windows Resource Protection found integrity violations but was unable to fix some of them") {
+                Log "SFC /scannow completed, but was unable to repair all corrupted files. Manual intervention may be required." "ERROR"
+            } else {
+                Log "SFC /scannow completed with unknown status. Review debug logs for details." "WARN"
+            }
+
+        } else {
+            Log "SFC /verifyonly found no integrity violations. System files are healthy." "GREEN"
+        }
+    } catch {
+        Log "An error occurred during SFC operation: $_" "ERROR"
+    }
+}
 # Log the initial message indicating the script has started, using the `Log` function.
 Log "WUH Script started."
 # ================== SAVE ORIGINAL EXECUTION POLICY ==================
@@ -345,7 +383,8 @@ switch ($task) {
         } else {
             Log "Microsoft Office not detected. Skipping Office update script download."
         }
-        Invoke-Script -ScriptName "MACHINEPREP.ps1" # Execute the machine preparation script
+        Log "Running System File Checker (SFC) to verify system integrity..."
+        Repair-SystemFiles # Call the function to run SFC
     }
     "2" {
         Log "Task selected: Windows Maintenance"
@@ -356,12 +395,15 @@ switch ($task) {
         } else {
             Log "Microsoft Office not detected. Skipping Office update."
         }
+        Log "Running System File Checker (SFC) to verify system integrity..."
+        Repair-SystemFiles # Call the function to run SFC
     }
     default {
         Log "Invalid task selection. Exiting script." -Level "ERROR"
         Exit 1 # Terminate script due to invalid input
     }
 }
+
 # ================== RESET POWER PLAN TO BALANCED ==================
 # Restore the system's power plan to the default 'Balanced' scheme.
 # This reverts changes made earlier for temporary performance boost.

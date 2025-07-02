@@ -162,7 +162,7 @@ function Uninstall-Chocolatey {
             Log "Performing additional cleanup for Chocolatey directories and environment variables." "INFO"
 
             # Delete ChocolateyBinRoot if it exists and unset its environment variable
-            if ($env:ChocolateyBinRoot -ne '' -and $env:ChocolateyBinRoot -ne $null -and (Test-Path "$env:ChocolateyBinRoot")) {
+            if ($env:ChocolateyBinRoot -ne '' -and $null -ne $env:ChocolateyBinRoot -and (Test-Path "$env:ChocolateyBinRoot")) {
                 Log "Deleting ChocolateyBinRoot: $($env:ChocolateyBinRoot)" "INFO"
                 Remove-Item -Recurse -Force "$env:ChocolateyBinRoot" -ErrorAction SilentlyContinue
                 [System.Environment]::SetEnvironmentVariable("ChocolateyBinRoot", $null, 'Machine') # Unset machine-wide
@@ -170,7 +170,7 @@ function Uninstall-Chocolatey {
             }
 
             # Delete ChocolateyToolsRoot if it exists and unset its environment variable
-            if ($env:ChocolateyToolsRoot -ne '' -and $env:ChocolateyToolsRoot -ne $null -and (Test-Path "$env:ChocolateyToolsRoot")) {
+            if ($env:ChocolateyToolsRoot -ne '' -and $null -ne $env:ChocolateyToolsRoot -and (Test-Path "$env:ChocolateyToolsRoot")) {
                 Log "Deleting ChocolateyToolsRoot: $($env:ChocolateyToolsRoot)" "INFO"
                 Remove-Item -Recurse -Force "$env:ChocolateyToolsRoot" -ErrorAction SilentlyContinue
                 [System.Environment]::SetEnvironmentVariable("ChocolateyToolsRoot", $null, 'Machine') # Unset machine-wide
@@ -201,7 +201,7 @@ function Uninstall-Chocolatey {
         Log "Chocolatey executable not found, performing cleanup for lingering folders and environment variables." "INFO"
 
         # Delete ChocolateyBinRoot if it exists and unset its environment variable
-        if ($env:ChocolateyBinRoot -ne '' -and $env:ChocolateyBinRoot -ne $null -and (Test-Path "$env:ChocolateyBinRoot")) {
+        if ($env:ChocolateyBinRoot -ne '' -and $null -ne $env:ChocolateyBinRoot -and (Test-Path "$env:ChocolateyBinRoot")) {
             Log "Deleting lingering ChocolateyBinRoot: $($env:ChocolateyBinRoot)" "INFO"
             Remove-Item -Recurse -Force "$env:ChocolateyBinRoot" -ErrorAction SilentlyContinue
             [System.Environment]::SetEnvironmentVariable("ChocolateyBinRoot", $null, 'Machine')
@@ -209,7 +209,7 @@ function Uninstall-Chocolatey {
         }
 
         # Delete ChocolateyToolsRoot if it exists and unset its environment variable
-        if ($env:ChocolateyToolsRoot -ne '' -and $env:ChocolateyToolsRoot -ne $null -and (Test-Path "$env:ChocolateyToolsRoot")) {
+        if ($env:ChocolateyToolsRoot -ne '' -and $null -ne $env:ChocolateyToolsRoot -and (Test-Path "$env:ChocolateyToolsRoot")) {
             Log "Deleting lingering ChocolateyToolsRoot: $($env:ChocolateyToolsRoot)" "INFO"
             Remove-Item -Recurse -Force "$env:ChocolateyToolsRoot" -ErrorAction SilentlyContinue
             [System.Environment]::SetEnvironmentVariable("ChocolateyToolsRoot", $null, 'Machine')
