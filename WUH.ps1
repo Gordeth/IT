@@ -142,6 +142,9 @@ function Get-And-Invoke-Script {
 # ================== FUNCTION: REPAIR SYSTEM FILES (SFC) ==================
 # Runs SFC (System File Checker) to verify and optionally repair Windows system files.
 # Uses 'verifyonly' first, and if corruption is found, runs 'scannow'.
+# ================== FUNCTION: REPAIR SYSTEM FILES (SFC) ==================
+# Runs SFC (System File Checker) to verify and optionally repair Windows system files.
+# Uses 'verifyonly' first, and if corruption is found, runs 'scannow'.
 function Repair-SystemFiles {
     Log "Starting System File Checker (SFC) integrity check..."
 
@@ -149,17 +152,19 @@ function Repair-SystemFiles {
         Log "Running 'sfc /verifyonly' to check for corrupted system files..."
         
         # Execute sfc /verifyonly and capture its output and exit code
-        # $LASTEXITCODE will contain the exit code of the last native command executed
         $sfcVerifyOutput = sfc.exe /verifyonly 2>&1 | Out-String
         $sfcVerifyExitCode = $LASTEXITCODE
 
         Log "SFC /verifyonly output: `n$sfcVerifyOutput"
         Log "SFC /verifyonly exit code: $sfcVerifyExitCode"
 
-        # Check if corruption was found based on the exit code
-        # A non-zero exit code usually indicates violations were found
-        if ($sfcVerifyExitCode -ne 0) {
-            Log "SFC /verifyonly detected corrupted system files (Exit Code: $sfcVerifyExitCode). Proceeding with 'sfc /scannow'..."
+        # Check if corruption was found by parsing the output string,
+        # as the exit code might be unreliable in some cases.
+        # Using -match with a more forgiving regex to capture the core message.
+        $violationsFound = $sfcVerifyOutput -match "Windows Resource Protection found integrity violations"
+
+        if ($violationsFound) {
+            Log "SFC /verifyonly detected corrupted system files. Proceeding with 'sfc /scannow'..."
             Log "This process may take a while and could prompt for a reboot."
             
             # Execute sfc /scannow
@@ -170,7 +175,7 @@ function Repair-SystemFiles {
             Log "SFC /scannow exit code: $sfcScanExitCode"
 
             # Interpret sfc /scannow results based on common patterns or exit code
-            if ($sfcScanExitCode -eq 0) {
+            if ($sfcScanExitCode -eq 0 -or $sfcScanOutput -match "successfully repaired them") {
                 Log "SFC /scannow completed successfully. System files repaired or no further violations found."
             } elseif ($sfcScanExitCode -eq 1641 -or $sfcScanExitCode -eq 3010) { # Common reboot required codes
                 Log "SFC /scannow completed and requires a reboot to finalize repairs."
