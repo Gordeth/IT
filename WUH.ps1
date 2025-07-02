@@ -147,27 +147,37 @@ function Repair-SystemFiles {
 
     try {
         Log "Running 'sfc /verifyonly' to check for corrupted system files..."
-        # Execute sfc /verifyonly and capture its output
+        
+        # Execute sfc /verifyonly and capture its output and exit code
+        # $LASTEXITCODE will contain the exit code of the last native command executed
         $sfcVerifyOutput = sfc.exe /verifyonly 2>&1 | Out-String
+        $sfcVerifyExitCode = $LASTEXITCODE
 
-        # Log the output for review, especially if verbose mode is on
         Log "SFC /verifyonly output: `n$sfcVerifyOutput"
+        Log "SFC /verifyonly exit code: $sfcVerifyExitCode"
 
-        # Check if corruption was found. The output typically contains "Windows Resource Protection found integrity violations"
-        if ($sfcVerifyOutput -match "Windows Resource Protection found integrity violations") {
-            Log "SFC /verifyonly detected corrupted system files. Proceeding with 'sfc /scannow'..."
+        # Check if corruption was found based on the exit code
+        # A non-zero exit code usually indicates violations were found
+        if ($sfcVerifyExitCode -ne 0) {
+            Log "SFC /verifyonly detected corrupted system files (Exit Code: $sfcVerifyExitCode). Proceeding with 'sfc /scannow'..."
             Log "This process may take a while and could prompt for a reboot."
             
             # Execute sfc /scannow
             $sfcScanOutput = sfc.exe /scannow 2>&1 | Out-String
-            Log "SFC /scannow output: `n$sfcScanOutput"
+            $sfcScanExitCode = $LASTEXITCODE
 
-            if ($sfcScanOutput -match "Windows Resource Protection did not find any integrity violations" -or $sfcScanOutput -match "Windows Resource Protection found integrity violations and successfully repaired them") {
-                Log "SFC /scannow completed. System files repaired or no further violations found."
+            Log "SFC /scannow output: `n$sfcScanOutput"
+            Log "SFC /scannow exit code: $sfcScanExitCode"
+
+            # Interpret sfc /scannow results based on common patterns or exit code
+            if ($sfcScanExitCode -eq 0) {
+                Log "SFC /scannow completed successfully. System files repaired or no further violations found."
+            } elseif ($sfcScanExitCode -eq 1641 -or $sfcScanExitCode -eq 3010) { # Common reboot required codes
+                Log "SFC /scannow completed and requires a reboot to finalize repairs."
             } elseif ($sfcScanOutput -match "Windows Resource Protection found integrity violations but was unable to fix some of them") {
                 Log "SFC /scannow completed, but was unable to repair all corrupted files. Manual intervention may be required."
             } else {
-                Log "SFC /scannow completed with unknown status. Review debug logs for details."
+                Log "SFC /scannow completed with unknown status (Exit Code: $sfcScanExitCode). Review logs for details."
             }
 
         } else {
