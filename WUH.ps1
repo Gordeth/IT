@@ -126,7 +126,7 @@ function Invoke-Script {
         Exit 1 # Still exit on critical error from child script
     }
 }
-# ================== DOWNLOAD AND INVOKE SCRIPT HELPER ==================
+# ================== GET AND INVOKE SCRIPT FUNCTION ==================
 # Combines the functionality of Get-Script and Invoke-Script to download and then run a script.
 function Get-And-Invoke-Script {
     param (
@@ -238,46 +238,98 @@ if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
 Log "Creating temporary Maximum Performance power plan..."
 try {
     # Well-known GUID for the "High performance" power plan.
-    # This avoids language-dependent string matching.
     $highPerformanceGuid = "8c5e7fd1-ce92-466d-be55-c3230502e679"
-
-    # Verify if the High Performance plan (by its GUID) actually exists before trying to duplicate.
-    # Use powercfg -list to check for the GUID in its output.
     $baseSchemeExists = (powercfg -list | Select-String -Pattern $highPerformanceGuid -Quiet)
+    $tempPlanGuid = $null # Initialize to null
 
-    if (-not $baseSchemeExists) {
-        Log "High Performance power plan (GUID: $highPerformanceGuid) not found on this system. Skipping power plan changes." -Level "WARN"
-    } else {
-        # Duplicate the "High performance" plan to create a new one.
-        Log "Duplicating High Performance power plan using GUID: $highPerformanceGuid..."
-        $guid = (powercfg -duplicatescheme $highPerformanceGuid).Trim()
-        
-        if (-not $guid) {
-            Log "Failed to duplicate power plan. The 'powercfg -duplicatescheme' command returned no new GUID." -Level "ERROR"
-            # Attempt to find if our custom plan already exists and use its GUID if so.
-            # This handles cases where a previous run might have created it but failed to activate.
-            $existingTempPlan = (powercfg -list | Where-Object { $_ -match [regex]::Escape($PowerPlanName) } | ForEach-Object { ($_ -split '\s+')[3] })
-            if ($existingTempPlan) {
-                $guid = $existingTempPlan
-                Log "Found an existing temporary power plan named '$PowerPlanName' with GUID: $guid. Will attempt to activate it instead." -Level "WARN"
+    # First, try to find if our custom plan already exists (from a previous run)
+    $existingTempPlan = (powercfg -list | Where-Object { $_ -match [regex]::Escape($PowerPlanName) } | ForEach-Object { ($_ -split '\s+')[3] })
+    if ($existingTempPlan) {
+        $tempPlanGuid = $existingTempPlan
+        Log "Found an existing temporary power plan named '$PowerPlanName' with GUID: $tempPlanGuid. Will attempt to activate it." -Level "INFO"
+    }
+    
+    # If a temporary plan wasn't found, proceed to create/duplicate
+    if (-not $tempPlanGuid) {
+        if ($baseSchemeExists) {
+            # Option 1: Duplicate the standard "High performance" plan if it exists
+            Log "High Performance power plan (GUID: $highPerformanceGuid) found. Duplicating it."
+            $newGuidOutput = (powercfg -duplicatescheme $highPerformanceGuid).Trim()
+            if ($newGuidOutput -match '([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})') {
+                $tempPlanGuid = $Matches[1]
+                Log "Duplicated High Performance plan to new GUID: $tempPlanGuid."
             } else {
-                Log "Could not find or duplicate the power plan, and no existing temporary plan named '$PowerPlanName' was found. Aborting power plan changes." -Level "ERROR"
-                return # Exit this try block as we can't proceed.
+                Log "Failed to extract GUID from duplicate command output: '$newGuidOutput'. Trying to find existing temporary plan." -Level "WARN"
+            }
+        } else {
+            # Option 2: High Performance base plan not found. Create a new "High Performance-like" plan from Balanced.
+            Log "High Performance power plan (GUID: $highPerformanceGuid) not found. Creating a new 'High Performance-like' custom plan." -Level "WARN"
+            
+            # Use 'Balanced' as a base or just create a new scheme.
+            # Using 'Balanced' GUID as a fallback to duplicate
+            $balancedGuid = "381b4222-f694-41f0-9685-ff5bb260df2e"
+            $newGuidOutput = (powercfg -duplicatescheme $balancedGuid).Trim() # Duplicate Balanced
+            if ($newGuidOutput -match '([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})') {
+                $tempPlanGuid = $Matches[1]
+                Log "Duplicated 'Balanced' plan as a base for a new custom plan, GUID: $tempPlanGuid."
+
+                # --- Configure Key Settings for Max Performance ---
+                # These are common settings to maximize performance.
+                # GUIDs for sub-groups and settings are universal.
+
+                # Hard Disk - Turn off hard disk after (AC and DC)
+                powercfg -setacvalueindex $tempPlanGuid 0012ee47-9041-4b5d-9b77-535fba8b1442 6738e2c4-e8a5-4a42-b16a-e04988416b05 0 # 0 minutes
+                powercfg -setdcvalueindex $tempPlanGuid 0012ee47-9041-4b5d-9b77-535fba8b1442 6738e2c4-e8a5-4a42-b16a-e04988416b05 0 # 0 minutes
+                Log "Hard disk never turns off."
+
+                # Processor power management - Minimum processor state (AC and DC)
+                powercfg -setacvalueindex $tempPlanGuid 54533251-82be-4824-96c1-47b60fd7279f 893dee84-a207-4e21-8ee8-999882b1965f 100 # 100%
+                powercfg -setdcvalueindex $tempPlanGuid 54533251-82be-4824-96c1-47b60fd7279f 893dee84-a207-4e21-8ee8-999882b1965f 100 # 100%
+                Log "Minimum processor state set to 100%."
+
+                # Processor power management - Maximum processor state (AC and DC)
+                powercfg -setacvalueindex $tempPlanGuid 54533251-82be-4824-96c1-47b60fd7279f 3b04d4fd-1cc7-4f23-ab13-d015520ee82d 100 # 100%
+                powercfg -setdcvalueindex $tempPlanGuid 54533251-82be-4824-96c1-47b60fd7279f 3b04d4fd-1cc7-4f23-ab13-d015520ee82d 100 # 100%
+                Log "Maximum processor state set to 100%."
+
+                # Sleep - Sleep after (AC and DC) - set to 0 for never
+                powercfg -setacvalueindex $tempPlanGuid 238c9fa8-0aad-41ed-83f4-97be242c8f20 29f6c1db-86da-48c5-9fdb-f2b67b1f4467 0 # Never
+                powercfg -setdcvalueindex $tempPlanGuid 238c9fa8-0aad-41ed-83f4-97be242c8f20 29f6c1db-86da-48c5-9fdb-f2b67b1f4467 0 # Never
+                Log "System will not sleep automatically."
+
+                # Display - Turn off display after (AC and DC) - set to 0 for never
+                powercfg -setacvalueindex $tempPlanGuid 7516b95f-f776-4464-8c53-06167f40cc99 30f7fc95-ace5-47af-9eb2-be5aa57b1974 0 # Never
+                powercfg -setdcvalueindex $tempPlanGuid 7516b95f-f776-4464-8c53-06167f40cc99 30f7fc95-ace5-47af-9eb2-be5aa57b1974 0 # Never
+                Log "Display will not turn off automatically."
+
+                # USB selective suspend setting (AC and DC) - set to Disabled
+                powercfg -setacvalueindex $tempPlanGuid 2a737441-1930-4402-8d77-b2bebba308a3 48e6b7a6-50f5-4782-a5d4-535f76f8e0d1 0 # Disabled
+                powercfg -setdcvalueindex $tempPlanGuid 2a737441-1930-4402-8d77-b2bebba308a3 48e6b7a6-50f5-4782-a5d4-535f76f8e0d1 0 # Disabled
+                Log "USB selective suspend disabled."
+
+            } else {
+                Log "Failed to duplicate 'Balanced' plan to create a custom plan. Aborting power plan changes." -Level "ERROR"
+                return # Exit this try block
             }
         }
-        
-        # Rename the duplicated plan to the specified temporary name.
-        Log "Renaming duplicated power plan (GUID: $guid) to '$PowerPlanName'..."
-        powercfg -changename $guid $PowerPlanName "Temporary Maximum Performance"
+    }
+
+    if ($tempPlanGuid) {
+        # Rename the plan to the specified temporary name.
+        Log "Renaming power plan (GUID: $tempPlanGuid) to '$PowerPlanName'..."
+        powercfg -changename $tempPlanGuid $PowerPlanName "Temporary Maximum Performance (Custom)"
         
         # Set the newly created plan as the active power scheme.
-        Log "Activating '$PowerPlanName' power plan with GUID: $guid..."
-        powercfg -setactive $guid
+        Log "Activating '$PowerPlanName' power plan with GUID: $tempPlanGuid..."
+        powercfg -setactive $tempPlanGuid
         Log "Temporary Maximum Performance power plan activated successfully."
+    } else {
+        Log "Could not create or find a suitable power plan for activation. Power plan changes skipped." -Level "ERROR"
     }
+
 } catch {
     # Log any unexpected errors during power plan operations.
-    Log "An error occurred while creating or setting the temporary power plan: $_" -Level "ERROR"
+    Log "An error occurred during power plan creation or setting: $_" -Level "ERROR"
 }
 # ================== TASK SELECTION ==================
 # Execute specific tasks based on the user's initial selection.
