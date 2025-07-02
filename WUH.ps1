@@ -139,18 +139,7 @@ function Get-And-Invoke-Script {
     Invoke-Script -ScriptName $ScriptName
     Log "Finished download and invocation for $ScriptName."
 }
-# ================== FUNCTION: REPAIR SYSTEM FILES (SFC) ==================
-# Runs SFC (System File Checker) to verify and optionally repair Windows system files.
-# Uses 'verifyonly' first, and if corruption is found, runs 'scannow'.
-# ================== FUNCTION: REPAIR SYSTEM FILES (SFC) ==================
-# Runs SFC (System File Checker) to verify and optionally repair Windows system files.
-# Uses 'verifyonly' first, and if corruption is found, runs 'scannow'.
-# ================== FUNCTION: REPAIR SYSTEM FILES (SFC) ==================
-# Runs SFC (System File Checker) to verify and optionally repair Windows system files.
-# Uses 'verifyonly' first, and if corruption is found, runs 'scannow'.
-# ================== FUNCTION: REPAIR SYSTEM FILES (SFC) ==================
-# Runs SFC (System File Checker) to verify and optionally repair Windows system files.
-# Uses 'verifyonly' first, and if corruption is found, runs 'scannow'.
+
 # ================== FUNCTION: REPAIR SYSTEM FILES (SFC) ==================
 # Runs SFC (System File Checker) to verify and optionally repair Windows system files.
 # Uses 'verifyonly' first, and if corruption is found, runs 'scannow'.
@@ -175,19 +164,22 @@ function Repair-SystemFiles {
 
         Log "SFC /verifyonly normalized output for matching: '$normalizedOutput'"
 
-        # --- NEW DEBUGGING STEP: Dump Hexadecimal representation ---
+        # --- DEBUGGING STEP: Dump Hexadecimal representation (keep for now) ---
         # Convert the normalized string to a byte array and then to hex.
         $hexOutput = ([System.BitConverter]::ToString([System.Text.Encoding]::UTF8.GetBytes($normalizedOutput)))
         Log "SFC /verifyonly normalized output (HEX): $hexOutput"
-        # --- END NEW DEBUGGING STEP ---
+        # --- END DEBUGGING STEP ---
 
-        # Define the target string
+        # Define the target string (for reference)
         $targetString = "windows resource protection found integrity violations"
         
-        # Check if corruption was found by explicitly looking for the substring
-        $violationsFound = $normalizedOutput.Contains($targetString)
+        # --- MODIFIED: Use regex matching instead of .Contains() ---
+        # Create a regex pattern that matches the phrase, allowing for any whitespace (\s+) between words.
+        # This is more robust against subtle differences in whitespace characters.
+        $regexPattern = "windows\s+resource\s+protection\s+found\s+integrity\s+violations"
+        $violationsFound = $normalizedOutput -match $regexPattern
 
-        Log "Checking for '$targetString' in normalized output. Result: $violationsFound"
+        Log "Checking for '$targetString' using regex '$regexPattern'. Result: $violationsFound"
 
         if ($violationsFound) {
             Log "SFC /verifyonly detected corrupted system files. Proceeding with 'sfc /scannow'..."
