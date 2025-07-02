@@ -177,8 +177,8 @@ function Repair-SystemFiles {
             # Pre-calculate the formatted Unicode string
             $formattedUnicode = ($unicodeValue).ToString('X4') 
             $charName = if ([System.Char]::IsWhiteSpace($char)) { "Whitespace" } else { "" }
-            # CORRECTED LINE: Using [string]::Format() for robust string construction
-            Log ([string]::Format("Index {0}: Character: '{1}' (Unicode: U+{2}) {3}", $i, $char, $formattedUnicode, $charName))
+            # CORRECTED LINE: Using explicit string concatenation (temporarily removed "U+" prefix)
+            Log ("Index " + $i + ": Character: '" + $char + "' (Unicode: " + $formattedUnicode + ") " + $charName)
         }
         Log "--- End Character Analysis ---"
         # --- END NEW DEBUGGING STEP ---
