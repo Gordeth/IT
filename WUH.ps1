@@ -156,25 +156,36 @@ function Repair-SystemFiles {
         Log "SFC /verifyonly raw output:`n$sfcVerifyOutput"
         Log "SFC /verifyonly exit code: $sfcVerifyExitCode"
 
-        # Aggressively normalize the output
-        $normalizedOutput = ($sfcVerifyOutput -replace '[\r\n]+', ' ').ToLower().Trim()
-        $normalizedOutput = $normalizedOutput -replace '\s{2,}', ' '
-        Log "Normalized SFC output for matching: '$normalizedOutput'"
+        # Improved normalization
+        $normalizedOutput = $sfcVerifyOutput `
+            -replace '[^\u0009\u000A\u000D\u0020-\u007E]', ' ' `      # Remove non-printables
+            -replace '[\r\n]+', ' ' `                                # Replace newlines with space
+            -replace '\s{2,}', ' ' `                                 # Collapse multiple spaces
+            | ForEach-Object { $_.ToLower().Trim() }
 
-        # Optional hex dump of the normalized string
+        Log "Normalized SFC output for matching: '$normalizedOutput'"
+        Log "Length of normalized output: $($normalizedOutput.Length)"
+
+        # Optional hex dump
         $hexOutput = [System.BitConverter]::ToString([System.Text.Encoding]::UTF8.GetBytes($normalizedOutput))
         Log "Normalized output (hex): $hexOutput"
 
-        # Define the target match string
+        # Target phrase and pattern
         $targetPhrase = "windows resource protection found integrity violations"
         $regexPattern = "windows\s+resource\s+protection\s+found\s+integrity\s+violations"
 
-        # Attempt match
+        # Primary match
         $violationsFound = $normalizedOutput -match $regexPattern
 
-        # Fallback match in case regex fails due to subtle encoding issues
+        # Fallback: wildcard against normalized
         if (-not $violationsFound -and $normalizedOutput -like "*$targetPhrase*") {
             Log "Fallback wildcard match for '$targetPhrase' succeeded."
+            $violationsFound = $true
+        }
+
+        # Fallback: pattern match in raw output
+        if (-not $violationsFound -and $sfcVerifyOutput -match $regexPattern) {
+            Log "Pattern matched in raw output as final fallback."
             $violationsFound = $true
         }
 
@@ -189,7 +200,7 @@ function Repair-SystemFiles {
             Log "SFC /scannow raw output:`n$sfcScanOutput"
             Log "SFC /scannow exit code: $sfcScanExitCode"
 
-            $normalizedScanOutput = ($sfcScanOutput.ToLowerInvariant()) `
+            $normalizedScanOutput = $sfcScanOutput.ToLowerInvariant() `
                 -replace '[^\x20-\x7E]', ' ' `
                 -replace '\s+', ' ' `
                 -replace '^\s+|\s+$', ''
@@ -214,6 +225,7 @@ function Repair-SystemFiles {
         Log "An error occurred during SFC operation: $_"
     }
 }
+
 
 # Log the initial message indicating the script has started, using the `Log` function.
 Log "WUH Script started."
