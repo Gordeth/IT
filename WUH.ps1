@@ -174,8 +174,11 @@ function Repair-SystemFiles {
         for ($i = 0; $i -lt $normalizedOutput.Length; $i++) {
             $char = $normalizedOutput[$i]
             $unicodeValue = [int]$char
+            # Pre-calculate the formatted Unicode string
+            $formattedUnicode = ($unicodeValue).ToString('X4') 
             $charName = if ([System.Char]::IsWhiteSpace($char)) { "Whitespace" } else { "" }
-            Log "Index $i: Character: '$char' (Unicode: U+$(($unicodeValue).ToString('X4'))) $charName"
+            # CORRECTED LINE: Using [string]::Format() for robust string construction
+            Log ([string]::Format("Index {0}: Character: '{1}' (Unicode: U+{2}) {3}", $i, $char, $formattedUnicode, $charName))
         }
         Log "--- End Character Analysis ---"
         # --- END NEW DEBUGGING STEP ---
