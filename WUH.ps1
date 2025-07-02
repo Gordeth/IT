@@ -157,7 +157,9 @@ function Repair-SystemFiles {
         Log "SFC /verifyonly exit code: $sfcVerifyExitCode"
 
         # Ensure clean joined string
-        $sfcVerifyOutput = [string]::Join(" ", $sfcVerifyOutput)
+        if ($sfcVerifyOutput -isnot [string]) {
+            $sfcVerifyOutput = [string]::Join("", $sfcVerifyOutput)
+        }
 
         # Improved normalization
         $normalizedOutput = (
