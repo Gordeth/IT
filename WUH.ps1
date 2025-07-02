@@ -159,10 +159,8 @@ function Repair-SystemFiles {
         # Improved normalization
         $normalizedOutput = (
             $sfcVerifyOutput `
-                -replace '\x00', ' ' `
-                -replace '[^\u0009\u000A\u000D\u0020-\u007E]', ' ' `
-                -replace '[\r\n]+', ' ' `
-                -replace '\s{2,}', ' '
+                -replace '[^\x20-\x7E\r\n\t]', ' ' `
+                -replace '[\r\n\t\s]+', ' ' `
             ).ToLower().Trim()
 
         # Optional hex dump (keep for now, might be useful if other issues arise)
