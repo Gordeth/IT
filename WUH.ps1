@@ -165,17 +165,25 @@ function Repair-SystemFiles {
         Log "SFC /verifyonly normalized output for matching: '$normalizedOutput'"
 
         # --- DEBUGGING STEP: Dump Hexadecimal representation (keep for now) ---
-        # Convert the normalized string to a byte array and then to hex.
         $hexOutput = ([System.BitConverter]::ToString([System.Text.Encoding]::UTF8.GetBytes($normalizedOutput)))
         Log "SFC /verifyonly normalized output (HEX): $hexOutput"
         # --- END DEBUGGING STEP ---
 
-        # Define the target string (for reference)
+        # --- NEW DEBUGGING STEP: Character-by-character analysis ---
+        Log "--- Normalized Output Character Analysis ---"
+        for ($i = 0; $i -lt $normalizedOutput.Length; $i++) {
+            $char = $normalizedOutput[$i]
+            $unicodeValue = [int]$char
+            $charName = if ([System.Char]::IsWhiteSpace($char)) { "Whitespace" } else { "" }
+            Log "Index $i: Character: '$char' (Unicode: U+$(($unicodeValue).ToString('X4'))) $charName"
+        }
+        Log "--- End Character Analysis ---"
+        # --- END NEW DEBUGGING STEP ---
+
+        # Define the target string
         $targetString = "windows resource protection found integrity violations"
         
-        # --- MODIFIED: Use regex matching instead of .Contains() ---
-        # Create a regex pattern that matches the phrase, allowing for any whitespace (\s+) between words.
-        # This is more robust against subtle differences in whitespace characters.
+        # Check if corruption was found using regex (most robust method)
         $regexPattern = "windows\s+resource\s+protection\s+found\s+integrity\s+violations"
         $violationsFound = $normalizedOutput -match $regexPattern
 
