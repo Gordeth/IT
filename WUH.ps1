@@ -312,6 +312,13 @@ if ($mode.ToUpper() -eq "V") {
 } else {
     $VerboseMode = $false # Set internal flag to suppress console output
     Log "Silent mode selected."
+    # ================== ASK FOR TASK ==================
+    # Prompt the user to select the task to perform: Machine Preparation or Windows Maintenance.
+    Write-Host ""
+    Write-Host "Select Task:"
+    Write-Host "[1] Machine Preparation (semi-automated)"
+    Write-Host "[2] Windows Maintenance"
+    $task = Read-Host "Choose task [1/2]" # Read user input for task selection
     # Suppress various PowerShell preference variables for silent operation.
     # This prevents non-essential output like progress bars, information streams, and warnings.
     $VerbosePreference = "SilentlyContinue"
