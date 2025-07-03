@@ -507,12 +507,12 @@ try {
 # ================== TASK SELECTION ==================
 # Execute specific tasks based on the user's initial selection.
 switch ($task) {
-    "1" {
+    "MachinePrep" { # Changed from "1" to "MachinePrep"
         Log "Task selected: Machine Preparation (semi-automated)"
         Log "Downloading necessary scripts..."
         Get-And-Invoke-Script -ScriptName "MACHINEPREP.ps1" 
-        Get-And-Invoke-Script -ScriptName "WU.ps1"         
-        Get-And-Invoke-Script -ScriptName "WGET.ps1"       
+        Get-And-Invoke-Script -ScriptName "WU.ps1"        
+        Get-And-Invoke-Script -ScriptName "WGET.ps1"      
         if (Confirm-OfficeInstalled) {
             Get-And-Invoke-Script -ScriptName "MSO_UPDATE.ps1" # Conditionally download Office update script
         } else {
@@ -521,7 +521,7 @@ switch ($task) {
         Log "Running System File Checker (SFC) to verify system integrity..."
         Repair-SystemFiles # Call the function to run SFC
     }
-    "2" {
+    "WindowsMaintenance" { # Changed from "2" to "WindowsMaintenance"
         Log "Task selected: Windows Maintenance"
         Get-And-Invoke-Script -ScriptName "WU.ps1"
         Get-And-Invoke-Script -ScriptName "WGET.ps1"
@@ -534,7 +534,9 @@ switch ($task) {
         Repair-SystemFiles # Call the function to run SFC
     }
     default {
-        Log "Invalid task selection. Exiting script." -Level "ERROR"
+        # This block should now only be reached if $task contains an unexpected value,
+        # not because of a common interactive selection.
+        Log "Invalid task selection. Exiting script. Received value: '$task'" -Level "ERROR" # Added $task value for debugging
         Exit 1 # Terminate script due to invalid input
     }
 }
