@@ -164,58 +164,78 @@ function Repair-SystemFiles {
 
         # Execute sfc /verifyonly
         # Redirect all output to Null so we don't try to parse it, focusing on CBS.log
-        Log "Runnning 'sfc /verifyonly' command...sfc "
         sfc.exe /verifyonly > $null 2>&1
         $sfcVerifyExitCode = $LASTEXITCODE # Capture exit code
 
         Log "SFC /verifyonly completed. Exit code: $sfcVerifyExitCode. Analyzing CBS.log for results..."
 
         # Wait a moment for the log to be written (SFC writes asynchronously)
-        Start-Sleep -Seconds 10 
+        Start-Sleep -Seconds 15 # Increased sleep to ensure log writes
 
         $violationsFound = $false
         if (Test-Path $cbsLogPath) {
-            # Read only new content from CBS.log if it grew, or the entire log if it's new
+            # Get current timestamp to filter recent entries more reliably
+            $currentTime = Get-Date
+
+            # Read a larger tail of the log, or the full log if it's small, to capture recent SFC entries
             $cbsLogContent = ""
-            if ((Get-Item $cbsLogPath).Length -gt $initialCbsLogSize) {
-                # Read content from the point where it started growing
-                # This is an approximation; a more robust way is to read new lines by timestamp/marker.
-                # For simplicity, we'll read tail or full content if log is new.
-                Log "CBS.log has grown. Reading new content."
-                # Attempt to read tail, but if file is new or very small, read full
-                if ((Get-Item $cbsLogPath).Length - $initialCbsLogSize -gt 1MB) { # If large new content
-                     $cbsLogContent = Get-Content -Path $cbsLogPath -Tail 5000 | Out-String # Read last 5000 lines
+            if ((Get-Item $cbsLogPath).Length -gt 50MB) { # If log is very large, read tail
+                $cbsLogContent = Get-Content -Path $cbsLogPath -Tail 10000 | Out-String # Read last 10,000 lines
+            } else {
+                $cbsLogContent = Get-Content -Path $cbsLogPath -Raw | Out-String # Read entire log
+            }
+            
+            # Filter entries relevant to the current SFC run by timestamp
+            # This is a heuristic: entries from the last few minutes (e.g., 2 minutes)
+            $recentSfcEntries = $cbsLogContent | Select-String -Pattern "\[SR\]|Warning: Overlap:" | Where-Object {
+                $line = $_.ToString()
+                if ($line -match '^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}), Info') {
+                    $logTimestamp = [datetime]::ParseExact($Matches[1], 'yyyy-MM-dd HH:mm:ss', $null)
+                    ($currentTime - $logTimestamp).TotalMinutes -lt 2 # Check if entry is within last 2 minutes
                 } else {
-                    # If total size is manageable, read full. This covers cases where initial size was 0.
-                    $cbsLogContent = Get-Content -Path $cbsLogPath -Raw | Out-String
+                    $true # Include lines that don't match the timestamp pattern but have [SR] or Warning: Overlap:
                 }
-            } else {
-                Log "CBS.log size has not changed or is smaller. Reading entire log for safety."
-                $cbsLogContent = Get-Content -Path $cbsLogPath -Raw | Out-String
+            } | Out-String # Convert array of MatchInfo objects back to string for overall matching
+
+            $normalizedRecentLogContent = ($recentSfcEntries -replace '\s+', ' ').ToLower().Trim()
+            
+            # Search for specific patterns indicating integrity violations from SFC /verifyonly
+            # These patterns are based on Microsoft documentation and common SFC log entries
+            if ($normalizedRecentLogContent -match "windows resource protection found integrity violations") {
+                # This pattern can appear in the console output and sometimes in the log itself.
+                $violationsFound = $true
+                Log "CBS.log analysis: Console output pattern 'Windows Resource Protection found integrity violations' detected."
+            }
+            if ($normalizedRecentLogContent -match "\[sr\] cannot repair member file") {
+                # This is the most direct indicator of a file found to be corrupt by SFC /verifyonly
+                $violationsFound = $true
+                Log "CBS.log analysis: '[SR] Cannot repair member file' detected."
+            }
+            if ($normalizedRecentLogContent -match "\[sr\] repairing corrupted file") {
+                # While /verifyonly doesn't repair, this entry can appear showing files that would be repaired.
+                # It indicates a problem found.
+                $violationsFound = $true
+                Log "CBS.log analysis: '[SR] Repairing corrupted file' (indicating a problem) detected."
+            }
+            if ($normalizedRecentLogContent -match "warning: overlap: directory") {
+                # This indicates permission/ownership issues found by SFC, which are also integrity violations.
+                # This pattern does NOT have the [SR] tag.
+                $violationsFound = $true
+                Log "CBS.log analysis: 'Warning: Overlap: Directory' detected."
             }
             
-            # Normalize log content for consistent matching (lowercase, single spaces)
-            $normalizedLogContent = ($cbsLogContent -replace '\s+', ' ').ToLower().Trim()
-            
-            # Search for patterns indicating integrity violations
-            if ($normalizedLogContent -match "Windows Resource Protection found integrity violations.") {
-                $violationsFound = $true
-                Log "CBS.log analysis: 'Windows Resource Protection found integrity violations' detected."
-            } elseif ($normalizedLogContent -match "cannot repair member file") {
-                $violationsFound = $true
-                Log "CBS.log analysis: 'Cannot repair member file' detected."
-            } elseif ($normalizedLogContent -match "corrupt file has been successfully repaired") {
-                # This indicates a repair happened, so violations were present initially
-                $violationsFound = $true 
-                Log "CBS.log analysis: 'Corrupt file has been successfully repaired' detected (implies prior violations)."
-            } else {
-                Log "CBS.log analysis: No clear integrity violation patterns found in recent entries."
+            # A final check: if no violations found by specific patterns, look for successful completion message
+            # This helps confirm that SFC ran and found nothing if no errors were matched.
+            if (-not $violationsFound -and ($normalizedRecentLogContent -match "windows resource protection did not find any integrity violations" -or $normalizedRecentLogContent -match "\[sr\] verify complete")) {
+                Log "CBS.log analysis: 'Windows Resource Protection did not find any integrity violations' or '[SR] Verify complete' detected, no specific violations found."
+                $violationsFound = $false # Explicitly set to false if these positive messages are found without prior error matches
             }
+
         } else {
             Log "CBS.log not found after SFC execution. Cannot verify results." -Level "WARNING"
         }
 
-        Log "Violation check result: $violationsFound"
+        Log "Violation check result after /verifyonly: $violationsFound"
 
         if ($violationsFound) {
             Log "SFC /verifyonly detected integrity violations via CBS.log analysis. Proceeding with 'sfc /scannow'..."
@@ -230,18 +250,32 @@ function Repair-SystemFiles {
             $sfcScanExitCode = $LASTEXITCODE
 
             Log "SFC /scannow completed. Exit code: $sfcScanExitCode. Analyzing CBS.log for repair results..."
-            Start-Sleep -Seconds 10 # Give time for logs to update
+            Start-Sleep -Seconds 15 # Give time for logs to update
 
             $scanSuccess = $false
-            if (Test-Path $cbsLogPath -and (Get-Item $cbsLogPath).Length -gt $initialCbsLogScanSize) {
-                $cbsScanLogContent = Get-Content -Path $cbsLogPath -Raw | Out-String # Read full log as it might contain wrap-around
-                $normalizedScanLogContent = ($cbsScanLogContent -replace '\s+', ' ').ToLower().Trim()
+            if (Test-Path $cbsLogPath) {
+                $currentTimeScan = Get-Date
+                $cbsScanLogContent = ""
+                if ((Get-Item $cbsLogPath).Length -gt 50MB) {
+                    $cbsScanLogContent = Get-Content -Path $cbsLogPath -Tail 10000 | Out-String
+                } else {
+                    $cbsScanLogContent = Get-Content -Path $cbsLogPath -Raw | Out-String
+                }
 
-                if ($normalizedScanLogContent -match "all files and components are available") {
-                    Log "CBS.log analysis: 'All files and components are available' detected after /scannow."
-                    $scanSuccess = $true
-                } elseif ($normalizedScanLogContent -match "successfully repaired them") {
-                    Log "CBS.log analysis: 'Successfully repaired them' detected after /scannow."
+                $recentSfcScanEntries = $cbsScanLogContent | Select-String -Pattern "\[SR\]|Warning: Overlap:" | Where-Object {
+                    $line = $_.ToString()
+                    if ($line -match '^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}), Info') {
+                        $logTimestamp = [datetime]::ParseExact($Matches[1], 'yyyy-MM-dd HH:mm:ss', $null)
+                        ($currentTimeScan - $logTimestamp).TotalMinutes -lt 2 # Check if entry is within last 2 minutes
+                    } else {
+                        $true # Include lines that don't match the timestamp pattern but have [SR] or Warning: Overlap:
+                    }
+                } | Out-String
+
+                $normalizedScanLogContent = ($recentSfcScanEntries -replace '\s+', ' ').ToLower().Trim()
+
+                if ($normalizedScanLogContent -match "windows resource protection did not find any integrity violations" -or $normalizedScanLogContent -match "all files and components are available" -or $normalizedScanLogContent -match "successfully repaired them") {
+                    Log "CBS.log analysis: SFC /scannow reported successful completion or no integrity violations."
                     $scanSuccess = $true
                 } elseif ($normalizedScanLogContent -match "found integrity violations but was unable to fix some of them") {
                     Log "CBS.log analysis: SFC /scannow could not repair all issues. Manual intervention may be required."
@@ -250,7 +284,7 @@ function Repair-SystemFiles {
                     Log "CBS.log analysis: SFC /scannow results in log unclear. Review CBS.log manually."
                 }
             } else {
-                Log "CBS.log not found or did not update after SFC /scannow. Cannot verify repair results." -Level "WARNING"
+                Log "CBS.log not found after SFC /scannow execution. Cannot verify repair results." -Level "WARNING"
             }
 
             if ($sfcScanExitCode -eq 0 -and $scanSuccess) {
