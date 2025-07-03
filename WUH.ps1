@@ -30,6 +30,124 @@ if (-not (Test-Path $ScriptDir)) {
 # ================== DEFINE LOG FUNCTION ==================
 # A custom logging function to write messages to the console (if verbose mode is on)
 # and to a persistent log file.
+function Log {
+    param (
+        [string]$Message,                               # The message to be logged
+        [ValidateSet("INFO", "WARN", "ERROR", "DEBUG")] # Validation for log level
+        [string]$Level = "INFO"                         # Default log level is INFO
+    )
+
+    $timestamp = Get-Date -Format "dd-MM-yyyy HH:mm:ss" # Format the current date and time
+    $logEntry = "[$timestamp] [$Level] $Message"       # Construct the full log entry string
+
+    try {
+        # Attempt to append the log entry to the specified log file.
+        Add-Content -Path $LogFile -Value $logEntry
+    } catch {
+        # If writing to the log file fails, output an error to the console.
+        Write-Host "Failed to write to log file: $_" -ForegroundColor Red
+    }
+
+    # If VerboseMode is enabled or the log level is ERROR, also output to the console.
+    if ($VerboseMode -or $Level -eq "ERROR") {
+        # Determine the console foreground color based on the log level.
+        $color = switch ($Level) {
+            "INFO"  { "White" }
+            "WARN"  { "Yellow" }
+            "ERROR" { "Red" }
+            "DEBUG" { "Gray" }
+            default { "White" } # Default color if level is not recognized
+        }
+        Write-Host $logEntry -ForegroundColor $color # Output the log entry to the console
+    }
+}
+# ================== FUNCTION: CHECK IF OFFICE IS INSTALLED ==================
+# Helper function to confirm if Microsoft Office is installed on the system.
+# This is used to conditionally download/run Office-related update scripts.
+function Confirm-OfficeInstalled {
+    # Define common installation paths for Microsoft Office (32-bit and 64-bit).
+    $officePaths = @(
+        "${env:ProgramFiles(x86)}\Microsoft Office", # Common 32-bit path on 64-bit OS
+        "${env:ProgramFiles}\Microsoft Office",       # Common 64-bit path
+        "${env:ProgramW6432}\Microsoft Office"        # Alternative 64-bit path
+    )
+    # Iterate through the paths to check for existence.
+    foreach ($path in $officePaths) {
+        if (Test-Path $path) {
+            return $true # Return true if any Office path is found
+        }
+    }
+    return $false # Return false if no Office paths are found
+}
+# ================== FUNCTION: GET AND INVOKE SCRIPT ==================
+# Downloads a PowerShell script from the BaseUrl and immediately executes it.
+function Get-And-Invoke-Script {
+    param (
+        [string]$ScriptName
+    )
+
+    $scriptPath = Join-Path $ScriptDir $ScriptName
+    $scriptUrl = "$BaseUrl/$ScriptName"
+
+    # Remove existing file if it exists
+    if (Test-Path $scriptPath) {
+        Log "Removing existing script $ScriptName from local path before re-downloading..." "INFO"
+        Remove-Item -Path $scriptPath -Force -ErrorAction SilentlyContinue
+    }
+
+    # Download the script
+    Log "Downloading script $ScriptName from $scriptUrl..." "INFO"
+    try {
+        if ($VerboseMode) {
+            Invoke-WebRequest -Uri $scriptUrl -OutFile $scriptPath -UseBasicParsing -Verbose
+        } else {
+            Invoke-WebRequest -Uri $scriptUrl -OutFile $scriptPath -UseBasicParsing | Out-Null
+        }
+        Log "$ScriptName downloaded successfully." "INFO"
+    } catch {
+        Log "Failed to download ${ScriptName}: $_" "ERROR"
+        return
+    }
+
+    # Execute the script
+    Log "Executing script $ScriptName..." "INFO"
+    try {
+        & $scriptPath -VerboseMode:$VerboseMode -LogFile $LogFile
+        Log "$ScriptName executed successfully." "INFO"
+    } catch {
+        Log "Error executing ${ScriptName}: $_" "ERROR"
+    }
+}
+
+
+# Log the initial message indicating the script has started, using the Log function.
+Log "WUH Script started."
+# ================== SAVE ORIGINAL EXECUTION POLICY ==================
+# Store the current PowerShell execution policy to restore it later.
+# This is crucial for maintaining system security posture after script execution.
+$OriginalPolicy = Get-ExecutionPolicy
+
+# ================== ASK FOR MODE ==================
+# Prompt the user to select between silent (logs only) or verbose (console and logs) mode.
+# Define $VerboseMode at the script scope, allowing it to be modified by user input.
+Write-Host ""
+Write-Host "Select Mode:"
+Write-Host "[S] Silent (logs only)"
+Write-Host "[V] Verbose (console and logs)"
+$mode = Read-Host "Choose mode [S/V]" # Read user input
+if ($mode.ToUpper() -eq "V") {
+    $VerboseMode = $true # Set internal flag for console output
+    Log "Verbose mode selected."
+} else {
+    $VerboseMode = $false # Set internal flag to suppress console output
+    Log "Silent mode selected."
+    # Suppress various PowerShell preference variables for silent operation.
+    # This prevents non-essential output like progress bars, information streams, and warnings.
+    $VerbosePreference = "SilentlyContinue"
+    $InformationPreference = "SilentlyContinue"
+    $ProgressPreference = "SilentlyContinue"
+    $WarningPreference = "SilentlyContinue"
+}
 # ================== FUNCTION: REPAIR SYSTEM FILES (SFC) ==================
 # Runs SFC (System File Checker) to verify and optionally repair Windows system files.
 # Uses 'verifyonly' first, and if corruption is found, runs 'scannow'.
