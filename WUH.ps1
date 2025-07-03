@@ -149,7 +149,7 @@ function Repair-SystemFiles {
         Log "SFC /verifyonly completed. Exit code: $sfcVerifyExitCode. Analyzing CBS.log for results..."
 
         # Wait a moment for the log to be written (SFC writes asynchronously)
-        Start-Sleep -Seconds 60 # <<< INCREASED SLEEP TO 60 SECONDS (from 15)
+        Start-Sleep -Seconds 60 # Increased sleep to ensure log writes
 
         $violationsFound = $false
         if (Test-Path $cbsLogPath) {
@@ -169,8 +169,8 @@ function Repair-SystemFiles {
             # Increased duration to 15 minutes to be more forgiving of log write delays.
             $recentSfcEntries = $cbsLogContent | Select-String -Pattern "\[SR\]|Warning: Overlap:" | Where-Object {
                 $line = $_.ToString()
-                # --- CORRECTED REGEX: Added '\s+' after Info to account for variable whitespace ---
-                if ($line -match '^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}), Info\s+') {
+                # --- CORRECTED REGEX: Changed Info\s+ to Info.*? ---
+                if ($line -match '^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}), Info.*?') {
                     $logTimestamp = [datetime]::ParseExact($Matches[1], 'yyyy-MM-dd HH:mm:ss', $null)
                     ($currentTime - $logTimestamp).TotalMinutes -lt 15 
                 } else {
@@ -181,10 +181,10 @@ function Repair-SystemFiles {
             } | Out-String # Convert array of MatchInfo objects back to string for overall matching
 
             # Only log content if it's not empty
-            if (-not [string]::IsNullOrEmpty($recentSfcEntries.Trim())) { # <<< Added check for empty string
+            if (-not [string]::IsNullOrEmpty($recentSfcEntries.Trim())) {
                 Log "Content of \$recentSfcEntries (before normalization):`n$recentSfcEntries"
             } else {
-                Log "No relevant SFC entries found in CBS.log within the last 15 minutes after /verifyonly." # <<< More informative log
+                Log "No relevant SFC entries found in CBS.log within the last 15 minutes after /verifyonly."
             }
             $normalizedRecentLogContent = ($recentSfcEntries -replace '\s+', ' ').ToLower().Trim()
             Log "Content of \$normalizedRecentLogContent (after normalization): '$normalizedRecentLogContent'"
@@ -240,7 +240,7 @@ function Repair-SystemFiles {
             $sfcScanExitCode = $LASTEXITCODE
 
             Log "SFC /scannow completed. Exit code: $sfcScanExitCode. Analyzing CBS.log for repair results..."
-            Start-Sleep -Seconds 60 # <<< INCREASED SLEEP TO 60 SECONDS
+            Start-Sleep -Seconds 60 # Increased sleep
 
             $scanSuccess = $false
             if (Test-Path $cbsLogPath) {
@@ -254,8 +254,8 @@ function Repair-SystemFiles {
 
                 $recentSfcScanEntries = $cbsScanLogContent | Select-String -Pattern "\[SR\]|Warning: Overlap:" | Where-Object {
                     $line = $_.ToString()
-                    # --- CORRECTED REGEX: Added '\s+' after Info to account for variable whitespace ---
-                    if ($line -match '^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}), Info\s+') {
+                    # --- CORRECTED REGEX: Changed Info\s+ to Info.*? ---
+                    if ($line -match '^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}), Info.*?') {
                         $logTimestamp = [datetime]::ParseExact($Matches[1], 'yyyy-MM-dd HH:mm:ss', $null)
                         ($currentTimeScan - $logTimestamp).TotalMinutes -lt 15 
                     } else {
@@ -263,10 +263,10 @@ function Repair-SystemFiles {
                     }
                 } | Out-String
 
-                if (-not [string]::IsNullOrEmpty($recentSfcScanEntries.Trim())) { # <<< Added check for empty string
+                if (-not [string]::IsNullOrEmpty($recentSfcScanEntries.Trim())) {
                     Log "Content of \$recentSfcScanEntries (before normalization):`n$recentSfcScanEntries"
                 } else {
-                    Log "No relevant SFC /scannow entries found in CBS.log within the last 15 minutes." # <<< More informative log
+                    Log "No relevant SFC /scannow entries found in CBS.log within the last 15 minutes."
                 }
                 $normalizedScanLogContent = ($recentSfcScanEntries -replace '\s+', ' ').ToLower().Trim()
                 Log "Content of \$normalizedScanLogContent (after normalization): '$normalizedScanLogContent'"
