@@ -164,6 +164,7 @@ function Repair-SystemFiles {
 
         # Execute sfc /verifyonly
         # Redirect all output to Null so we don't try to parse it, focusing on CBS.log
+        Log "Runnning 'sfc /verifyonly' command...sfc "
         sfc.exe /verifyonly > $null 2>&1
         $sfcVerifyExitCode = $LASTEXITCODE # Capture exit code
 
@@ -197,7 +198,7 @@ function Repair-SystemFiles {
             $normalizedLogContent = ($cbsLogContent -replace '\s+', ' ').ToLower().Trim()
             
             # Search for patterns indicating integrity violations
-            if ($normalizedLogContent -match "windows resource protection found integrity violations") {
+            if ($normalizedLogContent -match "Windows Resource Protection found integrity violations.") {
                 $violationsFound = $true
                 Log "CBS.log analysis: 'Windows Resource Protection found integrity violations' detected."
             } elseif ($normalizedLogContent -match "cannot repair member file") {
