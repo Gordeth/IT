@@ -350,14 +350,6 @@ if ($mode.ToUpper() -eq "V") {
     $WarningPreference = "SilentlyContinue"
 }
 
-# ================== ASK FOR TASK ==================
-# Prompt the user to select the task to perform: Machine Preparation or Windows Maintenance.
-Write-Host ""
-Write-Host "Select Task:"
-Write-Host "[1] Machine Preparation (semi-automated)"
-Write-Host "[2] Windows Maintenance"
-$task = Read-Host "Choose task [1/2]" # Read user input for task selection
-
 # ================== CHECK INTERNET CONNECTIVITY ==================
 # Verify that the system has active internet connectivity before attempting downloads.
 Log "Checking internet connectivity..."
