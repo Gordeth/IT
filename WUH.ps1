@@ -143,99 +143,132 @@ function Get-And-Invoke-Script {
 # ================== FUNCTION: REPAIR SYSTEM FILES (SFC) ==================
 # Runs SFC (System File Checker) to verify and optionally repair Windows system files.
 # Uses 'verifyonly' first, and if corruption is found, runs 'scannow'.
+# This version analyzes CBS.log for results.
 function Repair-SystemFiles {
     Log "Starting System File Checker (SFC) integrity check..."
 
+    $cbsLogPath = "$env:windir\Logs\CBS\CBS.log"
+
     try {
         Log "Running 'sfc /verifyonly' to check for corrupted system files..."
+        Log "Note: SFC output will not be directly parsed. We will check the CBS.log for results."
+        
+        # Capture the current size of CBS.log before running SFC, to read only new entries
+        $initialCbsLogSize = 0
+        if (Test-Path $cbsLogPath) {
+            $initialCbsLogSize = (Get-Item $cbsLogPath).Length
+            Log "Initial CBS.log size: $initialCbsLogSize bytes."
+        } else {
+            Log "CBS.log not found at initial check. It might be created by SFC."
+        }
 
         # Execute sfc /verifyonly
-        $sfcVerifyOutput = sfc.exe /verifyonly 2>&1 | Out-String
-        $sfcVerifyExitCode = $LASTEXITCODE
+        # Redirect all output to Null so we don't try to parse it, focusing on CBS.log
+        sfc.exe /verifyonly > $null 2>&1
+        $sfcVerifyExitCode = $LASTEXITCODE # Capture exit code
 
-        Log "SFC /verifyonly raw output:`n$sfcVerifyOutput"
-        Log "SFC /verifyonly exit code: $sfcVerifyExitCode"
+        Log "SFC /verifyonly completed. Exit code: $sfcVerifyExitCode. Analyzing CBS.log for results..."
 
-        # Improved normalization
-        $normalizedOutput = (
-            $sfcVerifyOutput `
-                -replace '[^\x20-\x7E\r\n\t]', ' ' `
-                -replace '[\r\n\t\s]+', ' ' `
-            ).ToLower().Trim()
+        # Wait a moment for the log to be written (SFC writes asynchronously)
+        Start-Sleep -Seconds 10 
 
-        # Optional hex dump (keep for now, might be useful if other issues arise)
-        $hexOutput = [System.BitConverter]::ToString([System.Text.Encoding]::UTF8.GetBytes($normalizedOutput))
-        Log "Normalized output (hex): $hexOutput"
-
-        # --- Character-by-character analysis (using robust concatenation) ---
-        Log "--- Normalized Output Character Analysis ---"
-        for ($i = 0; $i -lt $normalizedOutput.Length; $i++) {
-            $char = $normalizedOutput[$i]
-            $unicodeValue = [int]$char
-            $formattedUnicode = ($unicodeValue).ToString('X4') 
-            $charName = if ([System.Char]::IsWhiteSpace($char)) { "Whitespace" } else { "" }
-            # Using explicit string concatenation for maximum compatibility
-            Log ("Index " + $i + ": Character: '" + $char + "' (Unicode: U+" + $formattedUnicode + ") " + $charName)
-        }
-        Log "--- End Character Analysis ---"
-        # --- END Character-by-character analysis ---
-
-        # Target phrase and pattern
-        $targetPhrase = "windows resource protection found integrity violations"
-        $regexPattern = "windows\s+resource\s+protection\s+found\s+integrity\s+violations"
-
-        # Primary match
-        $violationsFound = $normalizedOutput -match $regexPattern
-
-        # Fallback: wildcard against normalized (if primary regex fails, check with simpler pattern)
-        if (-not $violationsFound -and $normalizedOutput -like "*$targetPhrase*") {
-            Log "Fallback wildcard match for '$targetPhrase' succeeded."
-            $violationsFound = $true
-        }
-
-        # Fallback: pattern match in raw output (final check before giving up)
-        if (-not $violationsFound -and $sfcVerifyOutput -match $regexPattern) {
-            Log "Pattern matched in raw output as final fallback."
-            $violationsFound = $true
+        $violationsFound = $false
+        if (Test-Path $cbsLogPath) {
+            # Read only new content from CBS.log if it grew, or the entire log if it's new
+            $cbsLogContent = ""
+            if ((Get-Item $cbsLogPath).Length -gt $initialCbsLogSize) {
+                # Read content from the point where it started growing
+                # This is an approximation; a more robust way is to read new lines by timestamp/marker.
+                # For simplicity, we'll read tail or full content if log is new.
+                Log "CBS.log has grown. Reading new content."
+                # Attempt to read tail, but if file is new or very small, read full
+                if ((Get-Item $cbsLogPath).Length - $initialCbsLogSize -gt 1MB) { # If large new content
+                     $cbsLogContent = Get-Content -Path $cbsLogPath -Tail 5000 | Out-String # Read last 5000 lines
+                } else {
+                    # If total size is manageable, read full. This covers cases where initial size was 0.
+                    $cbsLogContent = Get-Content -Path $cbsLogPath -Raw | Out-String
+                }
+            } else {
+                Log "CBS.log size has not changed or is smaller. Reading entire log for safety."
+                $cbsLogContent = Get-Content -Path $cbsLogPath -Raw | Out-String
+            }
+            
+            # Normalize log content for consistent matching (lowercase, single spaces)
+            $normalizedLogContent = ($cbsLogContent -replace '\s+', ' ').ToLower().Trim()
+            
+            # Search for patterns indicating integrity violations
+            if ($normalizedLogContent -match "windows resource protection found integrity violations") {
+                $violationsFound = $true
+                Log "CBS.log analysis: 'Windows Resource Protection found integrity violations' detected."
+            } elseif ($normalizedLogContent -match "cannot repair member file") {
+                $violationsFound = $true
+                Log "CBS.log analysis: 'Cannot repair member file' detected."
+            } elseif ($normalizedLogContent -match "corrupt file has been successfully repaired") {
+                # This indicates a repair happened, so violations were present initially
+                $violationsFound = $true 
+                Log "CBS.log analysis: 'Corrupt file has been successfully repaired' detected (implies prior violations)."
+            } else {
+                Log "CBS.log analysis: No clear integrity violation patterns found in recent entries."
+            }
+        } else {
+            Log "CBS.log not found after SFC execution. Cannot verify results." -Level "WARNING"
         }
 
         Log "Violation check result: $violationsFound"
 
         if ($violationsFound) {
-            Log "SFC /verifyonly detected integrity violations. Running 'sfc /scannow'..."
+            Log "SFC /verifyonly detected integrity violations via CBS.log analysis. Proceeding with 'sfc /scannow'..."
+            Log "This process may take a while and could prompt for a reboot."
+            
+            # Capture CBS.log size before scannow
+            $initialCbsLogScanSize = (Get-Item $cbsLogPath).Length
+            Log "Initial CBS.log size before /scannow: $initialCbsLogScanSize bytes."
 
-            $sfcScanOutput = sfc.exe /scannow 2>&1 | Out-String
+            # Execute sfc /scannow
+            sfc.exe /scannow > $null 2>&1
             $sfcScanExitCode = $LASTEXITCODE
 
-            Log "SFC /scannow raw output:`n$sfcScanOutput"
-            Log "SFC /scannow exit code: $sfcScanExitCode"
+            Log "SFC /scannow completed. Exit code: $sfcScanExitCode. Analyzing CBS.log for repair results..."
+            Start-Sleep -Seconds 10 # Give time for logs to update
 
-            $normalizedScanOutput = $sfcScanOutput.ToLowerInvariant() `
-                -replace '[^\x20-\x7E]', ' ' `
-                -replace '\s+', ' ' `
-                -replace '^\s+|\s+$', ''
+            $scanSuccess = $false
+            if (Test-Path $cbsLogPath -and (Get-Item $cbsLogPath).Length -gt $initialCbsLogScanSize) {
+                $cbsScanLogContent = Get-Content -Path $cbsLogPath -Raw | Out-String # Read full log as it might contain wrap-around
+                $normalizedScanLogContent = ($cbsScanLogContent -replace '\s+', ' ').ToLower().Trim()
 
-            if ($sfcScanExitCode -eq 0 -or $normalizedScanOutput -like "*successfully repaired them*") {
-                Log "System file issues were successfully repaired."
+                if ($normalizedScanLogContent -match "all files and components are available") {
+                    Log "CBS.log analysis: 'All files and components are available' detected after /scannow."
+                    $scanSuccess = $true
+                } elseif ($normalizedScanLogContent -match "successfully repaired them") {
+                    Log "CBS.log analysis: 'Successfully repaired them' detected after /scannow."
+                    $scanSuccess = $true
+                } elseif ($normalizedScanLogContent -match "found integrity violations but was unable to fix some of them") {
+                    Log "CBS.log analysis: SFC /scannow could not repair all issues. Manual intervention may be required."
+                    $scanSuccess = $false # Not a full success
+                } else {
+                    Log "CBS.log analysis: SFC /scannow results in log unclear. Review CBS.log manually."
+                }
+            } else {
+                Log "CBS.log not found or did not update after SFC /scannow. Cannot verify repair results." -Level "WARNING"
             }
-            elseif ($sfcScanExitCode -eq 1641 -or $sfcScanExitCode -eq 3010) {
-                Log "SFC completed and a reboot is required to finalize repairs."
+
+            if ($sfcScanExitCode -eq 0 -and $scanSuccess) {
+                Log "System file issues were successfully repaired based on SFC exit code and CBS.log."
+            } elseif ($sfcScanExitCode -eq 1641 -or $sfcScanExitCode -eq 3010) { # Common reboot required codes
+                Log "SFC completed and requires a reboot to finalize repairs (Exit Code: $sfcScanExitCode)."
+            } elseif ($sfcScanExitCode -ne 0 -and (-not $scanSuccess)) {
+                 Log "SFC /scannow completed with errors (Exit Code: $sfcScanExitCode). Review CBS.log for details."
+            } else {
+                Log "SFC /scannow completed with unknown status (Exit Code: $sfcScanExitCode). Review logs for details."
             }
-            elseif ($normalizedScanOutput -like "*found integrity violations but was unable to fix some of them*") {
-                Log "SFC could not repair all issues. Manual repair may be needed."
-            }
-            else {
-                Log "SFC completed with unknown result (Exit Code: $sfcScanExitCode). Review logs for details."
-            }
-        }
-        else {
-            Log "No integrity violations found. System files appear healthy."
+
+        } else {
+            Log "No integrity violations found based on CBS.log analysis. System files appear healthy."
         }
     } catch {
-        Log "An error occurred during SFC operation: $_"
+        Log "An error occurred during SFC operation or CBS.log analysis: $_" -Level "ERROR"
     }
 }
-
 # Log the initial message indicating the script has started, using the `Log` function.
 Log "WUH Script started."
 # ================== SAVE ORIGINAL EXECUTION POLICY ==================
