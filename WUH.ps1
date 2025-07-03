@@ -164,6 +164,7 @@ function Repair-SystemFiles {
 
         # Execute sfc /verifyonly
         # Redirect all output to Null so we don't try to parse it, focusing on CBS.log
+        Log "Executing 'sfc /verifyonly' command..."
         sfc.exe /verifyonly > $null 2>&1
         $sfcVerifyExitCode = $LASTEXITCODE # Capture exit code
 
@@ -186,18 +187,20 @@ function Repair-SystemFiles {
             }
             
             # Filter entries relevant to the current SFC run by timestamp
-            # This is a heuristic: entries from the last few minutes (e.g., 2 minutes)
+            # Increased duration to 15 minutes to be more forgiving of log write delays.
             $recentSfcEntries = $cbsLogContent | Select-String -Pattern "\[SR\]|Warning: Overlap:" | Where-Object {
                 $line = $_.ToString()
                 if ($line -match '^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}), Info') {
                     $logTimestamp = [datetime]::ParseExact($Matches[1], 'yyyy-MM-dd HH:mm:ss', $null)
-                    ($currentTime - $logTimestamp).TotalMinutes -lt 2 # Check if entry is within last 2 minutes
+                    ($currentTime - $logTimestamp).TotalMinutes -lt 15 # <--- CHANGED: Increased time window
                 } else {
                     $true # Include lines that don't match the timestamp pattern but have [SR] or Warning: Overlap:
                 }
             } | Out-String # Convert array of MatchInfo objects back to string for overall matching
 
+            Log "Content of \$recentSfcEntries (before normalization):`n$recentSfcEntries" # <--- ADDED DEBUG LOG
             $normalizedRecentLogContent = ($recentSfcEntries -replace '\s+', ' ').ToLower().Trim()
+            Log "Content of \$normalizedRecentLogContent (after normalization): '$normalizedRecentLogContent'" # <--- ADDED DEBUG LOG
             
             # Search for specific patterns indicating integrity violations from SFC /verifyonly
             # These patterns are based on Microsoft documentation and common SFC log entries
@@ -266,13 +269,15 @@ function Repair-SystemFiles {
                     $line = $_.ToString()
                     if ($line -match '^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}), Info') {
                         $logTimestamp = [datetime]::ParseExact($Matches[1], 'yyyy-MM-dd HH:mm:ss', $null)
-                        ($currentTimeScan - $logTimestamp).TotalMinutes -lt 2 # Check if entry is within last 2 minutes
+                        ($currentTimeScan - $logTimestamp).TotalMinutes -lt 15 # <--- CHANGED: Increased time window
                     } else {
                         $true # Include lines that don't match the timestamp pattern but have [SR] or Warning: Overlap:
                     }
                 } | Out-String
 
+                Log "Content of \$recentSfcScanEntries (before normalization):`n$recentSfcScanEntries" # <--- ADDED DEBUG LOG
                 $normalizedScanLogContent = ($recentSfcScanEntries -replace '\s+', ' ').ToLower().Trim()
+                Log "Content of \$normalizedScanLogContent (after normalization): '$normalizedScanLogContent'" # <--- ADDED DEBUG LOG
 
                 if ($normalizedScanLogContent -match "windows resource protection did not find any integrity violations" -or $normalizedScanLogContent -match "all files and components are available" -or $normalizedScanLogContent -match "successfully repaired them") {
                     Log "CBS.log analysis: SFC /scannow reported successful completion or no integrity violations."
