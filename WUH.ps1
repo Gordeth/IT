@@ -190,11 +190,14 @@ function Repair-SystemFiles {
             # Increased duration to 15 minutes to be more forgiving of log write delays.
             $recentSfcEntries = $cbsLogContent | Select-String -Pattern "\[SR\]|Warning: Overlap:" | Where-Object {
                 $line = $_.ToString()
-                if ($line -match '^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}), Info') {
+                # --- CORRECTED REGEX: Added '\s+' after Info to account for variable whitespace ---
+                if ($line -match '^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}), Info\s+') {
                     $logTimestamp = [datetime]::ParseExact($Matches[1], 'yyyy-MM-dd HH:mm:ss', $null)
-                    ($currentTime - $logTimestamp).TotalMinutes -lt 15 # <--- CHANGED: Increased time window
+                    ($currentTime - $logTimestamp).TotalMinutes -lt 15 
                 } else {
-                    $true # Include lines that don't match the timestamp pattern but have [SR] or Warning: Overlap:
+                    # If the timestamp pattern doesn't match (e.g., different log line format, or not a timestamped line),
+                    # still include it IF it contains [SR] or Warning: Overlap, as Select-String already filtered for these.
+                    $true 
                 }
             } | Out-String # Convert array of MatchInfo objects back to string for overall matching
 
@@ -267,11 +270,12 @@ function Repair-SystemFiles {
 
                 $recentSfcScanEntries = $cbsScanLogContent | Select-String -Pattern "\[SR\]|Warning: Overlap:" | Where-Object {
                     $line = $_.ToString()
-                    if ($line -match '^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}), Info') {
+                    # --- CORRECTED REGEX: Added '\s+' after Info to account for variable whitespace ---
+                    if ($line -match '^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}), Info\s+') {
                         $logTimestamp = [datetime]::ParseExact($Matches[1], 'yyyy-MM-dd HH:mm:ss', $null)
-                        ($currentTimeScan - $logTimestamp).TotalMinutes -lt 15 # <--- CHANGED: Increased time window
+                        ($currentTimeScan - $logTimestamp).TotalMinutes -lt 15 
                     } else {
-                        $true # Include lines that don't match the timestamp pattern but have [SR] or Warning: Overlap:
+                        $true 
                     }
                 } | Out-String
 
