@@ -149,12 +149,13 @@ function Repair-SystemFiles {
         Log "SFC /verifyonly completed. Exit code: $sfcVerifyExitCode. Analyzing CBS.log for results..."
 
         # Wait a moment for the log to be written (SFC writes asynchronously)
-        Start-Sleep -Seconds 15 # Increased sleep to ensure log writes
+        Start-Sleep -Seconds 60 # <<< INCREASED SLEEP TO 60 SECONDS (from 15)
 
         $violationsFound = $false
         if (Test-Path $cbsLogPath) {
             # Get current timestamp to filter recent entries more reliably
-            $currentTime = Get-Date
+            # Capture currentTime AFTER sleep to ensure filtering window is correct relative to potential log write completion
+            $currentTime = Get-Date 
 
             # Read a larger tail of the log, or the full log if it's small, to capture recent SFC entries
             $cbsLogContent = ""
@@ -179,9 +180,14 @@ function Repair-SystemFiles {
                 }
             } | Out-String # Convert array of MatchInfo objects back to string for overall matching
 
-            Log "Content of \$recentSfcEntries (before normalization):`n$recentSfcEntries" # <--- ADDED DEBUG LOG
+            # Only log content if it's not empty
+            if (-not [string]::IsNullOrEmpty($recentSfcEntries.Trim())) { # <<< Added check for empty string
+                Log "Content of \$recentSfcEntries (before normalization):`n$recentSfcEntries"
+            } else {
+                Log "No relevant SFC entries found in CBS.log within the last 15 minutes after /verifyonly." # <<< More informative log
+            }
             $normalizedRecentLogContent = ($recentSfcEntries -replace '\s+', ' ').ToLower().Trim()
-            Log "Content of \$normalizedRecentLogContent (after normalization): '$normalizedRecentLogContent'" # <--- ADDED DEBUG LOG
+            Log "Content of \$normalizedRecentLogContent (after normalization): '$normalizedRecentLogContent'"
             
             # Search for specific patterns indicating integrity violations from SFC /verifyonly
             # These patterns are based on Microsoft documentation and common SFC log entries
@@ -234,7 +240,7 @@ function Repair-SystemFiles {
             $sfcScanExitCode = $LASTEXITCODE
 
             Log "SFC /scannow completed. Exit code: $sfcScanExitCode. Analyzing CBS.log for repair results..."
-            Start-Sleep -Seconds 15 # Give time for logs to update
+            Start-Sleep -Seconds 60 # <<< INCREASED SLEEP TO 60 SECONDS
 
             $scanSuccess = $false
             if (Test-Path $cbsLogPath) {
@@ -257,9 +263,13 @@ function Repair-SystemFiles {
                     }
                 } | Out-String
 
-                Log "Content of \$recentSfcScanEntries (before normalization):`n$recentSfcScanEntries" # <--- ADDED DEBUG LOG
+                if (-not [string]::IsNullOrEmpty($recentSfcScanEntries.Trim())) { # <<< Added check for empty string
+                    Log "Content of \$recentSfcScanEntries (before normalization):`n$recentSfcScanEntries"
+                } else {
+                    Log "No relevant SFC /scannow entries found in CBS.log within the last 15 minutes." # <<< More informative log
+                }
                 $normalizedScanLogContent = ($recentSfcScanEntries -replace '\s+', ' ').ToLower().Trim()
-                Log "Content of \$normalizedScanLogContent (after normalization): '$normalizedScanLogContent'" # <--- ADDED DEBUG LOG
+                Log "Content of \$normalizedScanLogContent (after normalization): '$normalizedScanLogContent'"
 
                 if ($normalizedScanLogContent -match "windows resource protection did not find any integrity violations" -or $normalizedScanLogContent -match "all files and components are available" -or $normalizedScanLogContent -match "successfully repaired them") {
                     Log "CBS.log analysis: SFC /scannow reported successful completion or no integrity violations."
