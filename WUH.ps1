@@ -118,36 +118,6 @@ function Get-And-Invoke-Script {
         Log "Error executing ${ScriptName}: $_" "ERROR"
     }
 }
-
-
-# Log the initial message indicating the script has started, using the Log function.
-Log "WUH Script started."
-# ================== SAVE ORIGINAL EXECUTION POLICY ==================
-# Store the current PowerShell execution policy to restore it later.
-# This is crucial for maintaining system security posture after script execution.
-$OriginalPolicy = Get-ExecutionPolicy
-
-# ================== ASK FOR MODE ==================
-# Prompt the user to select between silent (logs only) or verbose (console and logs) mode.
-# Define $VerboseMode at the script scope, allowing it to be modified by user input.
-Write-Host ""
-Write-Host "Select Mode:"
-Write-Host "[S] Silent (logs only)"
-Write-Host "[V] Verbose (console and logs)"
-$mode = Read-Host "Choose mode [S/V]" # Read user input
-if ($mode.ToUpper() -eq "V") {
-    $VerboseMode = $true # Set internal flag for console output
-    Log "Verbose mode selected."
-} else {
-    $VerboseMode = $false # Set internal flag to suppress console output
-    Log "Silent mode selected."
-    # Suppress various PowerShell preference variables for silent operation.
-    # This prevents non-essential output like progress bars, information streams, and warnings.
-    $VerbosePreference = "SilentlyContinue"
-    $InformationPreference = "SilentlyContinue"
-    $ProgressPreference = "SilentlyContinue"
-    $WarningPreference = "SilentlyContinue"
-}
 # ================== FUNCTION: REPAIR SYSTEM FILES (SFC) ==================
 # Runs SFC (System File Checker) to verify and optionally repair Windows system files.
 # Uses 'verifyonly' first, and if corruption is found, runs 'scannow'.
@@ -321,7 +291,7 @@ function Repair-SystemFiles {
         Log "An error occurred during SFC operation or CBS.log analysis: $_" -Level "ERROR"
     }
 }
-# Log the initial message indicating the script has started, using the `Log` function.
+# Log the initial message indicating the script has started, using the Log function.
 Log "WUH Script started."
 # ================== SAVE ORIGINAL EXECUTION POLICY ==================
 # Store the current PowerShell execution policy to restore it later.
@@ -349,7 +319,6 @@ if ($mode.ToUpper() -eq "V") {
     $ProgressPreference = "SilentlyContinue"
     $WarningPreference = "SilentlyContinue"
 }
-
 # ================== CHECK INTERNET CONNECTIVITY ==================
 # Verify that the system has active internet connectivity before attempting downloads.
 Log "Checking internet connectivity..."
