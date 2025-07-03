@@ -312,13 +312,6 @@ if ($mode.ToUpper() -eq "V") {
 } else {
     $VerboseMode = $false # Set internal flag to suppress console output
     Log "Silent mode selected."
-    # ================== ASK FOR TASK ==================
-    # Prompt the user to select the task to perform: Machine Preparation or Windows Maintenance.
-    Write-Host ""
-    Write-Host "Select Task:"
-    Write-Host "[1] Machine Preparation (semi-automated)"
-    Write-Host "[2] Windows Maintenance"
-    $task = Read-Host "Choose task [1/2]" # Read user input for task selection
     # Suppress various PowerShell preference variables for silent operation.
     # This prevents non-essential output like progress bars, information streams, and warnings.
     $VerbosePreference = "SilentlyContinue"
@@ -326,6 +319,45 @@ if ($mode.ToUpper() -eq "V") {
     $ProgressPreference = "SilentlyContinue"
     $WarningPreference = "SilentlyContinue"
 }
+# ================== ASK FOR TASK==================
+# This section now handles task selection interactively. If running
+# non-interactively and no task is specified, the script will exit.
+
+# --- Existing mode selection (S/V) would go here, if it's still needed ---
+# For example, before this 'Ask for Task' section.
+# $mode = Read-Host "Choose mode [S/V]"
+# if ($mode.ToUpper() -eq "V") { $VerboseMode = $true } else { $VerboseMode = $false }
+# Log "Mode selected."
+
+# Initialize $task variable (it will be set by user input)
+$task = ''
+
+# Prompt for task if $task is not set (i.e., initially empty)
+if (-not $task) {
+    # Check if the script is running in an interactive console
+    if ($Host.UI.RawUI.KeyAvailable) {
+        Write-Host ""
+        Write-Host "Select Task:"
+        Write-Host "[1] Machine Preparation (semi-automated)"
+        Write-Host "[2] Windows Maintenance"
+        
+        $isValidInput = $false
+        while (-not $isValidInput) {
+            $taskInput = Read-Host "Choose task [1/2]"
+            switch ($taskInput) {
+                "1" { $task = "MachinePrep"; $isValidInput = $true }
+                "2" { $task = "WindowsMaintenance"; $isValidInput = $true }
+                default { Write-Host "Invalid input. Please choose 1 or 2." -ForegroundColor Red }
+            }
+        }
+        Log "User interactively selected task: $task"
+    } else {
+        # If not interactive, and no task was provided, exit.
+        Log "Error: No task specified and running non-interactively. Exiting." -Level "ERROR" # Assuming your Log function supports levels
+        Exit 1
+    }
+}
+
 # ================== CHECK INTERNET CONNECTIVITY ==================
 # Verify that the system has active internet connectivity before attempting downloads.
 Log "Checking internet connectivity..."
