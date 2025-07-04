@@ -154,20 +154,20 @@ function Repair-SystemFiles {
             Log "SFC /scannow console output: Integrity violations found and successfully repaired."
             $consoleAnalysisResult = "RepairedSuccessfully"
         } elseif ($normalizedConsoleOutput -match "windows resource protection found integrity violations but was unable to fix some of them") {
-            Log "SFC /scannow console output: Integrity violations found, but some could not be repaired." -Level "WARNING"
+            Log "SFC /scannow console output: Integrity violations found, but some could not be repaired."
             $consoleAnalysisResult = "PartialRepairFailed"
         } elseif ($normalizedConsoleOutput -match "sfc scan complete") { 
             # A more generic completion message, often appears if no specific violations are found or explicitly stated
             Log "SFC /scannow console output: Scan completed, but specific outcome is not explicitly stated in console."
             $consoleAnalysisResult = "GenericCompletion"
         } else {
-             Log "SFC /scannow console output did not contain common success/failure patterns." -Level "INFO"
+             Log "SFC /scannow console output did not contain common success/failure patterns."
         }
 
         # Check for reboot requirement based on common SFC exit codes
         if ($sfcScanExitCode -eq 1641 -or $sfcScanExitCode -eq 3010) {
             $rebootRequired = $true
-            Log "SFC exit code ($sfcScanExitCode) indicates a reboot is required to finalize operations."
+            Log "SFC exit code ($sfcScanExitCode) indicates a reboot is required."
         }
 
         # --- Provide final status based on combined console analysis and exit code ---
@@ -187,7 +187,7 @@ function Repair-SystemFiles {
                 }
             }
             "PartialRepairFailed" {
-                Log "SFC /scannow completed: Some integrity violations could not be repaired. Manual review of CBS.log is strongly recommended." -Level "ERROR"
+                Log "SFC /scannow completed: Some integrity violations could not be repaired. Manual review of CBS.log is strongly recommended."
             }
             "GenericCompletion" {
                 if ($rebootRequired) {
@@ -195,7 +195,7 @@ function Repair-SystemFiles {
                 } elseif ($sfcScanExitCode -eq 0) {
                     Log "SFC /scannow completed with exit code 0. Console output was generic. Assuming no major issues. Review CBS.log for details."
                 } else {
-                    Log "SFC /scannow completed with exit code $sfcScanExitCode. Console output was generic. Review CBS.log for more details." -Level "WARNING"
+                    Log "SFC /scannow completed with exit code $sfcScanExitCode. Console output was generic. Review CBS.log for more details."
                 }
             }
             "Inconclusive" {
@@ -205,13 +205,15 @@ function Repair-SystemFiles {
                 } elseif ($rebootRequired) {
                     Log "SFC /scannow completed (Exit Code: $sfcScanExitCode) and requires a reboot to finalize. Console output was inconclusive. Please reboot your system."
                 } else {
-                    Log "SFC /scannow completed with unknown status (Exit Code: $sfcScanExitCode). Console output was inconclusive. Review CBS.log for details." -Level "ERROR"
+                    Log "SFC /scannow completed with unknown status (Exit Code: $sfcScanExitCode). Console output was inconclusive. Review CBS.log for details."
                 }
             }
         }
 
     } catch {
-        Log "An error occurred during SFC /scannow operation: $_" -Level "ERROR"
+        # Explicitly convert the error object to a string and remove the -Level parameter
+        $errorMessage = $_ | Out-String 
+        Log "An error occurred during SFC /scannow operation: $($errorMessage.Trim())"
     }
 }
 # Log the initial message indicating the script has started, using the Log function.
