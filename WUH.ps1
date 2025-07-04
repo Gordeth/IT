@@ -128,9 +128,13 @@ function Repair-SystemFiles {
         [switch]$ShowSFCConsoleProgress
     )
 
-    Log "Starting System File Checker (SFC) /scannow operation..."
+    Log "Starting System File Checker (SFC) to verify system integrity..."
 
     $cbsLogPath = "$env:windir\Logs\CBS\CBS.log" # Still log path for reference
+
+    # Declare variables for temp file paths here, initialized to null
+    $tempSfcStdoutPath = $null
+    $tempSfcStderrPath = $null
 
     try {
         Log "Executing 'sfc /scannow' command. This process may take a while."
@@ -139,39 +143,50 @@ function Repair-SystemFiles {
         # Initialize an array to store the console output for later analysis
         $sfcConsoleOutput = @()
 
-        # --- Execute sfc /scannow and capture/display its console output. ---
-        
-        Write-Host "" # Add an initial blank line for better formatting, mimicking standalone
-        Write-Host "Beginning system scan. This process will take some time."
-        Write-Host "" # Another blank line
-        Write-Host "Beginning verification phase of system scan."
+        # Prepare for mimicking standalone SFC output
+        if ($ShowSFCConsoleProgress) {
+            Write-Host "" # Add an initial blank line for better formatting
+            Write-Host "Beginning system scan. This process will take some time."
+            Write-Host "" # Another blank line
+            Write-Host "Beginning verification phase of system scan."
+        }
 
-        $process = Start-Process -FilePath "sfc.exe" -ArgumentList "/scannow" -NoNewWindow -PassThru -RedirectStandardOutput ([System.IO.Path]::GetTempFileName()) -RedirectStandardError ([System.IO.Path]::GetTempFileName())
+        # --- CORRECTED PART: Create temp file paths FIRST ---
+        # Generate unique temporary file names for standard output and standard error
+        $tempSfcStdoutPath = [System.IO.Path]::GetTempFileName()
+        $tempSfcStderrPath = [System.IO.Path]::GetTempFileName()
 
-        # Wait for the process to finish
+        # Execute sfc.exe and redirect its output to the temporary files
+        $process = Start-Process -FilePath "sfc.exe" `
+            -ArgumentList "/scannow" `
+            -NoNewWindow `            # Do not create a new console window
+            -PassThru `               # Pass the process object back for inspection
+            -RedirectStandardOutput $tempSfcStdoutPath ` # Redirect stdout to temp file
+            -RedirectStandardError $tempSfcStderrPath    # Redirect stderr to temp file
+
+        # Wait for the sfc.exe process to finish execution
         $process.WaitForExit()
+        # Capture the exit code of sfc.exe
         $sfcScanExitCode = $process.ExitCode
 
-        # Read the captured standard output and standard error from the temp files
-        $sfcRawOutput = Get-Content -Path $process.StandardOutput | Out-String
-        $sfcErrorOutput = Get-Content -Path $process.StandardError | Out-String # This is the variable in question
+        # Read the captured standard output and standard error from the temporary files
+        # These operations might still fail if the process didn't create the files properly
+        # or if they are locked, but the path itself will no longer be null.
+        $sfcRawOutput = Get-Content -Path $tempSfcStdoutPath | Out-String
+        $sfcErrorOutput = Get-Content -Path $tempSfcStderrPath | Out-String 
 
-        # Clean up temp files
-        Remove-Item -Path $process.StandardOutput -ErrorAction SilentlyContinue
-        Remove-Item -Path $process.StandardError -ErrorAction SilentlyContinue
-
-        # --- ADDED LOGIC FOR sfcErrorOutput ---
+        # Log any error output captured from sfc.exe's stderr
         if (-not [string]::IsNullOrWhiteSpace($sfcErrorOutput)) {
             Log "SFC /scannow produced error output: $($sfcErrorOutput.Trim())"
-            # You could add more sophisticated handling here, e.g., if it's a specific error
-            # or change the overall script's exit status if this is critical.
         }
-        # --- END OF ADDED LOGIC ---
 
-        # Process the captured output line by line for display and storage
+        # Process the captured standard output line by line
         $sfcRawOutput.Split([Environment]::NewLine) | ForEach-Object {
-            $line = $_.Trim()
+            $line = $_.Trim() # Trim leading/trailing whitespace from each line
+
+            # If ShowSFCConsoleProgress is enabled, print relevant lines to the host console
             if ($ShowSFCConsoleProgress) {
+                # Only print lines that contain "Verification X% complete." and the final status messages
                 if ($line -match "Verification \d+% complete\." -or
                     $line -match "Windows Resource Protection" -or
                     $line -match "sfc scan complete" -or
@@ -181,24 +196,27 @@ function Repair-SystemFiles {
                     Write-Host $line
                 }
             }
+            # Always add non-empty lines to the sfcConsoleOutput array for later analysis and logging
             if (-not [string]::IsNullOrWhiteSpace($line)) {
                 $sfcConsoleOutput += $line
             }
         }
         
+        # Add a final blank line for spacing if showing console progress
         if ($ShowSFCConsoleProgress) {
              Write-Host ""
         }
         
         Log "SFC /scannow completed. Exit code: $sfcScanExitCode."
         
+        # Normalize the captured console output into a single string for pattern matching
         $normalizedConsoleOutput = (($sfcConsoleOutput | ForEach-Object { $_.Trim() }) -join ' ').ToLower().Trim()
         Log "Normalized SFC console output for analysis: '$normalizedConsoleOutput'"
 
-        $consoleAnalysisResult = "Inconclusive"
+        $consoleAnalysisResult = "Inconclusive" # Default status based on console output
         $rebootRequired = $false
 
-        # --- Analyze captured console output for key phrases ---
+        # --- Analyze captured console output for key phrases to determine outcome ---
         if ($normalizedConsoleOutput -match "windows resource protection did not find any integrity violations") {
             Log "SFC /scannow console output: No integrity violations found."
             $consoleAnalysisResult = "NoViolationsFound"
@@ -209,6 +227,7 @@ function Repair-SystemFiles {
             Log "SFC /scannow console output: Integrity violations found, but some could not be repaired."
             $consoleAnalysisResult = "PartialRepairFailed"
         } elseif ($normalizedConsoleOutput -match "sfc scan complete") { 
+            # A more generic completion message, often appears if no specific violations are found or explicitly stated
             Log "SFC /scannow console output: Scan completed, but specific outcome is not explicitly stated in console."
             $consoleAnalysisResult = "GenericCompletion"
         } else {
@@ -216,6 +235,8 @@ function Repair-SystemFiles {
         }
 
         # Check for reboot requirement based on common SFC exit codes
+        # 1641 = ERROR_SUCCESS_REBOOT_INITIATED (rarely used by SFC directly)
+        # 3010 = ERROR_SUCCESS_REBOOT_REQUIRED
         if ($sfcScanExitCode -eq 1641 -or $sfcScanExitCode -eq 3010) {
             $rebootRequired = $true
             Log "SFC exit code ($sfcScanExitCode) indicates a reboot is required."
@@ -250,6 +271,7 @@ function Repair-SystemFiles {
                 }
             }
             "Inconclusive" {
+                # This branch is hit if no specific patterns matched, fallback to exit code analysis
                 if ($sfcScanExitCode -eq 0 -and (-not $rebootRequired)) {
                     Log "SFC /scannow completed with exit code 0. Console output was inconclusive. System files *appear* healthy. Review CBS.log for confirmation."
                 } elseif ($rebootRequired) {
@@ -261,8 +283,17 @@ function Repair-SystemFiles {
         }
 
     } catch {
+        # Catch any unexpected errors during the function's execution
         $errorMessage = $_ | Out-String 
         Log "An error occurred during SFC /scannow operation: $($errorMessage.Trim())"
+    } finally {
+        # --- Ensure temporary files are cleaned up in all cases ---
+        if ($tempSfcStdoutPath -and (Test-Path $tempSfcStdoutPath)) {
+            Remove-Item -Path $tempSfcStdoutPath -ErrorAction SilentlyContinue
+        }
+        if ($tempSfcStderrPath -and (Test-Path $tempSfcStderrPath)) {
+            Remove-Item -Path $tempSfcStderrPath -ErrorAction SilentlyContinue
+        }
     }
 }
 # Log the initial message indicating the script has started, using the Log function.
