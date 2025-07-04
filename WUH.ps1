@@ -125,7 +125,7 @@ function Get-And-Invoke-Script {
 function Repair-SystemFiles {
     param(
         # This parameter will control whether to output the raw SFC progress to the console.
-        # If true, only SFC's native console output will be displayed.
+        # If true, SFC's native console output will be displayed.
         [switch]$ShowSFCConsoleProgress
     )
 
@@ -162,7 +162,8 @@ function Repair-SystemFiles {
             $sfcRawOutput.Split([Environment]::NewLine) | ForEach-Object {
                 $line = $_.Trim() 
                 if (-not [string]::IsNullOrWhiteSpace($line)) {
-                    Write-Host $line
+                    # Changed from Write-Host to Write-Output to send to standard output stream
+                    Write-Output $line 
                 }
             }
         }
