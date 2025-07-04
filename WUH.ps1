@@ -157,12 +157,14 @@ function Repair-SystemFiles {
         $tempSfcStderrPath = [System.IO.Path]::GetTempFileName()
 
         # Execute sfc.exe and redirect its output to the temporary files
+        # *** PAY CLOSE ATTENTION TO THE BACKTICKS ON THESE LINES ***
+        # There must be NO SPACE after the backtick (`) before the newline.
         $process = Start-Process -FilePath "sfc.exe" `
             -ArgumentList "/scannow" `
-            -NoNewWindow `            # Do not create a new console window
-            -PassThru `               # Pass the process object back for inspection
-            -RedirectStandardOutput $tempSfcStdoutPath ` # Redirect stdout to temp file
-            -RedirectStandardError $tempSfcStderrPath    # Redirect stderr to temp file
+            -NoNewWindow `
+            -PassThru `
+            -RedirectStandardOutput $tempSfcStdoutPath `
+            -RedirectStandardError $tempSfcStderrPath
 
         # Wait for the sfc.exe process to finish execution
         $process.WaitForExit()
@@ -170,8 +172,6 @@ function Repair-SystemFiles {
         $sfcScanExitCode = $process.ExitCode
 
         # Read the captured standard output and standard error from the temporary files
-        # These operations might still fail if the process didn't create the files properly
-        # or if they are locked, but the path itself will no longer be null.
         $sfcRawOutput = Get-Content -Path $tempSfcStdoutPath | Out-String
         $sfcErrorOutput = Get-Content -Path $tempSfcStderrPath | Out-String 
 
@@ -277,7 +277,7 @@ function Repair-SystemFiles {
                 } elseif ($rebootRequired) {
                     Log "SFC /scannow completed (Exit Code: $sfcScanExitCode) and requires a reboot to finalize. Console output was inconclusive. Please reboot your system."
                 } else {
-                    Log "SFC /scannow completed with unknown status (Exit Code: $sfcScanExitCode). Console output was inconclusive. Review CBS.log for details."
+                    Log "Sfc /scannow completed with unknown status (Exit Code: $sfcScanExitCode). Console output was inconclusive. Review CBS.log for details."
                 }
             }
         }
