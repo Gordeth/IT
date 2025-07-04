@@ -125,68 +125,93 @@ function Get-And-Invoke-Script {
 function Repair-SystemFiles {
     Log "Starting System File Checker (SFC) /scannow operation..."
 
-    $cbsLogPath = "$env:windir\Logs\CBS\CBS.log"
+    $cbsLogPath = "$env:windir\Logs\CBS\CBS.log" # Still log path for reference
 
     try {
-        Log "Executing 'sfc /scannow' command. This process may take a while and could prompt for a reboot."
-        Log "SFC /scannow output will not be directly parsed. Please refer to CBS.log for detailed results."
+        Log "Executing 'sfc /scannow' command. This process may take a while."
+        Log "Capturing SFC console output for analysis. For detailed results, always refer to CBS.log at: '$cbsLogPath'"
         
-        # Execute sfc /scannow, redirecting its console output to null
-        sfc.exe /scannow > $null 2>&1
+        # Execute sfc /scannow and capture its console output.
+        # Removing '> $null 2>&1' allows output to be captured.
+        $sfcConsoleOutput = sfc.exe /scannow 
         $sfcScanExitCode = $LASTEXITCODE # Capture the exit code of sfc.exe
 
         Log "SFC /scannow completed. Exit code: $sfcScanExitCode."
         
-        # Give the system a moment to ensure all log entries are written to CBS.log
-        Start-Sleep -Seconds 60 # Increased sleep duration for robustness
+        # Normalize the console output: remove extra whitespace and convert to lowercase
+        # This makes pattern matching more reliable.
+        $normalizedConsoleOutput = ($sfcConsoleOutput | Out-String -Stream | ForEach-Object { $_.Trim() } -join ' ').ToLower().Trim()
+        Log "Normalized SFC console output for analysis: '$normalizedConsoleOutput'"
 
-        # --- Simplified CBS.log analysis for /scannow results ---
-        $scanSuccess = $false
-        if (Test-Path $cbsLogPath) {
-            # Read the last portion of the log file, or the entire file if it's not too large
-            # This avoids reading excessively large files while still getting recent entries.
-            $cbsScanLogContent = ""
-            if ((Get-Item $cbsLogPath).Length -gt 50MB) {
-                # For very large logs, read only the most recent 10,000 lines
-                $cbsScanLogContent = Get-Content -Path $cbsLogPath -Tail 10000 | Out-String
-            } else {
-                # For smaller logs, read the whole content
-                $cbsScanLogContent = Get-Content -Path $cbsLogPath -Raw | Out-String
-            }
+        $consoleAnalysisResult = "Inconclusive" # Default status based on console output
+        $rebootRequired = $false
 
-            # Normalize the content for easier pattern matching (lowercase, single spaces)
-            $normalizedScanLogContent = ($cbsScanLogContent -replace '\s+', ' ').ToLower().Trim()
-            
-            # Check for common success or failure patterns in the log content
-            if ($normalizedScanLogContent -match "windows resource protection did not find any integrity violations" -or 
-                $normalizedScanLogContent -match "all files and components are available" -or 
-                $normalizedScanLogContent -match "successfully repaired them") {
-                Log "CBS.log analysis: SFC /scannow reported successful completion or no integrity violations."
-                $scanSuccess = $true
-            } elseif ($normalizedScanLogContent -match "found integrity violations but was unable to fix some of them") {
-                Log "CBS.log analysis: SFC /scannow found issues but could not repair all of them. Manual intervention may be required."
-                $scanSuccess = $false # Not a full success
-            } else {
-                Log "CBS.log analysis: SFC /scannow results in CBS.log are unclear. Review CBS.log manually for details."
-            }
+        # --- Analyze captured console output for key phrases ---
+        if ($normalizedConsoleOutput -match "windows resource protection did not find any integrity violations") {
+            Log "SFC /scannow console output: No integrity violations found."
+            $consoleAnalysisResult = "NoViolationsFound"
+        } elseif ($normalizedConsoleOutput -match "windows resource protection found integrity violations and successfully repaired them") {
+            Log "SFC /scannow console output: Integrity violations found and successfully repaired."
+            $consoleAnalysisResult = "RepairedSuccessfully"
+        } elseif ($normalizedConsoleOutput -match "windows resource protection found integrity violations but was unable to fix some of them") {
+            Log "SFC /scannow console output: Integrity violations found, but some could not be repaired." -Level "WARNING"
+            $consoleAnalysisResult = "PartialRepairFailed"
+        } elseif ($normalizedConsoleOutput -match "sfc scan complete") { 
+            # A more generic completion message, often appears if no specific violations are found or explicitly stated
+            Log "SFC /scannow console output: Scan completed, but specific outcome is not explicitly stated in console."
+            $consoleAnalysisResult = "GenericCompletion"
         } else {
-            Log "CBS.log not found after SFC /scannow execution. Cannot verify repair results." -Level "WARNING"
+             Log "SFC /scannow console output did not contain common success/failure patterns." -Level "INFO"
         }
 
-        # Final status based on exit code and log analysis
-        if ($sfcScanExitCode -eq 0 -and $scanSuccess) {
-            Log "System file issues were successfully repaired or no issues were found by SFC /scannow."
-        } elseif ($sfcScanExitCode -eq 1641 -or $sfcScanExitCode -eq 3010) {
-            # Common exit codes indicating a reboot is required to finalize repairs
-            Log "SFC /scannow completed and requires a reboot to finalize repairs (Exit Code: $sfcScanExitCode). Please reboot your system."
-        } elseif ($sfcScanExitCode -ne 0 -and (-not $scanSuccess)) {
-             Log "SFC /scannow completed with errors (Exit Code: $sfcScanExitCode). Review CBS.log for details."
-        } else {
-            Log "SFC /scannow completed with an unknown status (Exit Code: $sfcScanExitCode). Review logs for details."
+        # Check for reboot requirement based on common SFC exit codes
+        if ($sfcScanExitCode -eq 1641 -or $sfcScanExitCode -eq 3010) {
+            $rebootRequired = $true
+            Log "SFC exit code ($sfcScanExitCode) indicates a reboot is required to finalize operations."
+        }
+
+        # --- Provide final status based on combined console analysis and exit code ---
+        switch ($consoleAnalysisResult) {
+            "NoViolationsFound" {
+                if (-not $rebootRequired) {
+                    Log "SFC /scannow completed successfully: No system file integrity issues found."
+                } else {
+                    Log "SFC /scannow completed with no violations found, but still indicates a reboot is required (Exit Code: $sfcScanExitCode)."
+                }
+            }
+            "RepairedSuccessfully" {
+                if (-not $rebootRequired) {
+                    Log "SFC /scannow completed successfully: Integrity violations found and repaired."
+                } else {
+                    Log "SFC /scannow completed: Integrity violations repaired, reboot required to finalize (Exit Code: $sfcScanExitCode)."
+                }
+            }
+            "PartialRepairFailed" {
+                Log "SFC /scannow completed: Some integrity violations could not be repaired. Manual review of CBS.log is strongly recommended." -Level "ERROR"
+            }
+            "GenericCompletion" {
+                if ($rebootRequired) {
+                    Log "SFC /scannow completed (Exit Code: $sfcScanExitCode) and requires a reboot. Console output was generic. Review CBS.log if needed."
+                } elseif ($sfcScanExitCode -eq 0) {
+                    Log "SFC /scannow completed with exit code 0. Console output was generic. Assuming no major issues. Review CBS.log for details."
+                } else {
+                    Log "SFC /scannow completed with exit code $sfcScanExitCode. Console output was generic. Review CBS.log for more details." -Level "WARNING"
+                }
+            }
+            "Inconclusive" {
+                # This branch is hit if no specific patterns matched, fallback to exit code
+                if ($sfcScanExitCode -eq 0 -and (-not $rebootRequired)) {
+                    Log "SFC /scannow completed with exit code 0. Console output was inconclusive. System files *appear* healthy. Review CBS.log for confirmation."
+                } elseif ($rebootRequired) {
+                    Log "SFC /scannow completed (Exit Code: $sfcScanExitCode) and requires a reboot to finalize. Console output was inconclusive. Please reboot your system."
+                } else {
+                    Log "SFC /scannow completed with unknown status (Exit Code: $sfcScanExitCode). Console output was inconclusive. Review CBS.log for details." -Level "ERROR"
+                }
+            }
         }
 
     } catch {
-        Log "An error occurred during SFC /scannow operation or CBS.log analysis: $_" -Level "ERROR"
+        Log "An error occurred during SFC /scannow operation: $_" -Level "ERROR"
     }
 }
 # Log the initial message indicating the script has started, using the Log function.
