@@ -138,9 +138,11 @@ function Repair-SystemFiles {
 
         Log "SFC /scannow completed. Exit code: $sfcScanExitCode."
         
-        # Normalize the console output: remove extra whitespace and convert to lowercase
-        # This makes pattern matching more reliable.
-        $normalizedConsoleOutput = ($sfcConsoleOutput | Out-String -Stream | ForEach-Object { $_.Trim() } -join ' ').ToLower().Trim()
+        # --- CORRECTED LINE FOR NORMALIZING CONSOLE OUTPUT ---
+        # 1. Trim each line of the console output.
+        # 2. Join the trimmed lines into a single string with spaces.
+        # 3. Convert the resulting string to lowercase and trim outer whitespace.
+        $normalizedConsoleOutput = (($sfcConsoleOutput | ForEach-Object { $_.Trim() }) -join ' ').ToLower().Trim()
         Log "Normalized SFC console output for analysis: '$normalizedConsoleOutput'"
 
         $consoleAnalysisResult = "Inconclusive" # Default status based on console output
@@ -211,7 +213,7 @@ function Repair-SystemFiles {
         }
 
     } catch {
-        # Explicitly convert the error object to a string and remove the -Level parameter
+        # Explicitly convert the error object to a string to avoid parsing issues
         $errorMessage = $_ | Out-String 
         Log "An error occurred during SFC /scannow operation: $($errorMessage.Trim())"
     }
