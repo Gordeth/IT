@@ -136,56 +136,83 @@ function Repair-SystemFiles {
     $tempSfcStdoutPath = $null
     $tempSfcStderrPath = $null
 
+    # --- DEBUGGING: Temporarily added messages to trace execution ---
+    Write-Host "[DEBUG] Function Repair-SystemFiles called."
+    Write-Host "[DEBUG] ShowSFCConsoleProgress parameter is present: $($ShowSFCConsoleProgress.IsPresent)."
+    # --- END DEBUGGING ---
+
     try {
         # Generate unique temporary file names for standard output and standard error
         $tempSfcStdoutPath = [System.IO.Path]::GetTempFileName()
         $tempSfcStderrPath = [System.IO.Path]::GetTempFileName()
 
-        # --- Using Splatting for Start-Process parameters ---
-        # Define the parameters in a hashtable
+        # --- DEBUGGING ---
+        Write-Host "[DEBUG] Temp Stdout Path: $tempSfcStdoutPath"
+        Write-Host "[DEBUG] Temp Stderr Path: $tempSfcStderrPath"
+        # --- END DEBUGGING ---
+
+        # Using Splatting for Start-Process parameters
         $SFCParams = @{
             FilePath            = "sfc.exe"
             ArgumentList        = "/scannow"
-            NoNewWindow         = $true        # Corresponds to -NoNewWindow switch
-            PassThru            = $true        # Corresponds to -PassThru switch
+            NoNewWindow         = $true
+            PassThru            = $true
             RedirectStandardOutput = $tempSfcStdoutPath
             RedirectStandardError  = $tempSfcStderrPath
         }
 
         # Execute sfc.exe using splatting
+        Write-Host "[DEBUG] Starting sfc.exe process..."
         $process = Start-Process @SFCParams
 
         # Wait for the sfc.exe process to finish execution
+        Write-Host "[DEBUG] Waiting for sfc.exe to exit..."
         $process.WaitForExit()
         
-        # Read the captured standard output (and discard standard error as it's not used for display)
+        # --- DEBUGGING ---
+        Write-Host "[DEBUG] SFC process exited with code: $($process.ExitCode)."
+        Write-Host "[DEBUG] Temp Stdout file exists: $(Test-Path $tempSfcStdoutPath)."
+        # --- END DEBUGGING ---
+
+        # Read the captured standard output
         $sfcRawOutput = Get-Content -Path $tempSfcStdoutPath | Out-String
+
+        # --- DEBUGGING ---
+        Write-Host "[DEBUG] Length of captured SFC output (sfcRawOutput): $($sfcRawOutput.Length)."
+        if ($sfcRawOutput.Length -gt 0) {
+            Write-Host "[DEBUG] First 100 characters of SFC output:`n$($sfcRawOutput.Substring(0, [System.Math]::Min(100, $sfcRawOutput.Length)))"
+        } else {
+            Write-Host "[DEBUG] SFC raw output is empty."
+        }
+        # --- END DEBUGGING ---
 
         # Process the captured standard output line by line for display
         if ($ShowSFCConsoleProgress) {
+            Write-Host "[DEBUG] ShowSFCConsoleProgress is ON. Displaying SFC native output..."
             $sfcRawOutput.Split([Environment]::NewLine) | ForEach-Object {
                 $line = $_.Trim() 
                 if (-not [string]::IsNullOrWhiteSpace($line)) {
                     Write-Host $line
                 }
             }
+            Write-Host "[DEBUG] Finished displaying SFC native output."
+        } else {
+            Write-Host "[DEBUG] ShowSFCConsoleProgress is OFF. No native SFC output displayed."
         }
         
     } catch {
-        # Catch any unexpected errors during the function's execution.
         Write-Error "An unexpected error occurred during SFC /scannow operation: $($_.Exception.Message)"
     } finally {
         # Ensure temporary files are cleaned up in all cases, even if an error occurs.
+        Write-Host "[DEBUG] Cleaning up temporary files."
         if ($tempSfcStdoutPath -and (Test-Path $tempSfcStdoutPath)) {
             Remove-Item -Path $tempSfcStdoutPath -ErrorAction SilentlyContinue
         }
         if ($tempSfcStderrPath -and (Test-Path $tempSfcStderrPath)) {
             Remove-Item -Path $tempSfcStderrPath -ErrorAction SilentlyContinue
         }
+        Write-Host "[DEBUG] Temporary files cleaned up."
     }
-
-    # This function does not return any value; its output is solely via Write-Host
-    # when $ShowSFCConsoleProgress is active.
 }
 # Log the initial message indicating the script has started, using the Log function.
 Log "WUH Script started."
