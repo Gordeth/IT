@@ -130,9 +130,7 @@ function Repair-SystemFiles {
     )
 
     # --- IMPORTANT: All custom logging (using 'Log' function) and internal analysis
-    # has been removed from this function to strictly mimic the exact standalone 'sfc /scannow' output.
-    # Variables for log paths, exit codes, error output, and analysis results are also removed
-    # as they are not used within this function's simplified scope. ---
+    # has been removed from this function to strictly mimic the exact standalone 'sfc /scannow' output. ---
 
     # These are the only temporary variables needed for output redirection
     $tempSfcStdoutPath = $null
@@ -143,28 +141,30 @@ function Repair-SystemFiles {
         $tempSfcStdoutPath = [System.IO.Path]::GetTempFileName()
         $tempSfcStderrPath = [System.IO.Path]::GetTempFileName()
 
-        # Execute sfc.exe and redirect its output to the temporary files
-        $process = Start-Process -FilePath "sfc.exe" `
-            -ArgumentList "/scannow"`
-            -NoNewWindow`            # Do not create a new console window
-            -PassThru`               # Pass the process object back for inspection (to WaitForExit and cleanup)
-            -RedirectStandardOutput $tempSfcStdoutPath` # Redirect stdout to temp file
-            -RedirectStandardError $tempSfcStderrPath    # Redirect stderr to temp file
+        # --- Using Splatting for Start-Process parameters ---
+        # Define the parameters in a hashtable
+        $SFCParams = @{
+            FilePath            = "sfc.exe"
+            ArgumentList        = "/scannow"
+            NoNewWindow         = $true        # Corresponds to -NoNewWindow switch
+            PassThru            = $true        # Corresponds to -PassThru switch
+            RedirectStandardOutput = $tempSfcStdoutPath
+            RedirectStandardError  = $tempSfcStderrPath
+        }
+
+        # Execute sfc.exe using splatting
+        $process = Start-Process @SFCParams
 
         # Wait for the sfc.exe process to finish execution
         $process.WaitForExit()
-        # $sfcScanExitCode = $process.ExitCode # Removed: Not used in this minimalist version
-
-        # Read the captured standard output (and discard standard error as it's not used)
+        
+        # Read the captured standard output (and discard standard error as it's not used for display)
         $sfcRawOutput = Get-Content -Path $tempSfcStdoutPath | Out-String
-        # $sfcErrorOutput = Get-Content -Path $tempSfcStderrPath | Out-String # Removed: Not used in this minimalist version
 
-        # Process the captured standard output line by line
-        # If ShowSFCConsoleProgress is enabled, print ALL captured non-empty lines to the host console.
-        # This directly mimics what the native SFC command outputs.
+        # Process the captured standard output line by line for display
         if ($ShowSFCConsoleProgress) {
             $sfcRawOutput.Split([Environment]::NewLine) | ForEach-Object {
-                $line = $_.Trim() # Trim leading/trailing whitespace from each line
+                $line = $_.Trim() 
                 if (-not [string]::IsNullOrWhiteSpace($line)) {
                     Write-Host $line
                 }
@@ -173,9 +173,6 @@ function Repair-SystemFiles {
         
     } catch {
         # Catch any unexpected errors during the function's execution.
-        # This will print a standard PowerShell error message to the console.
-        # If you want to suppress this, you'd need to use -ErrorAction SilentlyContinue
-        # on the Write-Error or remove it, but it's generally good to notify on error.
         Write-Error "An unexpected error occurred during SFC /scannow operation: $($_.Exception.Message)"
     } finally {
         # Ensure temporary files are cleaned up in all cases, even if an error occurs.
