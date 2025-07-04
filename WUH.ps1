@@ -123,6 +123,11 @@ function Get-And-Invoke-Script {
 # Uses 'verifyonly' first, and if corruption is found, runs 'scannow'.
 # This version analyzes CBS.log for results.
 function Repair-SystemFiles {
+    param(
+        # This parameter will control whether to output the raw SFC progress to the console
+        [switch]$ShowSFCConsoleProgress
+    )
+
     Log "Starting System File Checker (SFC) /scannow operation..."
 
     $cbsLogPath = "$env:windir\Logs\CBS\CBS.log" # Still log path for reference
@@ -131,21 +136,66 @@ function Repair-SystemFiles {
         Log "Executing 'sfc /scannow' command. This process may take a while."
         Log "Capturing SFC console output for analysis. For detailed results, always refer to CBS.log at: '$cbsLogPath'"
         
-        # Execute sfc /scannow and capture its console output.
-        # Removing '> $null 2>&1' allows output to be captured.
-        $sfcConsoleOutput = sfc.exe /scannow 
-        $sfcScanExitCode = $LASTEXITCODE # Capture the exit code of sfc.exe
+        # Initialize an array to store the console output for later analysis
+        $sfcConsoleOutput = @()
 
+        # --- Execute sfc /scannow and capture/display its console output. ---
+        
+        Write-Host "" # Add an initial blank line for better formatting, mimicking standalone
+        Write-Host "Beginning system scan. This process will take some time."
+        Write-Host "" # Another blank line
+        Write-Host "Beginning verification phase of system scan."
+
+        $process = Start-Process -FilePath "sfc.exe" -ArgumentList "/scannow" -NoNewWindow -PassThru -RedirectStandardOutput ([System.IO.Path]::GetTempFileName()) -RedirectStandardError ([System.IO.Path]::GetTempFileName())
+
+        # Wait for the process to finish
+        $process.WaitForExit()
+        $sfcScanExitCode = $process.ExitCode
+
+        # Read the captured standard output and standard error from the temp files
+        $sfcRawOutput = Get-Content -Path $process.StandardOutput | Out-String
+        $sfcErrorOutput = Get-Content -Path $process.StandardError | Out-String # This is the variable in question
+
+        # Clean up temp files
+        Remove-Item -Path $process.StandardOutput -ErrorAction SilentlyContinue
+        Remove-Item -Path $process.StandardError -ErrorAction SilentlyContinue
+
+        # --- ADDED LOGIC FOR sfcErrorOutput ---
+        if (-not [string]::IsNullOrWhiteSpace($sfcErrorOutput)) {
+            Log "SFC /scannow produced error output: $($sfcErrorOutput.Trim())"
+            # You could add more sophisticated handling here, e.g., if it's a specific error
+            # or change the overall script's exit status if this is critical.
+        }
+        # --- END OF ADDED LOGIC ---
+
+        # Process the captured output line by line for display and storage
+        $sfcRawOutput.Split([Environment]::NewLine) | ForEach-Object {
+            $line = $_.Trim()
+            if ($ShowSFCConsoleProgress) {
+                if ($line -match "Verification \d+% complete\." -or
+                    $line -match "Windows Resource Protection" -or
+                    $line -match "sfc scan complete" -or
+                    $line -match "Beginning system scan" -or
+                    $line -match "Beginning verification phase")
+                {
+                    Write-Host $line
+                }
+            }
+            if (-not [string]::IsNullOrWhiteSpace($line)) {
+                $sfcConsoleOutput += $line
+            }
+        }
+        
+        if ($ShowSFCConsoleProgress) {
+             Write-Host ""
+        }
+        
         Log "SFC /scannow completed. Exit code: $sfcScanExitCode."
         
-        # --- CORRECTED LINE FOR NORMALIZING CONSOLE OUTPUT ---
-        # 1. Trim each line of the console output.
-        # 2. Join the trimmed lines into a single string with spaces.
-        # 3. Convert the resulting string to lowercase and trim outer whitespace.
         $normalizedConsoleOutput = (($sfcConsoleOutput | ForEach-Object { $_.Trim() }) -join ' ').ToLower().Trim()
         Log "Normalized SFC console output for analysis: '$normalizedConsoleOutput'"
 
-        $consoleAnalysisResult = "Inconclusive" # Default status based on console output
+        $consoleAnalysisResult = "Inconclusive"
         $rebootRequired = $false
 
         # --- Analyze captured console output for key phrases ---
@@ -159,11 +209,10 @@ function Repair-SystemFiles {
             Log "SFC /scannow console output: Integrity violations found, but some could not be repaired."
             $consoleAnalysisResult = "PartialRepairFailed"
         } elseif ($normalizedConsoleOutput -match "sfc scan complete") { 
-            # A more generic completion message, often appears if no specific violations are found or explicitly stated
             Log "SFC /scannow console output: Scan completed, but specific outcome is not explicitly stated in console."
             $consoleAnalysisResult = "GenericCompletion"
         } else {
-             Log "SFC /scannow console output did not contain common success/failure patterns."
+            Log "SFC /scannow console output did not contain common success/failure patterns."
         }
 
         # Check for reboot requirement based on common SFC exit codes
@@ -201,7 +250,6 @@ function Repair-SystemFiles {
                 }
             }
             "Inconclusive" {
-                # This branch is hit if no specific patterns matched, fallback to exit code
                 if ($sfcScanExitCode -eq 0 -and (-not $rebootRequired)) {
                     Log "SFC /scannow completed with exit code 0. Console output was inconclusive. System files *appear* healthy. Review CBS.log for confirmation."
                 } elseif ($rebootRequired) {
@@ -213,7 +261,6 @@ function Repair-SystemFiles {
         }
 
     } catch {
-        # Explicitly convert the error object to a string to avoid parsing issues
         $errorMessage = $_ | Out-String 
         Log "An error occurred during SFC /scannow operation: $($errorMessage.Trim())"
     }
