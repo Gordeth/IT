@@ -123,182 +123,70 @@ function Get-And-Invoke-Script {
 # Uses 'verifyonly' first, and if corruption is found, runs 'scannow'.
 # This version analyzes CBS.log for results.
 function Repair-SystemFiles {
-    Log "Starting System File Checker (SFC) integrity check..."
+    Log "Starting System File Checker (SFC) /scannow operation..."
 
     $cbsLogPath = "$env:windir\Logs\CBS\CBS.log"
 
     try {
-        Log "Running 'sfc /verifyonly' to check for corrupted system files..."
-        Log "Note: SFC output will not be directly parsed. We will check the CBS.log for results."
+        Log "Executing 'sfc /scannow' command. This process may take a while and could prompt for a reboot."
+        Log "SFC /scannow output will not be directly parsed. Please refer to CBS.log for detailed results."
         
-        # Capture the current size of CBS.log before running SFC, to read only new entries
-        $initialCbsLogSize = 0
+        # Execute sfc /scannow, redirecting its console output to null
+        sfc.exe /scannow > $null 2>&1
+        $sfcScanExitCode = $LASTEXITCODE # Capture the exit code of sfc.exe
+
+        Log "SFC /scannow completed. Exit code: $sfcScanExitCode."
+        
+        # Give the system a moment to ensure all log entries are written to CBS.log
+        Start-Sleep -Seconds 60 # Increased sleep duration for robustness
+
+        # --- Simplified CBS.log analysis for /scannow results ---
+        $scanSuccess = $false
         if (Test-Path $cbsLogPath) {
-            $initialCbsLogSize = (Get-Item $cbsLogPath).Length
-            Log "Initial CBS.log size: $initialCbsLogSize bytes."
+            # Read the last portion of the log file, or the entire file if it's not too large
+            # This avoids reading excessively large files while still getting recent entries.
+            $cbsScanLogContent = ""
+            if ((Get-Item $cbsLogPath).Length -gt 50MB) {
+                # For very large logs, read only the most recent 10,000 lines
+                $cbsScanLogContent = Get-Content -Path $cbsLogPath -Tail 10000 | Out-String
+            } else {
+                # For smaller logs, read the whole content
+                $cbsScanLogContent = Get-Content -Path $cbsLogPath -Raw | Out-String
+            }
+
+            # Normalize the content for easier pattern matching (lowercase, single spaces)
+            $normalizedScanLogContent = ($cbsScanLogContent -replace '\s+', ' ').ToLower().Trim()
+            
+            # Check for common success or failure patterns in the log content
+            if ($normalizedScanLogContent -match "windows resource protection did not find any integrity violations" -or 
+                $normalizedScanLogContent -match "all files and components are available" -or 
+                $normalizedScanLogContent -match "successfully repaired them") {
+                Log "CBS.log analysis: SFC /scannow reported successful completion or no integrity violations."
+                $scanSuccess = $true
+            } elseif ($normalizedScanLogContent -match "found integrity violations but was unable to fix some of them") {
+                Log "CBS.log analysis: SFC /scannow found issues but could not repair all of them. Manual intervention may be required."
+                $scanSuccess = $false # Not a full success
+            } else {
+                Log "CBS.log analysis: SFC /scannow results in CBS.log are unclear. Review CBS.log manually for details."
+            }
         } else {
-            Log "CBS.log not found at initial check. It might be created by SFC."
+            Log "CBS.log not found after SFC /scannow execution. Cannot verify repair results." -Level "WARNING"
         }
 
-        # Execute sfc /verifyonly
-        # Redirect all output to Null so we don't try to parse it, focusing on CBS.log
-        Log "Executing 'sfc /verifyonly' command..."
-        sfc.exe /verifyonly > $null 2>&1
-        $sfcVerifyExitCode = $LASTEXITCODE # Capture exit code
-
-        Log "SFC /verifyonly completed. Exit code: $sfcVerifyExitCode. Analyzing CBS.log for results..."
-
-        # Wait a moment for the log to be written (SFC writes asynchronously)
-        Start-Sleep -Seconds 60 # Increased sleep to ensure log writes
-
-        $violationsFound = $false
-        if (Test-Path $cbsLogPath) {
-            # Get current timestamp to filter recent entries more reliably
-            # Capture currentTime AFTER sleep to ensure filtering window is correct relative to potential log write completion
-            $currentTime = Get-Date 
-
-            # Read a larger tail of the log, or the full log if it's small, to capture recent SFC entries
-            $cbsLogContent = ""
-            if ((Get-Item $cbsLogPath).Length -gt 50MB) { # If log is very large, read tail
-                $cbsLogContent = Get-Content -Path $cbsLogPath -Tail 10000 | Out-String # Read last 10,000 lines
-            } else {
-                $cbsLogContent = Get-Content -Path $cbsLogPath -Raw | Out-String # Read entire log
-            }
-            
-            # Filter entries relevant to the current SFC run by timestamp
-            # Increased duration to 15 minutes to be more forgiving of log write delays.
-            $recentSfcEntries = $cbsLogContent | Select-String -Pattern "\[SR\]|Warning: Overlap:" | Where-Object {
-                $line = $_.ToString()
-                # --- CORRECTED REGEX: Changed Info\s+ to Info.*? ---
-                if ($line -match '^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}), Info.*?') {
-                    $logTimestamp = [datetime]::ParseExact($Matches[1], 'yyyy-MM-dd HH:mm:ss', $null)
-                    ($currentTime - $logTimestamp).TotalMinutes -lt 15 
-                } else {
-                    # If the timestamp pattern doesn't match (e.g., different log line format, or not a timestamped line),
-                    # still include it IF it contains [SR] or Warning: Overlap, as Select-String already filtered for these.
-                    $true 
-                }
-            } | Out-String # Convert array of MatchInfo objects back to string for overall matching
-
-            # Only log content if it's not empty
-            if (-not [string]::IsNullOrEmpty($recentSfcEntries.Trim())) {
-                Log "Content of \$recentSfcEntries (before normalization):`n$recentSfcEntries"
-            } else {
-                Log "No relevant SFC entries found in CBS.log within the last 15 minutes after /verifyonly."
-            }
-            $normalizedRecentLogContent = ($recentSfcEntries -replace '\s+', ' ').ToLower().Trim()
-            Log "Content of \$normalizedRecentLogContent (after normalization): '$normalizedRecentLogContent'"
-            
-            # Search for specific patterns indicating integrity violations from SFC /verifyonly
-            # These patterns are based on Microsoft documentation and common SFC log entries
-            if ($normalizedRecentLogContent -match "windows resource protection found integrity violations") {
-                # This pattern can appear in the console output and sometimes in the log itself.
-                $violationsFound = $true
-                Log "CBS.log analysis: Console output pattern 'Windows Resource Protection found integrity violations' detected."
-            }
-            if ($normalizedRecentLogContent -match "\[sr\] cannot repair member file") {
-                # This is the most direct indicator of a file found to be corrupt by SFC /verifyonly
-                $violationsFound = $true
-                Log "CBS.log analysis: '[SR] Cannot repair member file' detected."
-            }
-            if ($normalizedRecentLogContent -match "\[sr\] repairing corrupted file") {
-                # While /verifyonly doesn't repair, this entry can appear showing files that would be repaired.
-                # It indicates a problem found.
-                $violationsFound = $true
-                Log "CBS.log analysis: '[SR] Repairing corrupted file' (indicating a problem) detected."
-            }
-            if ($normalizedRecentLogContent -match "warning: overlap: directory") {
-                # This indicates permission/ownership issues found by SFC, which are also integrity violations.
-                # This pattern does NOT have the [SR] tag.
-                $violationsFound = $true
-                Log "CBS.log analysis: 'Warning: Overlap: Directory' detected."
-            }
-            
-            # A final check: if no violations found by specific patterns, look for successful completion message
-            # This helps confirm that SFC ran and found nothing if no errors were matched.
-            if (-not $violationsFound -and ($normalizedRecentLogContent -match "windows resource protection did not find any integrity violations" -or $normalizedRecentLogContent -match "\[sr\] verify complete")) {
-                Log "CBS.log analysis: 'Windows Resource Protection did not find any integrity violations' or '[SR] Verify complete' detected, no specific violations found."
-                $violationsFound = $false # Explicitly set to false if these positive messages are found without prior error matches
-            }
-
+        # Final status based on exit code and log analysis
+        if ($sfcScanExitCode -eq 0 -and $scanSuccess) {
+            Log "System file issues were successfully repaired or no issues were found by SFC /scannow."
+        } elseif ($sfcScanExitCode -eq 1641 -or $sfcScanExitCode -eq 3010) {
+            # Common exit codes indicating a reboot is required to finalize repairs
+            Log "SFC /scannow completed and requires a reboot to finalize repairs (Exit Code: $sfcScanExitCode). Please reboot your system."
+        } elseif ($sfcScanExitCode -ne 0 -and (-not $scanSuccess)) {
+             Log "SFC /scannow completed with errors (Exit Code: $sfcScanExitCode). Review CBS.log for details."
         } else {
-            Log "CBS.log not found after SFC execution. Cannot verify results." -Level "WARNING"
+            Log "SFC /scannow completed with an unknown status (Exit Code: $sfcScanExitCode). Review logs for details."
         }
 
-        Log "Violation check result after /verifyonly: $violationsFound"
-
-        if ($violationsFound) {
-            Log "SFC /verifyonly detected integrity violations via CBS.log analysis. Proceeding with 'sfc /scannow'..."
-            Log "This process may take a while and could prompt for a reboot."
-            
-            # Capture CBS.log size before scannow
-            $initialCbsLogScanSize = (Get-Item $cbsLogPath).Length
-            Log "Initial CBS.log size before /scannow: $initialCbsLogScanSize bytes."
-
-            # Execute sfc /scannow
-            sfc.exe /scannow > $null 2>&1
-            $sfcScanExitCode = $LASTEXITCODE
-
-            Log "SFC /scannow completed. Exit code: $sfcScanExitCode. Analyzing CBS.log for repair results..."
-            Start-Sleep -Seconds 60 # Increased sleep
-
-            $scanSuccess = $false
-            if (Test-Path $cbsLogPath) {
-                $currentTimeScan = Get-Date
-                $cbsScanLogContent = ""
-                if ((Get-Item $cbsLogPath).Length -gt 50MB) {
-                    $cbsScanLogContent = Get-Content -Path $cbsLogPath -Tail 10000 | Out-String
-                } else {
-                    $cbsScanLogContent = Get-Content -Path $cbsLogPath -Raw | Out-String
-                }
-
-                $recentSfcScanEntries = $cbsScanLogContent | Select-String -Pattern "\[SR\]|Warning: Overlap:" | Where-Object {
-                    $line = $_.ToString()
-                    # --- CORRECTED REGEX: Changed Info\s+ to Info.*? ---
-                    if ($line -match '^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}), Info.*?') {
-                        $logTimestamp = [datetime]::ParseExact($Matches[1], 'yyyy-MM-dd HH:mm:ss', $null)
-                        ($currentTimeScan - $logTimestamp).TotalMinutes -lt 15 
-                    } else {
-                        $true 
-                    }
-                } | Out-String
-
-                if (-not [string]::IsNullOrEmpty($recentSfcScanEntries.Trim())) {
-                    Log "Content of \$recentSfcScanEntries (before normalization):`n$recentSfcScanEntries"
-                } else {
-                    Log "No relevant SFC /scannow entries found in CBS.log within the last 15 minutes."
-                }
-                $normalizedScanLogContent = ($recentSfcScanEntries -replace '\s+', ' ').ToLower().Trim()
-                Log "Content of \$normalizedScanLogContent (after normalization): '$normalizedScanLogContent'"
-
-                if ($normalizedScanLogContent -match "windows resource protection did not find any integrity violations" -or $normalizedScanLogContent -match "all files and components are available" -or $normalizedScanLogContent -match "successfully repaired them") {
-                    Log "CBS.log analysis: SFC /scannow reported successful completion or no integrity violations."
-                    $scanSuccess = $true
-                } elseif ($normalizedScanLogContent -match "found integrity violations but was unable to fix some of them") {
-                    Log "CBS.log analysis: SFC /scannow could not repair all issues. Manual intervention may be required."
-                    $scanSuccess = $false # Not a full success
-                } else {
-                    Log "CBS.log analysis: SFC /scannow results in log unclear. Review CBS.log manually."
-                }
-            } else {
-                Log "CBS.log not found after SFC /scannow execution. Cannot verify repair results." -Level "WARNING"
-            }
-
-            if ($sfcScanExitCode -eq 0 -and $scanSuccess) {
-                Log "System file issues were successfully repaired based on SFC exit code and CBS.log."
-            } elseif ($sfcScanExitCode -eq 1641 -or $sfcScanExitCode -eq 3010) { # Common reboot required codes
-                Log "SFC completed and requires a reboot to finalize repairs (Exit Code: $sfcScanExitCode)."
-            } elseif ($sfcScanExitCode -ne 0 -and (-not $scanSuccess)) {
-                 Log "SFC /scannow completed with errors (Exit Code: $sfcScanExitCode). Review CBS.log for details."
-            } else {
-                Log "SFC /scannow completed with unknown status (Exit Code: $sfcScanExitCode). Review logs for details."
-            }
-
-        } else {
-            Log "No integrity violations found based on CBS.log analysis. System files appear healthy."
-        }
     } catch {
-        Log "An error occurred during SFC operation or CBS.log analysis: $_" -Level "ERROR"
+        Log "An error occurred during SFC /scannow operation or CBS.log analysis: $_" -Level "ERROR"
     }
 }
 # Log the initial message indicating the script has started, using the Log function.
