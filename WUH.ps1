@@ -145,10 +145,10 @@ function Repair-SystemFiles {
 
         # Execute sfc.exe and redirect its output to the temporary files
         $process = Start-Process -FilePath "sfc.exe" `
-            -ArgumentList "/scannow" `
-            -NoNewWindow `            # Do not create a new console window
-            -PassThru `               # Pass the process object back for inspection (to WaitForExit and cleanup)
-            -RedirectStandardOutput $tempSfcStdoutPath ` # Redirect stdout to temp file
+            -ArgumentList "/scannow"`
+            -NoNewWindow`            # Do not create a new console window
+            -PassThru`               # Pass the process object back for inspection (to WaitForExit and cleanup)
+            -RedirectStandardOutput $tempSfcStdoutPath` # Redirect stdout to temp file
             -RedirectStandardError $tempSfcStderrPath    # Redirect stderr to temp file
 
         # Wait for the sfc.exe process to finish execution
