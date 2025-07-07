@@ -123,9 +123,6 @@ function Get-And-Invoke-Script {
 # Uses 'verifyonly' first, and if corruption is found, runs 'scannow'.
 # This version analyzes CBS.log for results.
 function Repair-SystemFiles {
-    # This function now uses the global/script-scoped $VerboseMode variable
-    # from the main script to determine console output behavior.
-
     try {
         Log "Starting System File Checker (SFC) scan. This may take some time..." "INFO"
 
@@ -138,37 +135,41 @@ function Repair-SystemFiles {
             $sfcExitCode = $LASTEXITCODE
             Log "SFC scan finished with exit code: $sfcExitCode" "INFO"
         } else {
-            Log "Running SFC scan silently..." "INFO"
+            Log "Running SFC scan silently in a hidden window..." "INFO"
             
-            # Create temporary files to redirect SFC's output
-            $tempStdoutFile = [System.IO.Path]::GetTempFileName()
-            $tempStderrFile = [System.IO.Path]::GetTempFileName()
+            # Define the PowerShell command to execute sfc.exe
+            # We use a script block to ensure sfc.exe's exit code is captured.
+            $command = "& sfc.exe /scannow; exit `$LASTEXITCODE"
+            
+            # Set up process information to start a new, hidden PowerShell window
+            $processInfo = New-Object System.Diagnostics.ProcessStartInfo
+            $processInfo.FileName = "powershell.exe"
+            # Pass arguments to PowerShell: no profile, bypass execution policy, hidden window, execute command
+            $processInfo.Arguments = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command `"$command`""
+            $processInfo.UseShellExecute = $false # Crucial for redirecting output
+            $processInfo.RedirectStandardOutput = $true # Attempt to redirect stdout
+            $processInfo.RedirectStandardError = $true  # Attempt to redirect stderr
 
-            # Execute sfc.exe using Start-Process to capture/redirect its output
-            $process = Start-Process -FilePath "sfc.exe" `
-                                     -ArgumentList $sfcArgs `
-                                     -NoNewWindow `            # Do not open a new console window
-                                     -PassThru `               # Return the process object
-                                     -RedirectStandardOutput $tempStdoutFile ` # Redirect stdout to temp file
-                                     -RedirectStandardError $tempStderrFile `  # Redirect stderr to temp file
-                                     -ErrorAction Stop         # Treat any Start-Process errors as terminating
+            # Create and start the process
+            $process = New-Object System.Diagnostics.Process
+            $process.StartInfo = $processInfo
+            $process.Start() | Out-Null # Start the process and suppress its immediate output to console
             
-            $process.WaitForExit() # Wait for sfc.exe to complete
+            $process.WaitForExit() # Wait for the hidden PowerShell process to complete
             $sfcExitCode = $process.ExitCode
             
-            # Read and log the captured SFC output to your script's log file
-            $sfcOutput = Get-Content $tempStdoutFile | Out-String
-            $sfcError = Get-Content $tempStderrFile | Out-String
+            # Read and log any captured output from stdout/stderr of the hidden process.
+            # While sfc.exe's live progress often bypasses these, final summaries or errors might be here.
+            $sfcOutput = $process.StandardOutput.ReadToEnd()
+            $sfcError = $process.StandardError.ReadToEnd()
             
             if (-not [string]::IsNullOrWhiteSpace($sfcOutput)) {
-                Log "SFC Standard Output: `n$sfcOutput" -Level "DEBUG"
+                Log "SFC Standard Output (from hidden process): `n$sfcOutput" -Level "DEBUG"
             }
             if (-not [string]::IsNullOrWhiteSpace($sfcError)) {
-                Log "SFC Standard Error: `n$sfcError" -Level "ERROR"
+                Log "SFC Standard Error (from hidden process): `n$sfcError" -Level "ERROR"
             }
 
-            # Clean up temporary files
-            Remove-Item $tempStdoutFile, $tempStderrFile -ErrorAction SilentlyContinue
             Log "SFC scan finished silently with exit code: $sfcExitCode" "INFO"
         }
         
