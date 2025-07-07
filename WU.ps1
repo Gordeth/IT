@@ -192,16 +192,18 @@ if ($UpdateList) {
         # `-MicrosoftUpdate`: Installs updates from Microsoft Update sources.
         # `-AcceptAll`: Automatically accepts all update licenses.
         # `-AutoReboot`: Allows the system to automatically reboot if required by updates.
-        # `-Verbose`: Provides detailed output during installation.
-        Install-WindowsUpdate -MicrosoftUpdate -AcceptAll -AutoReboot -Verbose
+
+        # Conditionally apply -Verbose to Install-WindowsUpdate based on the script's $VerboseMode.
+        if ($VerboseMode) {
+            Install-WindowsUpdate -MicrosoftUpdate -AcceptAll -AutoReboot -Verbose
+        } else {
+            Install-WindowsUpdate -MicrosoftUpdate -AcceptAll -AutoReboot
+        }
         Log "Update installation completed (system may have rebooted)."
     } catch {
         # Log any errors that occur during the update installation process.
         Log "Error during update installation: $_" -Level "ERROR"
     }
-} else {
-    # If `$UpdateList` is empty, no updates were found.
-    Log "No updates found."
 
     # --- Clean up: remove startup shortcut if it exists ---
     # If no updates were found, or if the script has run post-reboot and completed
