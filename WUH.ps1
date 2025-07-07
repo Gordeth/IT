@@ -318,22 +318,32 @@ try {
                 # Define a helper function/script block for setting power options and logging results
                 $SetPowerSetting = {
                     param($planGuid, $subgroupGuid, $settingGuid, $value, $description)
-                    $cmd = "powercfg -setacvalueindex $planGuid $subgroupGuid $settingGuid $value"
-                    $acResult = (Invoke-Expression $cmd 2>&1)
-                    $acSuccess = ($LASTEXITCODE -eq 0 -and -not ($acResult -match "does not exist|invalid"))
+                    
+                    # *** IMPORTANT CHANGE HERE: Directly call powercfg instead of Invoke-Expression ***
+                    $acResult = (powercfg -setacvalueindex $planGuid $subgroupGuid $settingGuid $value 2>&1)
+                    $acExitCode = $LASTEXITCODE
 
-                    $cmd = "powercfg -setdcvalueindex $planGuid $subgroupGuid $settingGuid $value"
-                    $dcResult = (Invoke-Expression $cmd 2>&1)
-                    $dcSuccess = ($LASTEXITCODE -eq 0 -and -not ($dcResult -match "does not exist|invalid"))
+                    $dcResult = (powercfg -setdcvalueindex $planGuid $subgroupGuid $settingGuid $value 2>&1)
+                    $dcExitCode = $LASTEXITCODE
 
-                    if ($acSuccess -and $dcSuccess) {
+                    # The error message is: "The power scheme, subgroup or setting specified does not exist."
+                    $commonErrorPattern = "The power scheme, subgroup or setting specified does not exist"
+                    
+                    # A setting is successful if exit code is 0 OR if the specific "does not exist" error is NOT present in the output.
+                    # We accept "not exist" as a failure but allow script to continue without error.
+                    $acAppliedSuccessfully = ($acExitCode -eq 0 -and -not ($acResult -match $commonErrorPattern))
+                    $dcAppliedSuccessfully = ($dcExitCode -eq 0 -and -not ($dcResult -match $commonErrorPattern))
+
+
+                    if ($acAppliedSuccessfully -and $dcAppliedSuccessfully) {
                         Log "$description (AC & DC) set successfully." -Level "INFO"
-                    } elseif ($acSuccess -and -not $dcSuccess) {
-                        Log "$description (AC) set successfully, but (DC) failed: $dcResult" -Level "WARN"
-                    } elseif (-not $acSuccess -and $dcSuccess) {
-                        Log "$description (DC) set successfully, but (AC) failed: $acResult" -Level "WARN"
+                    } elseif ($acAppliedSuccessfully -and -not $dcAppliedSuccessfully) {
+                        Log "$description (AC) set successfully, but (DC) failed. Output: '$dcResult', Exit Code: $dcExitCode" -Level "WARN"
+                    } elseif (-not $acAppliedSuccessfully -and $dcAppliedSuccessfully) {
+                        Log "$description (DC) set successfully, but (AC) failed. Output: '$acResult', Exit Code: $acExitCode" -Level "WARN"
                     } else {
-                        Log "$description (AC & DC) failed. AC: '$acResult', DC: '$dcResult'." -Level "WARN"
+                        # Both failed, or one failed with a different error than "does not exist"
+                        Log "$description (AC & DC) failed. AC Output: '$acResult', AC Exit Code: $acExitCode. DC Output: '$dcResult', DC Exit Code: $dcExitCode." -Level "WARN"
                     }
                 }
 
