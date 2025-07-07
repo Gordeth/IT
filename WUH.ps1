@@ -123,38 +123,59 @@ function Get-And-Invoke-Script {
 # Uses 'verifyonly' first, and if corruption is found, runs 'scannow'.
 # This version analyzes CBS.log for results.
 function Repair-SystemFiles {
-    param(
-        # This parameter will control whether to output the raw SFC progress to the console.
-        # If true, SFC's native console output will be displayed.
-        [switch]$ShowSFCConsoleProgress
-    )
+    # This function now uses the global/script-scoped $VerboseMode variable
+    # from the main script to determine console output behavior.
 
     try {
-        # Since the PowerShell console is confirmed to be running as Administrator,
-        # we can directly execute sfc.exe for real-time, streaming output.
-        # The -ShowSFCConsoleProgress switch now directly controls whether the SFC scan runs at all and displays.
+        Log "Starting System File Checker (SFC) scan. This may take some time..." "INFO"
+
+        $sfcArgs = "/scannow"
         
-        if ($ShowSFCConsoleProgress.IsPresent) {
-            Write-Host "Starting System File Checker (SFC) scan in real-time. This may take some time..."
-            
-            # Execute sfc.exe directly. Its output will stream live to the current console.
-            sfc.exe /scannow
-            
-            # $LASTEXITCODE contains the exit code of the last native command executed
-            $sfcExitCode = $LASTEXITCODE 
-            Write-Host "SFC scan finished with exit code: $sfcExitCode"
+        if ($VerboseMode) { # Check the main script's $VerboseMode
+            Log "Displaying SFC console progress." "INFO"
+            # Execute sfc.exe normally; its output will stream live to the console
+            sfc.exe $sfcArgs
+            $sfcExitCode = $LASTEXITCODE
+            Log "SFC scan finished with exit code: $sfcExitCode" "INFO"
         } else {
-            # If the -ShowSFCConsoleProgress switch is not present, we assume
-            # the user does not want the SFC scan to run or display.
-            # If a silent scan was desired in this case, a different logic path would be needed.
-            Write-Host "SFC scan requested, but -ShowSFCConsoleProgress was not specified. No action taken for SFC."
+            Log "Running SFC scan silently..." "INFO"
+            
+            # Create temporary files to redirect SFC's output
+            $tempStdoutFile = [System.IO.Path]::GetTempFileName()
+            $tempStderrFile = [System.IO.Path]::GetTempFileName()
+
+            # Execute sfc.exe using Start-Process to capture/redirect its output
+            $process = Start-Process -FilePath "sfc.exe" `
+                                     -ArgumentList $sfcArgs `
+                                     -NoNewWindow `            # Do not open a new console window
+                                     -PassThru `               # Return the process object
+                                     -RedirectStandardOutput $tempStdoutFile ` # Redirect stdout to temp file
+                                     -RedirectStandardError $tempStderrFile `  # Redirect stderr to temp file
+                                     -ErrorAction Stop         # Treat any Start-Process errors as terminating
+            
+            $process.WaitForExit() # Wait for sfc.exe to complete
+            $sfcExitCode = $process.ExitCode
+            
+            # Read and log the captured SFC output to your script's log file
+            $sfcOutput = Get-Content $tempStdoutFile | Out-String
+            $sfcError = Get-Content $tempStderrFile | Out-String
+            
+            if (-not [string]::IsNullOrWhiteSpace($sfcOutput)) {
+                Log "SFC Standard Output: `n$sfcOutput" -Level "DEBUG"
+            }
+            if (-not [string]::IsNullOrWhiteSpace($sfcError)) {
+                Log "SFC Standard Error: `n$sfcError" -Level "ERROR"
+            }
+
+            # Clean up temporary files
+            Remove-Item $tempStdoutFile, $tempStderrFile -ErrorAction SilentlyContinue
+            Log "SFC scan finished silently with exit code: $sfcExitCode" "INFO"
         }
         
     } catch {
         # Catch any unexpected errors during the function's execution
-        Write-Error "An unexpected error occurred during SFC /scannow operation: $($_.Exception.Message)"
+        Log "An unexpected error occurred during SFC /scannow operation: $($_.Exception.Message)" -Level "ERROR"
     }
-    # No 'finally' block is needed as no temporary files are created or managed in this version.
 }
 # Log the initial message indicating the script has started, using the Log function.
 Log "WUH Script started."
