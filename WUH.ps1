@@ -319,7 +319,6 @@ try {
                 $SetPowerSetting = {
                     param($planGuid, $subgroupGuid, $settingGuid, $value, $description)
                     
-                    # *** IMPORTANT CHANGE HERE: Directly call powercfg instead of Invoke-Expression ***
                     $acResult = (powercfg -setacvalueindex $planGuid $subgroupGuid $settingGuid $value 2>&1)
                     $acExitCode = $LASTEXITCODE
 
@@ -329,11 +328,8 @@ try {
                     # The error message is: "The power scheme, subgroup or setting specified does not exist."
                     $commonErrorPattern = "The power scheme, subgroup or setting specified does not exist"
                     
-                    # A setting is successful if exit code is 0 OR if the specific "does not exist" error is NOT present in the output.
-                    # We accept "not exist" as a failure but allow script to continue without error.
                     $acAppliedSuccessfully = ($acExitCode -eq 0 -and -not ($acResult -match $commonErrorPattern))
                     $dcAppliedSuccessfully = ($dcExitCode -eq 0 -and -not ($dcResult -match $commonErrorPattern))
-
 
                     if ($acAppliedSuccessfully -and $dcAppliedSuccessfully) {
                         Log "$description (AC & DC) set successfully." -Level "INFO"
@@ -342,18 +338,18 @@ try {
                     } elseif (-not $acAppliedSuccessfully -and $dcAppliedSuccessfully) {
                         Log "$description (DC) set successfully, but (AC) failed. Output: '$acResult', Exit Code: $acExitCode" -Level "WARN"
                     } else {
-                        # Both failed, or one failed with a different error than "does not exist"
                         Log "$description (AC & DC) failed. AC Output: '$acResult', AC Exit Code: $acExitCode. DC Output: '$dcResult', DC Exit Code: $dcExitCode." -Level "WARN"
                     }
                 }
 
                 # Apply settings using the helper, allowing individual failures without stopping
-                & $SetPowerSetting $tempPlanGuid "0012ee47-9041-4b5d-9b77-535fba8b1442" "6738e2c4-e8a5-4a42-b16a-e04988416b05" 0 "Hard disk never turns off"
-                & $SetPowerSetting $tempPlanGuid "54533251-82be-4824-96c1-47b60fd7279f" "893dee84-a207-4e21-8ee8-999882b1965f" 100 "Minimum processor state set to 100%"
-                & $SetPowerSetting $tempPlanGuid "54533251-82be-4824-96c1-47b60fd7279f" "3b04d4fd-1cc7-4f23-ab13-d015520ee82d" 100 "Maximum processor state set to 100%"
-                & $SetPowerSetting $tempPlanGuid "238c9fa8-0aad-41ed-83f4-97be242c8f20" "29f6c1db-86da-48c5-9fdb-f2b67b1f4467" 0 "System will not sleep automatically"
-                & $SetPowerSetting $tempPlanGuid "7516b95f-f776-4464-8c53-06167f40cc99" "30f7fc95-ace5-47af-9eb2-be5aa57b1974" 0 "Display will not turn off automatically"
-                & $SetPowerSetting $tempPlanGuid "2a737441-1930-4402-8d77-b2bebba308a3" "48e6b7a6-50f5-4782-a5d4-535f76f8e0d1" 0 "USB selective suspend disabled"
+                # Updated Setting GUIDs based on your powercfg -q output
+                & $SetPowerSetting $tempPlanGuid "0012ee47-9041-4b5d-9b77-535fba8b1442" "6738e2c4-e8a5-4a42-b16a-e040e769756e" 0 "Hard disk never turns off" # Updated Setting GUID
+                & $SetPowerSetting $tempPlanGuid "54533251-82be-4824-96c1-47b60b740d00" "893dee8e-2bef-41e0-89c6-b55d0929964c" 100 "Minimum processor state set to 100%" # Updated Subgroup and Setting GUID
+                & $SetPowerSetting $tempPlanGuid "54533251-82be-4824-96c1-47b60b740d00" "bc5038f7-23e0-4960-96da-33abaf5935ec" 100 "Maximum processor state set to 100%" # Updated Subgroup and Setting GUID
+                & $SetPowerSetting $tempPlanGuid "238c9fa8-0aad-41ed-83f4-97be242c8f20" "29f6c1db-86da-48c5-9fdb-f2b67b1f44da" 0 "System will not sleep automatically" # Updated Setting GUID
+                & $SetPowerSetting $tempPlanGuid "7516b95f-f776-4464-8c53-06167f40cc99" "3c0bc021-c8a8-4e07-a973-6b14cbcb2b7e" 0 "Display will not turn off automatically" # Updated Setting GUID
+                & $SetPowerSetting $tempPlanGuid "2a737441-1930-4402-8d77-b2bebba308a3" "48e6b7a6-50f5-4782-a5d4-53bb8f07e226" 0 "USB selective suspend disabled" # Updated Setting GUID
 
             } else {
                 Log "Failed to duplicate 'Balanced' plan to create a custom plan. Output: '$newGuidOutput', Exit Code: $LASTEXITCODE. Aborting power plan changes." -Level "ERROR"
