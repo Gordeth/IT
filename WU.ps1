@@ -114,12 +114,12 @@ Log "Checking for Windows updates..."
 # Use `Get-WindowsUpdate` to scan for updates.
 # `-MicrosoftUpdate` includes updates from Microsoft Update services (e.g., Office, Defender).
 
-# Conditionally apply -Verbose to Get-WindowsUpdate based on the script's $VerboseMode.
-# If $VerboseMode is true, include -Verbose; otherwise, exclude it.
+# Conditionally apply -Verbose and suppress console output when not in VerboseMode.
 if ($VerboseMode) {
     $UpdateList = Get-WindowsUpdate -MicrosoftUpdate -Verbose
 } else {
-    $UpdateList = Get-WindowsUpdate -MicrosoftUpdate
+    # Capture the objects into $UpdateList, but discard the console display of these objects.
+    [void]($UpdateList = Get-WindowsUpdate -MicrosoftUpdate)
 }
 
 # ==================== Handle Update Scenarios ====================
@@ -193,11 +193,12 @@ if ($UpdateList) {
         # `-AcceptAll`: Automatically accepts all update licenses.
         # `-AutoReboot`: Allows the system to automatically reboot if required by updates.
 
-        # Conditionally apply -Verbose to Install-WindowsUpdate based on the script's $VerboseMode.
+        # Conditionally apply -Verbose and suppress console output when not in VerboseMode.
         if ($VerboseMode) {
             Install-WindowsUpdate -MicrosoftUpdate -AcceptAll -AutoReboot -Verbose
         } else {
-            Install-WindowsUpdate -MicrosoftUpdate -AcceptAll -AutoReboot
+            # Execute the installation but discard its console output.
+            Install-WindowsUpdate -MicrosoftUpdate -AcceptAll -AutoReboot | Out-Null
         }
         Log "Update installation completed (system may have rebooted)."
     } catch {
