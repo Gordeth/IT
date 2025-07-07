@@ -113,8 +113,14 @@ Log "PSWindowsUpdate module imported."
 Log "Checking for Windows updates..."
 # Use `Get-WindowsUpdate` to scan for updates.
 # `-MicrosoftUpdate` includes updates from Microsoft Update services (e.g., Office, Defender).
-# `-Verbose` provides detailed output on the update scan process.
-$UpdateList = Get-WindowsUpdate -MicrosoftUpdate -Verbose
+
+# Conditionally apply -Verbose to Get-WindowsUpdate based on the script's $VerboseMode.
+# If $VerboseMode is true, include -Verbose; otherwise, exclude it.
+if ($VerboseMode) {
+    $UpdateList = Get-WindowsUpdate -MicrosoftUpdate -Verbose
+} else {
+    $UpdateList = Get-WindowsUpdate -MicrosoftUpdate
+}
 
 # ==================== Handle Update Scenarios ====================
 #
