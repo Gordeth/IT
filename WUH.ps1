@@ -125,7 +125,7 @@ function Get-And-Invoke-Script {
 function Repair-SystemFiles {
     param(
         # This parameter will control whether to output the raw SFC progress to the console.
-        # If true, only SFC's native console output will be displayed.
+        # If true, SFC's native console output will be displayed.
         [switch]$ShowSFCConsoleProgress
     )
 
@@ -133,20 +133,10 @@ function Repair-SystemFiles {
     $tempSfcStdoutPath = $null
     $tempSfcStderrPath = $null
 
-    # --- DEBUGGING: Temporarily added messages to trace execution ---
-    Write-Host "[DEBUG] Function Repair-SystemFiles called."
-    Write-Host "[DEBUG] ShowSFCConsoleProgress parameter is present: $($ShowSFCConsoleProgress.IsPresent)."
-    # --- END DEBUGGING ---
-
     try {
         # Generate unique temporary file names for standard output and standard error
         $tempSfcStdoutPath = [System.IO.Path]::GetTempFileName()
         $tempSfcStderrPath = [System.IO.Path]::GetTempFileName()
-
-        # --- DEBUGGING ---
-        Write-Host "[DEBUG] Temp Stdout Path: $tempSfcStdoutPath"
-        Write-Host "[DEBUG] Temp Stderr Path: $tempSfcStderrPath"
-        # --- END DEBUGGING ---
 
         # Define the parameters for Start-Process using splatting for robustness
         $SFCParams = @{
@@ -159,51 +149,35 @@ function Repair-SystemFiles {
         }
 
         # Execute sfc.exe
-        Write-Host "[DEBUG] Starting sfc.exe process..."
         $process = Start-Process @SFCParams
 
         # Wait for the sfc.exe process to finish execution
-        Write-Host "[DEBUG] Waiting for sfc.exe to exit..."
         $process.WaitForExit()
-
+        
         # Read the captured standard output from the temporary file
         $sfcRawOutput = Get-Content -Path $tempSfcStdoutPath | Out-String
 
-        # --- DEBUGGING ---
-        Write-Host "[DEBUG] Length of captured SFC output (sfcRawOutput): $($sfcRawOutput.Length)."
-        if ($sfcRawOutput.Length -gt 0) {
-            Write-Host "[DEBUG] First 100 characters of SFC output:`n$($sfcRawOutput.Substring(0, [System.Math]::Min(100, $sfcRawOutput.Length)))"
-        } else {
-            Write-Host "[DEBUG] SFC raw output is empty."
-        }
-        # --- END DEBUGGING ---
-
         # If the -ShowSFCConsoleProgress switch was provided, display the captured output
         if ($ShowSFCConsoleProgress.IsPresent) { # .IsPresent explicitly checks if the switch was provided
-            Write-Host "[DEBUG] ShowSFCConsoleProgress is ON. Displaying SFC native output..."
             $sfcRawOutput.Split([Environment]::NewLine) | ForEach-Object {
                 $line = $_.Trim() 
                 if (-not [string]::IsNullOrWhiteSpace($line)) {
                     Write-Output $line # Use Write-Output for standard pipeline behavior
                 }
             }
-            Write-Host "[DEBUG] Finished displaying SFC native output."
-        } else {
-            Write-Host "[DEBUG] ShowSFCConsoleProgress is OFF. No native SFC output displayed."
         }
-
+        
     } catch {
+        # Catch any unexpected errors during the function's execution
         Write-Error "An unexpected error occurred during SFC /scannow operation: $($_.Exception.Message)"
     } finally {
         # Ensure temporary files are cleaned up in all cases
-        Write-Host "[DEBUG] Cleaning up temporary files."
         if ($tempSfcStdoutPath -and (Test-Path $tempSfcStdoutPath)) {
             Remove-Item -Path $tempSfcStdoutPath -ErrorAction SilentlyContinue
         }
         if ($tempSfcStderrPath -and (Test-Path $tempSfcStderrPath)) {
             Remove-Item -Path $tempSfcStderrPath -ErrorAction SilentlyContinue
         }
-        Write-Host "[DEBUG] Temporary files cleaned up."
     }
 }
 # Log the initial message indicating the script has started, using the Log function.
@@ -434,7 +408,7 @@ switch ($task) {
             Log "Microsoft Office not detected. Skipping Office update script download."
         }
         Log "Running System File Checker (SFC) to verify system integrity..."
-        Repair-SystemFiles # Call the function to run SFC
+        Repair-SystemFiles -ShowSFCConsoleProgress # Call the function to run SFC
     }
     "WindowsMaintenance" { # Changed from "2" to "WindowsMaintenance"
         Log "Task selected: Windows Maintenance"
@@ -446,7 +420,7 @@ switch ($task) {
             Log "Microsoft Office not detected. Skipping Office update."
         }
         Log "Running System File Checker (SFC) to verify system integrity..."
-        Repair-SystemFiles # Call the function to run SFC
+        Repair-SystemFiles -ShowSFCConsoleProgress # Call the function to run SFC
     }
     default {
         # This block should now only be reached if $task contains an unexpected value,
