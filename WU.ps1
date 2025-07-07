@@ -111,15 +111,22 @@ Log "PSWindowsUpdate module imported."
 # This core section initiates the check for pending Windows updates.
 #
 Log "Checking for Windows updates..."
-# Use `Get-WindowsUpdate` to scan for updates.
-# `-MicrosoftUpdate` includes updates from Microsoft Update services (e.g., Office, Defender).
 
-# Conditionally apply -Verbose and suppress console output when not in VerboseMode.
-if ($VerboseMode) {
-    $UpdateList = Get-WindowsUpdate -MicrosoftUpdate -Verbose
-} else {
-    # Capture the objects into $UpdateList, but discard the console display of these objects.
-    [void]($UpdateList = Get-WindowsUpdate -MicrosoftUpdate)
+# Save the current $VerbosePreference to restore it later
+$originalVerbosePreference = $VerbosePreference
+try {
+    # Conditionally apply -Verbose and suppress console output when not in VerboseMode.
+    if ($VerboseMode) {
+        $UpdateList = Get-WindowsUpdate -MicrosoftUpdate -Verbose
+    } else {
+        # Temporarily set $VerbosePreference to suppress verbose output
+        $VerbosePreference = 'SilentlyContinue'
+        # Capture the objects into $UpdateList, but discard the console display of these objects.
+        [void]($UpdateList = Get-WindowsUpdate -MicrosoftUpdate)
+    }
+} finally {
+    # Always restore the original $VerbosePreference
+    $VerbosePreference = $originalVerbosePreference
 }
 
 # ==================== Handle Update Scenarios ====================
@@ -188,17 +195,21 @@ if ($UpdateList) {
     # Proceed with the actual installation of the detected Windows updates.
     try {
         Log "Installing updates..."
-        # `Install-WindowsUpdate`: Initiates installation.
-        # `-MicrosoftUpdate`: Installs updates from Microsoft Update sources.
-        # `-AcceptAll`: Automatically accepts all update licenses.
-        # `-AutoReboot`: Allows the system to automatically reboot if required by updates.
-
-        # Conditionally apply -Verbose and suppress console output when not in VerboseMode.
-        if ($VerboseMode) {
-            Install-WindowsUpdate -MicrosoftUpdate -AcceptAll -AutoReboot -Verbose
-        } else {
-            # Execute the installation but discard its console output.
-            Install-WindowsUpdate -MicrosoftUpdate -AcceptAll -AutoReboot | Out-Null
+        # Save the current $VerbosePreference to restore it later
+        $originalVerbosePreference = $VerbosePreference
+        try {
+            # Conditionally apply -Verbose and suppress console output when not in VerboseMode.
+            if ($VerboseMode) {
+                Install-WindowsUpdate -MicrosoftUpdate -AcceptAll -AutoReboot -Verbose
+            } else {
+                # Temporarily set $VerbosePreference to suppress verbose output
+                $VerbosePreference = 'SilentlyContinue'
+                # Execute the installation but discard its console output.
+                Install-WindowsUpdate -MicrosoftUpdate -AcceptAll -AutoReboot | Out-Null
+            }
+        } finally {
+            # Always restore the original $VerbosePreference
+            $VerbosePreference = $originalVerbosePreference
         }
         Log "Update installation completed (system may have rebooted)."
     } catch {
