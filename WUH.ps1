@@ -129,56 +129,32 @@ function Repair-SystemFiles {
         [switch]$ShowSFCConsoleProgress
     )
 
-    # These are the temporary variables needed for output redirection
-    $tempSfcStdoutPath = $null
-    $tempSfcStderrPath = $null
-
     try {
-        # Generate unique temporary file names for standard output and standard error
-        $tempSfcStdoutPath = [System.IO.Path]::GetTempFileName()
-        $tempSfcStderrPath = [System.IO.Path]::GetTempFileName()
-
-        # Define the parameters for Start-Process using splatting for robustness
-        $SFCParams = @{
-            FilePath            = "sfc.exe"
-            ArgumentList        = "/scannow"
-            NoNewWindow         = $true
-            PassThru            = $true
-            RedirectStandardOutput = $tempSfcStdoutPath
-            RedirectStandardError  = $tempSfcStderrPath
-        }
-
-        # Execute sfc.exe
-        $process = Start-Process @SFCParams
-
-        # Wait for the sfc.exe process to finish execution
-        $process.WaitForExit()
+        # Since the PowerShell console is confirmed to be running as Administrator,
+        # we can directly execute sfc.exe for real-time, streaming output.
+        # The -ShowSFCConsoleProgress switch now directly controls whether the SFC scan runs at all and displays.
         
-        # Read the captured standard output from the temporary file
-        $sfcRawOutput = Get-Content -Path $tempSfcStdoutPath | Out-String
-
-        # If the -ShowSFCConsoleProgress switch was provided, display the captured output
-        if ($ShowSFCConsoleProgress.IsPresent) { # .IsPresent explicitly checks if the switch was provided
-            $sfcRawOutput.Split([Environment]::NewLine) | ForEach-Object {
-                $line = $_.Trim() 
-                if (-not [string]::IsNullOrWhiteSpace($line)) {
-                    Write-Output $line # Use Write-Output for standard pipeline behavior
-                }
-            }
+        if ($ShowSFCConsoleProgress.IsPresent) {
+            Write-Host "Starting System File Checker (SFC) scan in real-time. This may take some time..."
+            
+            # Execute sfc.exe directly. Its output will stream live to the current console.
+            sfc.exe /scannow
+            
+            # $LASTEXITCODE contains the exit code of the last native command executed
+            $sfcExitCode = $LASTEXITCODE 
+            Write-Host "SFC scan finished with exit code: $sfcExitCode"
+        } else {
+            # If the -ShowSFCConsoleProgress switch is not present, we assume
+            # the user does not want the SFC scan to run or display.
+            # If a silent scan was desired in this case, a different logic path would be needed.
+            Write-Host "SFC scan requested, but -ShowSFCConsoleProgress was not specified. No action taken for SFC."
         }
         
     } catch {
         # Catch any unexpected errors during the function's execution
         Write-Error "An unexpected error occurred during SFC /scannow operation: $($_.Exception.Message)"
-    } finally {
-        # Ensure temporary files are cleaned up in all cases
-        if ($tempSfcStdoutPath -and (Test-Path $tempSfcStdoutPath)) {
-            Remove-Item -Path $tempSfcStdoutPath -ErrorAction SilentlyContinue
-        }
-        if ($tempSfcStderrPath -and (Test-Path $tempSfcStderrPath)) {
-            Remove-Item -Path $tempSfcStderrPath -ErrorAction SilentlyContinue
-        }
     }
+    # No 'finally' block is needed as no temporary files are created or managed in this version.
 }
 # Log the initial message indicating the script has started, using the Log function.
 Log "WUH Script started."
