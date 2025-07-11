@@ -179,7 +179,7 @@ if ($UpdateList) {
             $Shortcut.TargetPath = "powershell.exe"
             # Define arguments for PowerShell: bypass execution policy, hide window,
             # and run the script file. Quotes around `$ScriptPath` handle spaces.
-            $Shortcut.Arguments = "-ExecutionPolicy Bypass -WindowStyle Hidden -File `"$ScriptPath`""
+            $Shortcut.Arguments = "-ExecutionPolicy Bypass -File `"$ScriptPath`""
             # Set the working directory for the shortcut.
             $Shortcut.WorkingDirectory = Split-Path -Path $ScriptPath
             # Save the shortcut file to disk.
@@ -200,18 +200,31 @@ if ($UpdateList) {
         try {
             # Conditionally apply -Verbose and suppress console output when not in VerboseMode.
             if ($VerboseMode) {
-                Install-WindowsUpdate -MicrosoftUpdate -AcceptAll -AutoReboot -Verbose
+                # Removed -AutoReboot to handle reboots explicitly
+                Install-WindowsUpdate -MicrosoftUpdate -AcceptAll -Verbose
             } else {
                 # Temporarily set $VerbosePreference to suppress verbose output
                 $VerbosePreference = 'SilentlyContinue'
                 # Execute the installation but discard its console output.
-                Install-WindowsUpdate -MicrosoftUpdate -AcceptAll -AutoReboot | Out-Null
+                # Removed -AutoReboot to handle reboots explicitly
+                Install-WindowsUpdate -MicrosoftUpdate -AcceptAll | Out-Null
             }
         } finally {
             # Always restore the original $VerbosePreference
             $VerbosePreference = $originalVerbosePreference
         }
-        Log "Update installation completed (system may have rebooted)."
+        Log "Update installation completed. Checking if a reboot is needed..."
+
+        $rebootPending = (Get-WindowsUpdate -RebootRequired).RebootRequired
+
+        if ($rebootPending) {
+            Log "Reboot is required to complete Windows Updates. Initiating reboot..." -Level "WARN"
+            # The script will stop here as the system restarts. The startup shortcut will handle re-execution.
+            Restart-Computer -Force
+            exit # Exit the script
+        } else {
+            Log "No reboot required. Script execution will continue."
+        }
     } catch {
         # Log any errors that occur during the update installation process.
         Log "Error during update installation: $_" -Level "ERROR"
