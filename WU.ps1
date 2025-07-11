@@ -198,24 +198,34 @@ if ($UpdateList) {
         # Save the current $VerbosePreference to restore it later
         $originalVerbosePreference = $VerbosePreference
         try {
-            # Conditionally apply -Verbose and suppress console output when not in VerboseMode.
+            $InstallationResult = $null # Initialize variable to hold results
+            # Conditionally apply -Verbose and capture the output of Install-WindowsUpdate
             if ($VerboseMode) {
                 # Removed -AutoReboot to handle reboots explicitly
-                Install-WindowsUpdate -MicrosoftUpdate -AcceptAll -Verbose
+                $InstallationResult = Install-WindowsUpdate -MicrosoftUpdate -AcceptAll -Verbose
             } else {
                 # Temporarily set $VerbosePreference to suppress verbose output
                 $VerbosePreference = 'SilentlyContinue'
-                # Execute the installation but discard its console output.
+                # Execute the installation and capture its output.
                 # Removed -AutoReboot to handle reboots explicitly
-                Install-WindowsUpdate -MicrosoftUpdate -AcceptAll | Out-Null
+                $InstallationResult = Install-WindowsUpdate -MicrosoftUpdate -AcceptAll
             }
         } finally {
             # Always restore the original $VerbosePreference
             $VerbosePreference = $originalVerbosePreference
         }
-        Log "Update installation completed. Checking if a reboot is needed..."
-
-        $rebootPending = (Get-WindowsUpdate -RebootRequired).RebootRequired
+        
+        # --- Check for pending reboot after installation based on installation results ---
+        Log "Update installation completed. Checking if a reboot is needed based on installation results..."
+        
+        $rebootPending = $false
+        # Iterate through the results to see if any installed update requires a reboot
+        foreach ($result in $InstallationResult) {
+            if ($result.RebootRequired -eq $true) {
+                $rebootPending = $true
+                break # Found one, no need to check further
+            }
+        }
 
         if ($rebootPending) {
             Log "Reboot is required to complete Windows Updates. Initiating reboot..." -Level "WARN"
