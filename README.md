@@ -1,35 +1,25 @@
 # Windows Update Helper (WUH)
 
-This project automates Windows maintenance tasks and machine/profile preparation using PowerShell.
+This PowerShell script suite automates common system maintenance and preparation tasks for Windows environments. It includes system file verification, driver tools, disk utility installation, and performance optimization — ideal for IT automation and device preparation.
 
-**Note:** Not recommended for production environments.
+## Features
 
----
+- 💽 Disk utility auto-detection (Samsung, Kingston, etc.)
+- 🛠️ System File Checker (SFC) with CBS.log analysis
+- 🔄 Power plan management for max performance
+- ☁️ NuGet + PSGallery setup with trust handling
+- 📦 Chocolatey/Winget app installation
+- 📝 Detailed logging (log file in temp folder)
 
-📂 **Contents**  
-- **WUH.ps1** — Main launcher script.  
-  🆕 Now intelligently skips Office updates if Microsoft Office isn’t installed.  
-- **WU.ps1** — Windows Updates script.  
-- **WGET.ps1** — Additional maintenance script.  
-- **MSO_UPDATE.ps1** — Office update script.  
-- **MACHINEPREP.ps1** — Machine preparation script.  
+## Included Scripts
 
----
+| Script Name      | Description                                |
+|------------------|--------------------------------------------|
+| `WUH.ps1`        | Main entry point for maintenance tasks     |
+| `MACHINEPREP.ps1`| Semi-automated machine prep (IT baseline)  |
+| `WGET.ps1`       | Winget update and cleanup tool             |
+| `MSO_UPDATE.ps1` | Optional script to update Microsoft Office |
 
-🚀 **Features**  
-✅ Verbose and Silent modes (console output and logging)  
-✅ Task selection:  
-  - [1] Machine Preparation (installs default apps, TeamViewer Host, and optional OpenVPN Connect)  
-    - Checks and installs TeamViewer Host  
-    - Installs default apps (7-Zip, Google Chrome, Adobe Acrobat Reader 64-bit)  
-    - Prompts the user to optionally install OpenVPN Connect  
-    - Detects the machine brand and installs the appropriate driver update app (e.g., Lenovo Vantage, HP Support Assistant, Dell Command Update)  
-    - Defines standard desktop items (This PC, Network, Control Panel, User’s Files) so they appear by default on the desktop  
-  - [2] Windows Maintenance (runs Windows Update, downloads updates, and Office updates if Office is installed)  
-✅ Office updates now intelligently skipped if Microsoft Office is not installed  
-✅ Temporary Maximum Performance power plan during maintenance for optimal performance, automatically reset to Balanced after completion  
-✅ NuGet and PSGallery setup to ensure package installations work smoothly  
-✅ Automatic cleanup: downloaded scripts removed after execution  
 
 ---
 
