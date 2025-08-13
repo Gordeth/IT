@@ -1,3 +1,6 @@
+# ==============================================================================
+# Version: 1.0.0
+# This script automates Windows maintenance tasks.
 param (
     [switch]$VerboseMode = $false,
     [string]$LogFile
@@ -8,6 +11,11 @@ param (
 # This section initializes essential paths and variables used throughout the script,
 # ensuring proper file locations for logging and script execution.
 #
+# --- IMPORTANT: Dot-source the Functions.ps1 module to make the Log function available.
+# The path is relative to this script's location (which should be the 'src' folder).
+# This ensures that the Log function is available in this script's scope.
+. "$PSScriptRoot/../modules/Functions.ps1"
+
 # Log the initial message indicating the script has started, using the `Log` function.
 Log "WU Script started." "INFO"
 
