@@ -39,7 +39,7 @@ $localProjectPath = "$projectDir\IT-main"
 
 # The orchestrator and functions scripts are inside the 'src' folder.
 $orchestratorScriptPath = "$localProjectPath\src\WUH.ps1"
-$functionsScriptPath = "$localProjectPath\src\modules\Functions.ps1"
+$functionsScriptPath = "$localProjectPath\modules\Functions.ps1"
 
 if (Test-Path $orchestratorScriptPath) {
     Write-Host "Loading shared functions..."
