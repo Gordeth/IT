@@ -33,8 +33,17 @@ $orchestratorScriptPath = "$unzippedPath\src\WUH.ps1"
 if (Test-Path $orchestratorScriptPath) {
     Write-Host "Project downloaded successfully. Running the main script..."
     
-    # Execute the main orchestrator script from its new location
-    & $orchestratorScriptPath
+    # === CORRECTED LOGIC STARTS HERE ===
+    # Change the current location to the script's directory.
+    # This ensures that $PSScriptRoot resolves correctly inside WUH.ps1.
+    Set-Location -Path (Split-Path -Parent $orchestratorScriptPath)
+    
+    # Execute the main orchestrator script using a relative path.
+    & ".\WUH.ps1"
+    
+    # You can optionally revert the location back to the temp folder
+    Set-Location -Path $env:TEMP
+    # === CORRECTED LOGIC ENDS HERE ===
 } else {
     Write-Host "Could not find the main orchestrator script at $orchestratorScriptPath. Aborting."
 }
