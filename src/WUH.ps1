@@ -18,8 +18,6 @@ $LogDir = Join-Path $ScriptDir "Log"
 $LogFile = Join-Path $LogDir "WUH.txt"
 
 # --- Set the working location to the script's root ---
-# This ensures that external commands like 'powercfg.exe' run correctly,
-# as they can be sensitive to an invalid current working directory.
 Set-Location -Path $ScriptDir
 
 # ================== CREATE DIRECTORIES ==================
@@ -33,21 +31,6 @@ if (-not (Test-Path $LogFile)) {
     "Log file created." | Out-File $LogFile -Append
 }
 
-# ================== DEFINE LOG FUNCTION ==================
-# A central logging function to handle output to both the console and a log file.
-function Log {
-    param (
-        [string]$Message,
-        [string]$Level = "INFO"
-    )
-    $timestamp = "[{0}]" -f (Get-Date)
-    $entry = "$timestamp [$Level] $Message"
-    Add-Content -Path $LogFile -Value $entry
-    # Only display output to the console if in verbose mode or if it's an error.
-    if ($VerboseMode -or $Level -eq "ERROR") {
-        Write-Host $entry
-    }
-}
 # ================== LOAD FUNCTIONS MODULE ==================
 # This line makes all the functions in your separate Functions.ps1 script available.
 # The path is relative to this script's location ($PSScriptRoot).
@@ -70,45 +53,6 @@ function Confirm-OfficeInstalled {
         }
     }
     return $false # Return false if no Office paths are found
-}
-# ================== FUNCTION: GET AND INVOKE SCRIPT ==================
-# Downloads a PowerShell script from the BaseUrl and immediately executes it.
-function Get-And-Invoke-Script {
-    param (
-        [string]$ScriptName
-    )
-
-    $scriptPath = Join-Path $ScriptDir $ScriptName
-    $scriptUrl = "$BaseUrl/$ScriptName"
-
-    # Remove existing file if it exists
-    if (Test-Path $scriptPath) {
-        Log "Removing existing script $ScriptName from local path before re-downloading..." "INFO"
-        Remove-Item -Path $scriptPath -Force -ErrorAction SilentlyContinue
-    }
-
-    # Download the script
-    Log "Downloading script $ScriptName from $scriptUrl..." "INFO"
-    try {
-        if ($VerboseMode) {
-            Invoke-WebRequest -Uri $scriptUrl -OutFile $scriptPath -UseBasicParsing -Verbose
-        } else {
-            Invoke-WebRequest -Uri $scriptUrl -OutFile $scriptPath -UseBasicParsing | Out-Null
-        }
-        Log "$ScriptName downloaded successfully." "INFO"
-    } catch {
-        Log "Failed to download ${ScriptName}: $_" "ERROR"
-        return
-    }
-
-    # Execute the script
-    Log "Executing script $ScriptName..." "INFO"
-    try {
-        & $scriptPath -VerboseMode:$VerboseMode -LogFile $LogFile
-        Log "$ScriptName executed successfully." "INFO"
-    } catch {
-        Log "Error executing ${ScriptName}: $_" "ERROR"
-    }
 }
 # ================== FUNCTION: REPAIR SYSTEM FILES (SFC) ==================
 # Runs SFC (System File Checker) to verify and optionally repair Windows system files.
@@ -251,7 +195,6 @@ Log "Setting Execution Policy to Bypass..."
 Set-ExecutionPolicy Bypass -Scope Process -Force -ErrorAction SilentlyContinue
 
 # ================== INSTALL NUGET PROVIDER ==================
-# Now, simply call the function by its name.
 Install-NuGetProvider
 
 # ================== CREATE TEMPORARY MAX PERFORMANCE POWER PLAN ==================
@@ -369,39 +312,37 @@ try {
     Log "An error occurred during power plan creation or setting: $_" -Level "ERROR"
 }
 # ================== TASK SELECTION ==================
-# Execute specific tasks based on the user's initial selection.
 switch ($task) {
-    "MachinePrep" { # Changed from "1" to "MachinePrep"
+    "MachinePrep" {
         Log "Task selected: Machine Preparation (semi-automated)"
-        Log "Downloading necessary scripts..."
-        Get-And-Invoke-Script -ScriptName "MACHINEPREP.ps1" 
-        Get-And-Invoke-Script -ScriptName "WU.ps1"        
-        Get-And-Invoke-Script -ScriptName "WGET.ps1"      
+        Log "Executing scripts from local path..."
+        & (Join-Path $ScriptDir "MACHINEPREP.ps1") -Verbose:$VerboseMode -LogFile $LogFile
+        & (Join-Path $ScriptDir "WU.ps1") -Verbose:$VerboseMode -LogFile $LogFile
+        & (Join-Path $ScriptDir "WGET.ps1") -Verbose:$VerboseMode -LogFile $LogFile
         if (Confirm-OfficeInstalled) {
-            Get-And-Invoke-Script -ScriptName "MSO_UPDATE.ps1" # Conditionally download Office update script
+            & (Join-Path $ScriptDir "MSO_UPDATE.ps1") -Verbose:$VerboseMode -LogFile $LogFile
         } else {
-            Log "Microsoft Office not detected. Skipping Office update script download."
+            Log "Microsoft Office not detected. Skipping Office update script."
         }
         Log "Running System File Checker (SFC) to verify system integrity..."
-        Repair-SystemFiles -ShowSFCConsoleProgress # Call the function to run SFC
+        Repair-SystemFiles
     }
-    "WindowsMaintenance" { # Changed from "2" to "WindowsMaintenance"
+    "WindowsMaintenance" {
         Log "Task selected: Windows Maintenance"
-        Get-And-Invoke-Script -ScriptName "WU.ps1"
-        Get-And-Invoke-Script -ScriptName "WGET.ps1"
+        Log "Executing scripts from local path..."
+        & (Join-Path $ScriptDir "WU.ps1") -Verbose:$VerboseMode -LogFile $LogFile
+        & (Join-Path $ScriptDir "WGET.ps1") -Verbose:$VerboseMode -LogFile $LogFile
         if (Confirm-OfficeInstalled) {
-            Get-And-Invoke-Script -ScriptName "MSO_UPDATE.ps1"
+            & (Join-Path $ScriptDir "MSO_UPDATE.ps1") -Verbose:$VerboseMode -LogFile $LogFile
         } else {
             Log "Microsoft Office not detected. Skipping Office update."
         }
         Log "Running System File Checker (SFC) to verify system integrity..."
-        Repair-SystemFiles -ShowSFCConsoleProgress # Call the function to run SFC
+        Repair-SystemFiles
     }
     default {
-        # This block should now only be reached if $task contains an unexpected value,
-        # not because of a common interactive selection.
-        Log "Invalid task selection. Exiting script. Received value: '$task'" -Level "ERROR" # Added $task value for debugging
-        Exit 1 # Terminate script due to invalid input
+        Log "Invalid task selection. Exiting script. Received value: '$task'" -Level "ERROR"
+        Exit 1
     }
 }
 
