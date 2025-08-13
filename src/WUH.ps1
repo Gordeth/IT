@@ -1,6 +1,6 @@
 # ==============================================================================
 # PowerShell Maintenance Script
-# Version: 1.0.0
+# Version: 1.0.1
 # This script automates various machine preparation and Windows maintenance tasks.
 # It includes robust logging, internet connectivity checks, execution policy handling,
 # and a focus on silent execution for automation.
