@@ -250,7 +250,7 @@ if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
         # -Confirm:$false is for standard cmdlet confirmations, which may not always cover deep prompts.
         # -SkipPublisherCheck allows installation from publishers not explicitly trusted.
         Log "Attempting to install NuGet provider."
-        Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -ForceBootstrap -Force -Scope CurrentUser -ErrorAction Stop
+        Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -ForceBootstrap -Force -Confirm:$false -Scope CurrentUser -ErrorAction Stop
         Log "NuGet provider installed successfully."
     } catch {
         # Log an error and exit if NuGet provider installation fails.
