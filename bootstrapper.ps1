@@ -15,7 +15,6 @@ $projectDir = "$env:TEMP\WUH"
 # Core Download and Execution Logic
 # ==================================================
 
-# Assume an update is always needed if version control is commented out.
 $updateRequired = $true
 
 if ($updateRequired) {
