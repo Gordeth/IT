@@ -33,8 +33,8 @@ if ($updateRequired) {
 }
 
 # --- Execute Logic ---
-# The repository is unzipped into a folder named 'IT-main' inside the 'WUH' folder.
-$localProjectPath = "$projectDir\IT-main"
+# The repository is unzipped into a folder WUH
+$localProjectPath = "$projectDir\WUH"
 
 # The orchestrator and functions scripts are inside the 'src' folder.
 $orchestratorScriptPath = "$localProjectPath\src\WUH.ps1"

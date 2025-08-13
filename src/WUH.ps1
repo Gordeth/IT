@@ -8,27 +8,49 @@
 param (
     [switch]$VerboseMode = $false # Default to false, can be set to true by user input
 )
+
 # ================== CONFIGURATION ==================
-# Define essential paths, file names, and settings for the script's operation.
-$BaseUrl = "https://raw.githubusercontent.com/Gordeth/IT/main" # Base URL for downloading external scripts
-$ScriptDir = "$env:TEMP\ITScripts"                            # Local directory to store temporary scripts and logs
-$LogDir = Join-Path -Path $ScriptDir -ChildPath "Log"         # Subdirectory specifically for log files
-$LogFile = Join-Path -Path $LogDir -ChildPath "WUH.txt"       # Full path to the main log file
-$PowerPlanName = "TempMaxPerformance"                         # Name for the temporary maximum performance power plan
+# Using the built-in variable $PSScriptRoot is the most reliable way to get the script's directory.
+# This avoids issues with hardcoded paths that may change.
+$ScriptDir = $PSScriptRoot
+# The logging and script directories are now consistently based on $PSScriptRoot.
+$LogDir = Join-Path $ScriptDir "Log"
+$LogFile = Join-Path $LogDir "WUH.txt"
+
+# --- Set the working location to the script's root ---
+# This ensures that external commands like 'powercfg.exe' run correctly,
+# as they can be sensitive to an invalid current working directory.
+Set-Location -Path $ScriptDir
 
 # ================== CREATE DIRECTORIES ==================
-# Ensure the necessary temporary directories and log file exist before proceeding.
-# If they don't exist, create them. Output is suppressed with Out-Null for silent operation.
-if (-not (Test-Path $ScriptDir)) {
-    New-Item -ItemType Directory -Path $ScriptDir | Out-Null
-    if (-not (Test-Path $LogDir)) {
-        New-Item -ItemType Directory -Path $LogDir | Out-Null
-    }
-    if (-not (Test-Path $LogFile)) {
-        "[{0}] WUH.ps1 log file created." -f (Get-Date -Format "dd-MM-yyyy HH:mm:ss") | Out-File $LogFile -Append
+# Create the log directory if it doesn't exist.
+if (-not (Test-Path $LogDir)) {
+    New-Item -ItemType Directory -Path $LogDir | Out-Null
+}
+
+# Create a new log file or append to the existing one.
+if (-not (Test-Path $LogFile)) {
+    "Log file created." | Out-File $LogFile -Append
+}
+
+# ================== DEFINE LOG FUNCTION ==================
+# A central logging function to handle output to both the console and a log file.
+function Log {
+    param (
+        [string]$Message,
+        [string]$Level = "INFO"
+    )
+    $timestamp = "[{0}]" -f (Get-Date)
+    $entry = "$timestamp [$Level] $Message"
+    Add-Content -Path $LogFile -Value $entry
+    # Only display output to the console if in verbose mode or if it's an error.
+    if ($VerboseMode -or $Level -eq "ERROR") {
+        Write-Host $entry
     }
 }
 # ================== LOAD FUNCTIONS MODULE ==================
+# This line makes all the functions in your separate Functions.ps1 script available.
+# The path is relative to this script's location ($PSScriptRoot).
 . "$PSScriptRoot/../modules/Functions.ps1"
 
 # ================== FUNCTION: CHECK IF OFFICE IS INSTALLED ==================
