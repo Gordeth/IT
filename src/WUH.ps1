@@ -1,5 +1,6 @@
 # ==============================================================================
 # PowerShell Maintenance Script
+# Version: 1.0.0
 # This script automates various machine preparation and Windows maintenance tasks.
 # It includes robust logging, internet connectivity checks, execution policy handling,
 # and a focus on silent execution for automation.
@@ -233,7 +234,31 @@ Set-ExecutionPolicy Bypass -Scope Process -Force -ErrorAction SilentlyContinue
 # bypassing interactive prompts that may occur with Install-PackageProvider.
 # ==================================================
 Log "Checking for NuGet provider..."
-if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
+
+# --- A more robust check for the NuGet provider ---
+# This checks for the provider using both the cmdlet and the physical file path.
+$isProviderInstalled = $false
+try {
+    # Check if the provider is available via Get-PackageProvider
+    if (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue) {
+        $isProviderInstalled = $true
+    } else {
+        # Define the path to the PackageManagement module
+        $packageManagementPath = (Get-Module PackageManagement).Path | Split-Path
+        $nuGetProviderDir = Join-Path -Path $packageManagementPath -ChildPath "provider"
+        $nugetProviderPath = Join-Path -Path $nuGetProviderDir -ChildPath "Microsoft.PackageManagement.NuGetProvider-2.8.5.208.dll"
+
+        # Check if the provider DLL file exists on disk
+        if (Test-Path -Path $nugetProviderPath) {
+            $isProviderInstalled = $true
+        }
+    }
+} catch {
+    # If any error occurs during the check, assume it's not installed
+    $isProviderInstalled = $false
+}
+
+if (-not $isProviderInstalled) {
     Log "NuGet provider not found. Attempting silent installation..."
     try {
         # Define the path to the PackageManagement module
@@ -266,7 +291,6 @@ if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
 } else {
     Log "NuGet provider already installed." -Level "INFO"
 }
-
 
 # ================== CREATE TEMPORARY MAX PERFORMANCE POWER PLAN ==================
 # Create and activate a temporary "Maximum Performance" power plan.
