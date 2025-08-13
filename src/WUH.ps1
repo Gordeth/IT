@@ -36,6 +36,21 @@ if (-not (Test-Path $LogFile)) {
 # The path is relative to this script's location ($PSScriptRoot).
 . "$PSScriptRoot/../modules/Functions.ps1"
 
+# ================== RUN SCRIPT FUNCTION ==================
+function Invoke-Script {
+    param (
+        [string]$ScriptName
+    )
+    $scriptPath = Join-Path $ScriptDir $ScriptName
+    Log "Running $ScriptName..."
+    try {
+        & $scriptPath
+        Log "$ScriptName executed successfully."
+    } catch {
+        Log "Error during execution of ${ScriptName}: $_"
+        Exit 1
+    }
+}
 # ================== FUNCTION: CHECK IF OFFICE IS INSTALLED ==================
 # Helper function to confirm if Microsoft Office is installed on the system.
 # This is used to conditionally download/run Office-related update scripts.
@@ -316,11 +331,11 @@ switch ($task) {
     "MachinePrep" {
         Log "Task selected: Machine Preparation (semi-automated)"
         Log "Executing scripts from local path..."
-        & (Join-Path $ScriptDir "MACHINEPREP.ps1") -Verbose:$VerboseMode -LogFile $LogFile
-        & (Join-Path $ScriptDir "WU.ps1") -Verbose:$VerboseMode -LogFile $LogFile
-        & (Join-Path $ScriptDir "WGET.ps1") -Verbose:$VerboseMode -LogFile $LogFile
+        Invoke-Script -ScriptName "MACHINEPREP.ps1"
+        Invoke-Script -ScriptName "WU.ps1"
+        Invoke-Script -ScriptName "WGET.ps1"
         if (Confirm-OfficeInstalled) {
-            & (Join-Path $ScriptDir "MSO_UPDATE.ps1") -Verbose:$VerboseMode -LogFile $LogFile
+            Invoke-Script -ScriptName "MSO_UPDATE.ps1"
         } else {
             Log "Microsoft Office not detected. Skipping Office update script."
         }
@@ -330,10 +345,10 @@ switch ($task) {
     "WindowsMaintenance" {
         Log "Task selected: Windows Maintenance"
         Log "Executing scripts from local path..."
-        & (Join-Path $ScriptDir "WU.ps1") -Verbose:$VerboseMode -LogFile $LogFile
-        & (Join-Path $ScriptDir "WGET.ps1") -Verbose:$VerboseMode -LogFile $LogFile
+        Invoke-Script -ScriptName "WU.ps1"
+        Invoke-Script -ScriptName "WGET.ps1"
         if (Confirm-OfficeInstalled) {
-            & (Join-Path $ScriptDir "MSO_UPDATE.ps1") -Verbose:$VerboseMode -LogFile $LogFile
+            Invoke-Script -ScriptName "MSO_UPDATE.ps1"
         } else {
             Log "Microsoft Office not detected. Skipping Office update."
         }
@@ -345,6 +360,7 @@ switch ($task) {
         Exit 1
     }
 }
+
 
 # ================== RESET POWER PLAN TO BALANCED ==================
 # Restore the system's power plan to the default 'Balanced' scheme.
