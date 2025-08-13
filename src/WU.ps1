@@ -2,66 +2,6 @@ param (
     [switch]$VerboseMode = $false,
     [string]$LogFile
 )
-# ==================== Define Log Function ====================
-#
-# Function: Log
-# Description: Writes a timestamped message to a designated log file and,
-#              optionally, to the console. It supports different log levels
-#              (INFO, WARN, ERROR, DEBUG) for categorization and display control.
-#
-# Parameters:
-#   -Message (string): The text string to be recorded in the log.
-#   -Level (string): Specifies the severity or type of the log entry.
-#                    Valid values are "INFO", "WARN", "ERROR", "DEBUG".
-#                    Defaults to "INFO" if not specified.
-#
-# Console Output Logic:
-#   - All log entries are written to the file specified by the global variable `$LogFile`.
-#   - Messages with a "ERROR" level are *always* displayed on the console.
-#   - Other messages (INFO, WARN, DEBUG) are displayed on the console only if
-#     the global variable `$VerboseMode` is set to `$true`.
-#
-# Error Handling:
-#   - Includes a `try-catch` block to handle potential issues when writing to the log file,
-#     displaying a console error if logging to file fails.
-#
-function Log {
-    param (
-        [string]$Message,
-        [ValidateSet("INFO", "WARN", "ERROR", "DEBUG")]
-        [string]$Level = "INFO"
-    )
-
-    # Generate a formatted timestamp (day-month-year hour:minute:second) for the log entry.
-    $timestamp = Get-Date -Format "dd-MM-yyyy HH:mm:ss"
-    
-    # Construct the complete log entry string, including timestamp and log level.
-    $logEntry = "[$timestamp] [$Level] $Message"
-
-    # Attempt to append the log entry to the specified log file.
-    try {
-        Add-Content -Path $LogFile -Value $logEntry
-    } catch {
-        # If writing to the log file fails (e.g., file lock, permissions),
-        # output an error message directly to the console in red.
-        Write-Host "Failed to write to log file: $_" -ForegroundColor Red
-    }
-
-    # Determine if the log entry should also be output to the console.
-    # It will be displayed if `$VerboseMode` is enabled OR if the log level is "ERROR".
-    if ($VerboseMode -or $Level -eq "ERROR") {
-        # Select the console color based on the log entry's level.
-        $color = switch ($Level) {
-            "INFO"  { "White" }   # Standard informational messages
-            "WARN"  { "Yellow" }  # Warnings indicating potential issues
-            "ERROR" { "Red" }     # Critical errors
-            "DEBUG" { "Gray" }    # Detailed debug information
-            default { "White" }   # Fallback color
-        }
-        # Write the log entry to the console with the chosen color.
-        Write-Host $logEntry -ForegroundColor $color
-    }
-}
 
 # ==================== Setup Paths and Global Variables ====================
 #
