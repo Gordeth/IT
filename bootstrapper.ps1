@@ -1,52 +1,93 @@
 # ==================================================
 # Bootstrapper.ps1
+# V 1.0.0
 # Downloads and runs the modular IT maintenance project.
 # ==================================================
 
 # Define your GitHub repository details
-$repoUrl = "https://github.com/Gordeth/IT"
+$repoName = "Gordeth/IT"
 $branch = "main"
 
 # Define the local directory to download the project to
 $projectDir = "$env:TEMP\IT-Maintenance"
+$localProjectPath = "$projectDir\IT-$branch"
 
-# Create the project directory if it doesn't exist
-if (-not (Test-Path $projectDir)) {
-    New-Item -ItemType Directory -Path $projectDir | Out-Null
+<#
+# ==================================================
+# Version Control Logic (Commented Out)
+# ==================================================
+# To enable version checking, uncomment this entire block.
+# This will prevent the script from downloading the project
+# every time it's run if a local version already exists and
+# is up-to-date with your GitHub repository.
+#
+# Remember to create a 'version.txt' file in your GitHub
+# repository root with a version number (e.g., '1.0.0').
+#
+
+# Define version file paths
+$localVersionFile = "$localProjectPath\version.txt"
+$remoteVersionFileUrl = "https://raw.githubusercontent.com/$repoName/$branch/version.txt"
+
+# --- Version Check ---
+$updateRequired = $true
+if (Test-Path $localProjectPath) {
+    Write-Host "Local project directory found. Checking for new versions..."
+    try {
+        $localVersion = Get-Content -Path $localVersionFile -ErrorAction Stop
+        $remoteVersion = Invoke-RestMethod -Uri $remoteVersionFileUrl
+        
+        if ([version]$remoteVersion -gt [version]$localVersion) {
+            Write-Host "New version ($remoteVersion) available. Downloading update..." -ForegroundColor Green
+            $updateRequired = $true
+        } else {
+            Write-Host "Scripts are already up to date ($localVersion). Skipping download." -ForegroundColor Green
+            $updateRequired = $false
+        }
+    }
+    catch {
+        Write-Host "Could not perform version check. Forcing update..." -ForegroundColor Yellow
+        $updateRequired = $true
+    }
+} else {
+    Write-Host "No local project found. Performing initial download..." -ForegroundColor Green
+    $updateRequired = $true
 }
 
-Write-Host "Downloading project from GitHub..."
+#>
+# ==================================================
+# Core Download and Execution Logic
+# ==================================================
 
-# Download the repository as a ZIP file
-$zipFile = "$env:TEMP\repo.zip"
-Invoke-WebRequest -Uri "$repoUrl/archive/$branch.zip" -OutFile $zipFile
+# Assume an update is always needed if version control is commented out.
+$updateRequired = $true
 
-# Unzip the contents
-Expand-Archive -Path $zipFile -DestinationPath "$projectDir" -Force
+if ($updateRequired) {
+    Write-Host "Downloading project from GitHub..."
+    $zipFile = "$env:TEMP\repo.zip"
+    Invoke-WebRequest -Uri "https://github.com/$repoName/archive/$branch.zip" -OutFile $zipFile
+    Expand-Archive -Path $zipFile -DestinationPath "$projectDir" -Force
+    Remove-Item $zipFile -Force
+}
 
-# The repository is unzipped into a folder named with the branch
-$unzippedPath = "$projectDir\IT-$branch"
-
-# The main orchestrator script is now located in the 'src' folder
-$orchestratorScriptPath = "$unzippedPath\src\WUH.ps1"
+# --- Execute Logic ---
+$orchestratorScriptPath = "$localProjectPath\src\WUH.ps1"
+$functionsScriptPath = "$localProjectPath\src\modules\Functions.ps1"
 
 if (Test-Path $orchestratorScriptPath) {
-    Write-Host "Project downloaded successfully. Running the main script..."
-    
-    # === CORRECTED LOGIC STARTS HERE ===
-    # Change the current location to the script's directory.
-    # This ensures that $PSScriptRoot resolves correctly inside WUH.ps1.
-    Set-Location -Path (Split-Path -Parent $orchestratorScriptPath)
-    
-    # Execute the main orchestrator script using a relative path.
-    & ".\WUH.ps1"
-    
-    # You can optionally revert the location back to the temp folder
-    Set-Location -Path $env:TEMP
-    # === CORRECTED LOGIC ENDS HERE ===
+    # Dot-source the shared functions script directly.
+    Write-Host "Loading shared functions..."
+    if (Test-Path $functionsScriptPath) {
+        . $functionsScriptPath
+        
+        Write-Host "Shared functions loaded. Running the main orchestrator script..."
+        
+        # This is the key change: we use Invoke-Expression with -File to ensure the script
+        # executes in its correct context, resolving all internal paths properly.
+        Invoke-Expression -Command "$orchestratorScriptPath"
+    } else {
+        Write-Host "Could not find the shared functions script at $functionsScriptPath. Aborting." -ForegroundColor Red
+    }
 } else {
-    Write-Host "Could not find the main orchestrator script at $orchestratorScriptPath. Aborting."
+    Write-Host "Could not find the main orchestrator script at $orchestratorScriptPath. Aborting." -ForegroundColor Red
 }
-
-# Clean up the downloaded zip file
-Remove-Item $zipFile -Force
