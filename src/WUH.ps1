@@ -227,39 +227,46 @@ try {
 Log "Setting Execution Policy to Bypass..."
 Set-ExecutionPolicy Bypass -Scope Process -Force -ErrorAction SilentlyContinue
 
-# ================== INSTALL NUGET PROVIDER ==================
-# This block attempts to install the NuGet package provider.
-# It's placed early as many package management operations depend on NuGet.
-
-# Ensure PSGallery is trusted before installing NuGet, as it requires a trusted repository to download providers.
-# If PSGallery is not trusted, it will fail to download the NuGet provider.
-
+# ==================================================
+# Silent NuGet Provider Installation
+# This method manually downloads and registers the NuGet provider,
+# bypassing interactive prompts that may occur with Install-PackageProvider.
+# ==================================================
 Log "Checking for NuGet provider..."
-# Check if NuGet provider is already installed. SilentlyContinue prevents error if not found.
 if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
+    Log "NuGet provider not found. Attempting silent installation..."
     try {
-        # --- Temporarily Trust PSGallery for Provider Installation ---
-        # PSGallery's InstallationPolicy must be 'Trusted' for PackageManagement
-        # to download providers without an "Untrusted repository" prompt.
-        # This line directly sets the policy, assuming PSGallery is already registered.
-        Log "Temporarily setting PSGallery InstallationPolicy to Trusted for NuGet provider download."
-        Set-PSRepository -Name PSGallery -ForceBootstrap -Force -InstallationPolicy Trusted -ErrorAction Stop
-        Log "PSGallery InstallationPolicy successfully set to Trusted."
-        # -ForceBootstrap ensures the provider is downloaded if needed.
-        # -Force handles other confirmations/overwrites.
-        # -Confirm:$false is for standard cmdlet confirmations, which may not always cover deep prompts.
-        # -SkipPublisherCheck allows installation from publishers not explicitly trusted.
-        Log "Attempting to install NuGet provider."
-        Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -ForceBootstrap -Force -Confirm:$false -Scope CurrentUser -ErrorAction Stop
-        Log "NuGet provider installed successfully."
+        # Define the path to the PackageManagement module
+        $packageManagementPath = (Get-Module PackageManagement).Path | Split-Path
+
+        # Define the local folder for the NuGet provider
+        $nuGetProviderDir = Join-Path -Path $packageManagementPath -ChildPath "provider"
+
+        # Create the directory if it doesn't exist
+        if (-not (Test-Path $nuGetProviderDir)) {
+            New-Item -ItemType Directory -Path $nuGetProviderDir -Force | Out-Null
+        }
+
+        # Define the URL and local path for the NuGet provider DLL
+        $nugetProviderUrl = "https://onegetcdn.azureedge.net/providers/Microsoft.PackageManagement.NuGetProvider-2.8.5.208.dll"
+        $nugetProviderPath = Join-Path -Path $nuGetProviderDir -ChildPath "Microsoft.PackageManagement.NuGetProvider-2.8.5.208.dll"
+
+        Log "Downloading NuGet provider from $nugetProviderUrl..."
+        Invoke-WebRequest -Uri $nugetProviderUrl -OutFile $nugetProviderPath -UseBasicParsing
+
+        Log "NuGet provider downloaded. Manually registering it..."
+        Register-PackageProvider -Name NuGet -ProviderPath $nugetProviderPath -Force -Verbose:$false
+
+        Log "NuGet provider installed successfully." -Level "INFO"
     } catch {
-        # Log an error and exit if NuGet provider installation fails.
-        Log "Failed to install NuGet provider: $_" -Level "ERROR"
-        Exit 1
+        Log "Failed to perform silent NuGet installation. Error: $_" -Level "ERROR"
+        # If this fails, the script cannot proceed.
+        exit 1
     }
 } else {
-    Log "NuGet provider is already installed."
+    Log "NuGet provider already installed." -Level "INFO"
 }
+
 
 # ================== CREATE TEMPORARY MAX PERFORMANCE POWER PLAN ==================
 # Create and activate a temporary "Maximum Performance" power plan.
