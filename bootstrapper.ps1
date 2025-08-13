@@ -1,6 +1,6 @@
 # ==================================================
 # Bootstrapper.ps1
-# V 1.0.0
+# V 1.0.1
 # Downloads and runs the modular IT maintenance project.
 # ==================================================
 
@@ -16,6 +16,7 @@ $localProjectPath = "$projectDir\IT-$branch"
 # ==================================================
 # Version Control Logic (Commented Out)
 # ==================================================
+#
 # To enable version checking, uncomment this entire block.
 # This will prevent the script from downloading the project
 # every time it's run if a local version already exists and
@@ -75,19 +76,23 @@ $orchestratorScriptPath = "$localProjectPath\src\WUH.ps1"
 $functionsScriptPath = "$localProjectPath\src\modules\Functions.ps1"
 
 if (Test-Path $orchestratorScriptPath) {
-    # Dot-source the shared functions script directly.
     Write-Host "Loading shared functions..."
+    
+    # === CORRECTED LOGIC STARTS HERE ===
+    # Change the current working directory to the 'src' folder.
+    Set-Location -Path (Split-Path -Path $orchestratorScriptPath)
+
     if (Test-Path $functionsScriptPath) {
-        . $functionsScriptPath
+        . ".\modules\Functions.ps1"
         
         Write-Host "Shared functions loaded. Running the main orchestrator script..."
         
-        # This is the key change: we use Invoke-Expression with -File to ensure the script
-        # executes in its correct context, resolving all internal paths properly.
-        Invoke-Expression -Command "$orchestratorScriptPath"
+        # Execute the orchestrator script using a relative path.
+        & ".\WUH.ps1"
     } else {
         Write-Host "Could not find the shared functions script at $functionsScriptPath. Aborting." -ForegroundColor Red
     }
+    # === CORRECTED LOGIC ENDS HERE ===
 } else {
     Write-Host "Could not find the main orchestrator script at $orchestratorScriptPath. Aborting." -ForegroundColor Red
 }
