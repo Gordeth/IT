@@ -1,3 +1,8 @@
+# ==================================================
+# Functions.ps1
+# Contains reusable functions for the IT maintenance project.
+# ==================================================
+
 # ================== DEFINE LOG FUNCTION ==================
 # A custom logging function to write messages to the console (if verbose mode is on)
 # and to a persistent log file.
@@ -30,5 +35,74 @@ function Log {
             default { "White" } # Default color if level is not recognized
         }
         Write-Host $logEntry -ForegroundColor $color # Output the log entry to the console
+    }
+}
+
+# ==================================================
+# Install-NuGetProvider
+# Silently downloads and registers the NuGet provider.
+# ==================================================
+function Install-NuGetProvider {
+    Log "Checking for NuGet provider..."
+
+    # --- Import the PackageManagement module ---
+    # This ensures cmdlets like Register-PackageProvider are available.
+    try {
+        Import-Module PackageManagement -Force -ErrorAction Stop
+    } catch {
+        Log "Failed to load PackageManagement module. Please ensure it is installed." -Level "ERROR"
+        exit 1
+    }
+
+    # --- A more robust check for the NuGet provider ---
+    # This checks for the provider by checking for the physical file path.
+    $isProviderInstalled = $false
+    try {
+        # Define the path to the PackageManagement module
+        $packageManagementPath = (Get-Module PackageManagement).Path | Split-Path
+        $nuGetProviderDir = Join-Path -Path $packageManagementPath -ChildPath "provider"
+        $nugetProviderPath = Join-Path -Path $nuGetProviderDir -ChildPath "Microsoft.PackageManagement.NuGetProvider-2.8.5.208.dll"
+
+        # Check if the provider DLL file exists on disk
+        if (Test-Path -Path $nugetProviderPath) {
+            $isProviderInstalled = $true
+        }
+    } catch {
+        # If any error occurs during the check, assume it's not installed
+        $isProviderInstalled = $false
+    }
+
+    if (-not $isProviderInstalled) {
+        Log "NuGet provider not found. Attempting silent installation..."
+        try {
+            # Define the path to the PackageManagement module
+            $packageManagementPath = (Get-Module PackageManagement).Path | Split-Path
+
+            # Define the local folder for the NuGet provider
+            $nuGetProviderDir = Join-Path -Path $packageManagementPath -ChildPath "provider"
+
+            # Create the directory if it doesn't exist
+            if (-not (Test-Path $nuGetProviderDir)) {
+                New-Item -ItemType Directory -Path $nuGetProviderDir -Force | Out-Null
+            }
+
+            # Define the URL and local path for the NuGet provider DLL
+            $nugetProviderUrl = "https://onegetcdn.azureedge.net/providers/Microsoft.PackageManagement.NuGetProvider-2.8.5.208.dll"
+            $nugetProviderPath = Join-Path -Path $nuGetProviderDir -ChildPath "Microsoft.PackageManagement.NuGetProvider-2.8.5.208.dll"
+
+            Log "Downloading NuGet provider from $nugetProviderUrl..."
+            Invoke-WebRequest -Uri $nugetProviderUrl -OutFile $nugetProviderPath -UseBasicParsing
+
+            Log "NuGet provider downloaded. Manually registering it..."
+            Register-PackageProvider -Name NuGet -ProviderPath $nugetProviderPath -Force -Verbose:$false
+
+            Log "NuGet provider installed successfully." -Level "INFO"
+        } catch {
+            Log "Failed to perform silent NuGet installation. Error: $_" -Level "ERROR"
+            # If this fails, the script cannot proceed.
+            exit 1
+        }
+    } else {
+        Log "NuGet provider already installed." -Level "INFO"
     }
 }
