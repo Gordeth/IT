@@ -236,22 +236,17 @@ Set-ExecutionPolicy Bypass -Scope Process -Force -ErrorAction SilentlyContinue
 Log "Checking for NuGet provider..."
 
 # --- A more robust check for the NuGet provider ---
-# This checks for the provider using both the cmdlet and the physical file path.
+# This checks for the provider by checking for the physical file path.
 $isProviderInstalled = $false
 try {
-    # Check if the provider is available via Get-PackageProvider
-    if (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue) {
-        $isProviderInstalled = $true
-    } else {
-        # Define the path to the PackageManagement module
-        $packageManagementPath = (Get-Module PackageManagement).Path | Split-Path
-        $nuGetProviderDir = Join-Path -Path $packageManagementPath -ChildPath "provider"
-        $nugetProviderPath = Join-Path -Path $nuGetProviderDir -ChildPath "Microsoft.PackageManagement.NuGetProvider-2.8.5.208.dll"
+    # Define the path to the PackageManagement module
+    $packageManagementPath = (Get-Module PackageManagement).Path | Split-Path
+    $nuGetProviderDir = Join-Path -Path $packageManagementPath -ChildPath "provider"
+    $nugetProviderPath = Join-Path -Path $nuGetProviderDir -ChildPath "Microsoft.PackageManagement.NuGetProvider-2.8.5.208.dll"
 
-        # Check if the provider DLL file exists on disk
-        if (Test-Path -Path $nugetProviderPath) {
-            $isProviderInstalled = $true
-        }
+    # Check if the provider DLL file exists on disk
+    if (Test-Path -Path $nugetProviderPath) {
+        $isProviderInstalled = $true
     }
 } catch {
     # If any error occurs during the check, assume it's not installed
@@ -291,6 +286,7 @@ if (-not $isProviderInstalled) {
 } else {
     Log "NuGet provider already installed." -Level "INFO"
 }
+
 
 # ================== CREATE TEMPORARY MAX PERFORMANCE POWER PLAN ==================
 # Create and activate a temporary "Maximum Performance" power plan.
