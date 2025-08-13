@@ -235,6 +235,15 @@ Set-ExecutionPolicy Bypass -Scope Process -Force -ErrorAction SilentlyContinue
 # ==================================================
 Log "Checking for NuGet provider..."
 
+# --- Import the PackageManagement module ---
+# This ensures cmdlets like Register-PackageProvider are available.
+try {
+    Import-Module PackageManagement -Force -ErrorAction Stop
+} catch {
+    Log "Failed to load PackageManagement module. Please ensure it is installed." -Level "ERROR"
+    exit 1
+}
+
 # --- A more robust check for the NuGet provider ---
 # This checks for the provider by checking for the physical file path.
 $isProviderInstalled = $false
