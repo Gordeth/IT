@@ -28,7 +28,7 @@ if (-not (Test-Path $ScriptDir)) {
     }
 }
 # ================== LOAD FUNCTIONS MODULE ==================
-. "$PSScriptRoot/modules/Functions.ps1"
+. "$PSScriptRoot/../modules/Functions.ps1"
 
 # ================== FUNCTION: CHECK IF OFFICE IS INSTALLED ==================
 # Helper function to confirm if Microsoft Office is installed on the system.
