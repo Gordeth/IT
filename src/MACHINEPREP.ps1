@@ -1,5 +1,5 @@
 # MACHINEPREP.ps1
-# Version: 1.0.2
+# Version: 1.0.3
 #
 # This script automates the initial setup and preparation of a Windows machine.
 # It includes tasks such as installing essential software (TeamViewer, common apps),
@@ -372,15 +372,15 @@ try {
             }
         }
         "*hp*" {
-            Log "Detected manufacturer: Hewlett-Packard. Checking if HP Support Assistant is already installed..."
+            Log "Detected manufacturer: HP. Checking if HP Support Assistant is already installed..."
 
-            # Check for existing installation using choco list --local-only
-            $hpSupport = choco list hpsupportassistant --local-only | Select-String "1 packages"
-            if ($hpSupport) {
-                Log "HP Support Assistant is already installed. Skipping installation." "INFO"
-            } else {
-                Log "HP Support Assistant not found. Attempting to install via Chocolatey." "INFO"
-                if (Install-Chocolatey) {
+            # Add the function call to install Chocolatey before attempting any install or list commands.
+            if (Install-Chocolatey) {
+                # Check for existing installation using choco list --local-only now that Chocolatey is available.
+                $hpSupport = choco list hpsupportassistant --local-only | Select-String "1 packages"
+                if ($hpSupport) {
+                    Log "HP Support Assistant is already installed. Skipping installation." "INFO"
+                } else {
                     try {
                         Log "Installing HP Support Assistant via Chocolatey..." "INFO"
                         choco install hpsupportassistant --force -y
@@ -394,21 +394,21 @@ try {
                     } catch {
                         Log "Error during Chocolatey installation of HP Support Assistant: $_" "ERROR"
                     }
-                } else {
-                    Log "Chocolatey installation failed, skipping HP Support Assistant." "ERROR"
                 }
+            } else {
+                Log "Chocolatey installation failed, skipping HP Support Assistant." "ERROR"
             }
         }
         "*hewlett-packard*" {
             Log "Detected manufacturer: Hewlett-Packard. Checking if HP Support Assistant is already installed..."
             
-            # Check for existing installation using choco list --local-only
-            $hpSupport = choco list hpsupportassistant --local-only | Select-String "1 packages"
-            if ($hpSupport) {
-                Log "HP Support Assistant is already installed. Skipping installation." "INFO"
-            } else {
-                Log "HP Support Assistant not found. Attempting to install via Chocolatey." "INFO"
-                if (Install-Chocolatey) {
+            # Add the function call to install Chocolatey before attempting any install or list commands.
+            if (Install-Chocolatey) {
+                # Check for existing installation using choco list --local-only now that Chocolatey is available.
+                $hpSupport = choco list hpsupportassistant --local-only | Select-String "1 packages"
+                if ($hpSupport) {
+                    Log "HP Support Assistant is already installed. Skipping installation." "INFO"
+                } else {
                     try {
                         Log "Installing HP Support Assistant via Chocolatey..." "INFO"
                         choco install hpsupportassistant --force -y
@@ -422,9 +422,9 @@ try {
                     } catch {
                         Log "Error during Chocolatey installation of HP Support Assistant: $_" "ERROR"
                     }
-                } else {
-                    Log "Chocolatey installation failed, skipping HP Support Assistant." "ERROR"
                 }
+            } else {
+                Log "Chocolatey installation failed, skipping HP Support Assistant." "ERROR"
             }
         }
         "*dell*" {
