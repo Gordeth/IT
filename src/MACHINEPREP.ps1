@@ -62,43 +62,7 @@ $LogFile = Join-Path $LogDir "MACHINEPREP.txt"
 #   - $true if Chocolatey is successfully installed or already present.
 #   - $false if Chocolatey installation fails.
 #
-function Install-Chocolatey {
-    Log "Checking for Chocolatey installation..." "INFO"
-    if (-not (Get-Command choco.exe -ErrorAction SilentlyContinue)) {
-        Log "Chocolatey not found. Attempting to install Chocolatey..." "INFO"
-        try {
-            # Temporarily set execution policy to Bypass for the current process
-            # to allow the Chocolatey installation script to run.
-            # This is safer than modifying global policy.
-            $originalProcessPolicy = Get-ExecutionPolicy -Scope Process
-            Set-ExecutionPolicy Bypass -Scope Process -Force
 
-            # Ensure TLS1.2 is enabled for the download.
-            [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor [System.Net.SecurityProtocolType]::Tls12
-
-            # Download and execute the Chocolatey installation script.
-            Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
-
-            # Check if choco.exe is now available to confirm installation.
-            if (Get-Command choco.exe -ErrorAction SilentlyContinue) {
-                Log "Chocolatey installed successfully." "INFO"
-                return $true
-            } else {
-                Log "Chocolatey installation completed, but choco.exe not found. Something went wrong." "ERROR"
-                return $false
-            }
-        } catch {
-            Log "Failed to install Chocolatey: $_" "ERROR"
-            return $false
-        } finally {
-            # Restore the execution policy for the current process.
-            Set-ExecutionPolicy $originalProcessPolicy -Scope Process -Force
-        }
-    } else {
-        Log "Chocolatey is already installed." "INFO"
-        return $true
-    }
-}
 
 # ==================== Helper Function: Uninstall Chocolatey ====================
 #
