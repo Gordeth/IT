@@ -1,5 +1,6 @@
 # ==================================================
 # Functions.ps1
+# Version: 1.0.0
 # Contains reusable functions for the IT maintenance project.
 # ==================================================
 
