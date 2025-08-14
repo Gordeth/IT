@@ -344,16 +344,58 @@ try {
     # and install the appropriate driver update application.
     switch -Wildcard ($brand) {
         "*Lenovo*" {
-            winget install --id=9WZDNCRFJ4MV -e --silent --accept-package-agreements --accept-source-agreements
-            Log "Lenovo Vantage installed."
+            Log "Detected manufacturer: Lenovo. Attempting to install Lenovo Vantage via winget."
+            try {
+                # Search for the package by name to get the correct ID.
+                $package = winget search "Lenovo Vantage" | Where-Object { $_.Name -like "*Lenovo Vantage*" } | Select-Object -First 1
+
+                if ($package) {
+                    $packageId = $package.Id
+                    Log "Found Lenovo Vantage with package ID: $packageId. Installing..."
+                    winget install --id=$packageId -e --silent --accept-package-agreements --accept-source-agreements
+                    Log "Lenovo Vantage installed successfully."
+                } else {
+                    Log "Lenovo Vantage package not found in winget repository. Skipping installation." -Level "WARN"
+                }
+            } catch {
+                Log "An error occurred while trying to install Lenovo Vantage: $_" -Level "ERROR"
+            }
         }
         "*HP*" {
-            winget install --id=9NBB0P7HPH4S -e --silent --accept-package-agreements --accept-source-agreements
-            Log "HP Support Assistant installed."
+            Log "Detected manufacturer: Hewlett-Packard. Attempting to install HP Support Assistant via winget."
+            try {
+                # Search for the package by name to get the correct ID.
+                $package = winget search "HP Support Assistant" | Where-Object { $_.Name -like "*HP Support Assistant*" } | Select-Object -First 1
+
+                if ($package) {
+                    $packageId = $package.Id
+                    Log "Found HP Support Assistant with package ID: $packageId. Installing..."
+                    winget install --id=$packageId -e --silent --accept-package-agreements --accept-source-agreements
+                    Log "HP Support Assistant installed successfully."
+                } else {
+                    Log "HP Support Assistant package not found in winget repository. Skipping installation." -Level "WARN"
+                }
+            } catch {
+                Log "An error occurred while trying to install HP Support Assistant: $_" -Level "ERROR"
+            }
         }
         "*Dell*" {
-            winget install --id=Dell.CommandUpdate -e --silent --accept-package-agreements --accept-source-agreements
-            Log "Dell Command Update installed."
+            Log "Detected manufacturer: Dell. Attempting to install Dell Command Update via winget."
+            try {
+                # Search for the package by name to get the correct ID.
+                $package = winget search "Dell Command Update" | Where-Object { $_.Name -like "*Dell Command Update*" } | Select-Object -First 1
+
+                if ($package) {
+                    $packageId = $package.Id
+                    Log "Found Dell Command Update with package ID: $packageId. Installing..."
+                    winget install --id=$packageId -e --silent --accept-package-agreements --accept-source-agreements
+                    Log "Dell Command Update installed successfully."
+                } else {
+                    Log "Dell Command Update package not found in winget repository. Skipping installation." -Level "WARN"
+                }
+            } catch {
+                Log "An error occurred while trying to install Dell Command Update: $_" -Level "ERROR"
+            }
         }
         default {
             Log "No specific driver update app found for this brand via winget."
@@ -363,6 +405,7 @@ try {
     # Log any errors that occur during the detection or installation of driver update apps.
     Log "Error installing driver update app: $_" -Level "ERROR"
 }
+
 
 # ================== 7. Install Disk Management App ==================
 #
