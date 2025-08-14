@@ -1,4 +1,5 @@
 # MACHINEPREP.ps1
+# Version: 1.0.1
 #
 # This script automates the initial setup and preparation of a Windows machine.
 # It includes tasks such as installing essential software (TeamViewer, common apps),
@@ -26,65 +27,26 @@ param (
     [string]$LogFile
 )
 
-# ================== LOG FUNCTION ==================
+# ==================== Setup Paths and Global Variables ====================
 #
-# Function: Log
-# Description: Centralized logging function used throughout the script. It appends
-#              timestamped messages to a specified log file and can also output them
-#              to the console with color-coding, depending on the message level
-#              and the global `$VerboseMode` setting.
+# This section initializes essential paths and variables used throughout the script,
+# ensuring proper file locations for logging and script execution.
 #
-# Parameters:
-#   -Message (string): The text content of the log entry.
-#   -Level (string): The severity level of the message. Valid values are:
-#                    "INFO" (informational), "WARN" (warning), "ERROR" (critical error),
-#                    "DEBUG" (detailed debugging information). Defaults to "INFO".
-#
-# Console Output Logic:
-#   - All log entries are persistently stored in the file specified by `$LogFile`.
-#   - "ERROR" level messages are always displayed on the console (in red).
-#   - Other message levels (INFO, WARN, DEBUG) are displayed on the console only if
-#     the `$VerboseMode` script parameter is set to `$true`.
-#
-# Error Handling:
-#   - Includes a `try-catch` block to handle potential issues when writing to the log file
-#     (e.g., file locking, permission issues), providing a console fallback error message.
-#
-function Log {
-    param (
-        [string]$Message,
-        [ValidateSet("INFO", "WARN", "ERROR", "DEBUG")]
-        [string]$Level = "INFO"
-    )
+# --- IMPORTANT: Dot-source the Functions.ps1 module to make the Log function available.
+# The path is relative to this script's location (which should be the 'src' folder).
+# This ensures that the Log function is available in this script's scope.
+. "$PSScriptRoot/../modules/Functions.ps1"
 
-    # Generate a formatted timestamp (e.g., "23-06-2025 14:44:21") for the log entry.
-    $timestamp = Get-Date -Format "dd-MM-yyyy HH:mm:ss"
-    
-    # Combine the timestamp, log level, and message into a single log entry string.
-    $logEntry = "[$timestamp] [$Level] $Message"
-
-    # Attempt to append the `$logEntry` to the designated log file.
-    try {
-        Add-Content -Path $LogFile -Value $logEntry
-    } catch {
-        # If writing to the log file fails, output an error directly to the console.
-        Write-Host "Failed to write to log file: $_" -ForegroundColor Red
-    }
-
-    # Conditional console output: Display the message if VerboseMode is true OR if the level is ERROR.
-    if ($VerboseMode -or $Level -eq "ERROR") {
-        # Determine the console foreground color based on the log entry's level.
-        $color = switch ($Level) {
-            "INFO"  { "White" }   # Default color for general information.
-            "WARN"  { "Yellow" }  # Indicates a potential issue that might not be critical.
-            "ERROR" { "Red" }     # Signifies a critical failure.
-            "DEBUG" { "Gray" }    # For detailed troubleshooting information.
-            default { "White" }   # Fallback color for unrecognized levels.
-        }
-        # Write the log entry to the console with the determined color.
-        Write-Host $logEntry -ForegroundColor $color
-    }
+# Add a check to ensure a log directory path was provided.
+if (-not $LogDir) {
+    Write-Host "ERROR: The LogDir parameter is required and cannot be empty." -ForegroundColor Red
+    exit 1
 }
+
+# --- Construct the dedicated log file path for this script ---
+# This script will now create its own file named MACHINEPREP.txt within the provided log directory.
+$LogFile = Join-Path $LogDir "MACHINEPREP.txt"
+
 # ==================== Helper Function: Install Chocolatey ====================
 #
 # Function: Install-Chocolatey
@@ -269,68 +231,38 @@ try {
     Log "Error installing TeamViewer: $_" -Level "ERROR"
 }
 
-# ================== 2. Ensure WU.ps1 is present ==================
+ ================== 2. Run WU.ps1 to perform Windows Updates ==================
 #
-# This section checks for the presence of the `WU.ps1` script (Windows Update script).
-# If it's not found in the expected directory, it attempts to download it.
-# Afterwards, it executes `WU.ps1` to perform Windows updates.
+# This section executes the `WU.ps1` script to perform Windows updates.
+# It assumes the WU.ps1 script is present in the same directory.
 #
 try {
     # Construct the full path to the WU.ps1 script.
-    # Note: `$ScriptDir` needs to be defined globally or passed as a parameter to MACHINEPREP.ps1.
-    $WUPath = Join-Path $ScriptDir "WU.ps1"
+    $WUPath = Join-Path $PSScriptRoot "WU.ps1"
     
-    if (-not (Test-Path $WUPath)) {
-        Log "WU.ps1 not found. Downloading..."
-        # Construct the URL from which to download WU.ps1.
-        # Note: `$ScriptDir` is used here as a base URL, which might be incorrect if it's a local path.
-        # It's more common to have a separate `$BaseUrl` for downloads.
-        $WUUrl = "$ScriptDir/WU.ps1" 
-        # Download the script using Invoke-WebRequest and save it to `$WUPath`.
-        # `-UseBasicParsing` is for compatibility; `| Out-Null` suppresses download progress output.
-        Invoke-WebRequest -Uri $WUUrl -OutFile $WUPath -UseBasicParsing | Out-Null
-        Log "WU.ps1 downloaded successfully."
-    } else {
-        Log "WU.ps1 already exists. Skipping download."
-    }
-
     Log "Running WU.ps1..."
-    # Execute the WU.ps1 script.
-    # `-VerboseMode:$VerboseMode` passes the current script's verbosity setting to WU.ps1.
-    # `-LogFile $LogFile` passes the current script's log file path to WU.ps1, allowing
-    # WU.ps1 to log to the same file.
-    & $WUPath -VerboseMode:$VerboseMode -LogFile $LogFile
+    # Execute the WU.ps1 script, passing through verbosity and the log file path.
+    # The LogFile parameter is now removed from WU.ps1 as per the new logging structure.
+    & $WUPath -VerboseMode:$VerboseMode
     Log "WU.ps1 executed successfully."
 } catch {
-    # Catch and log any errors encountered while checking, downloading, or running WU.ps1.
+    # Catch and log any errors encountered while running WU.ps1.
     Log "Error with WU.ps1: $_" -Level "ERROR"
 }
 
-# ================== 3. Ensure WGET.ps1 is present ==================
+# ================== 3. Run WGET.ps1 to update winget packages ==================
 #
-# Similar to WU.ps1, this section checks for `WGET.ps1` (winget update script).
-# It downloads the script if missing and then executes it to update installed packages.
+# This section executes the `WGET.ps1` script to update installed packages.
+# It assumes the WGET.ps1 script is present in the same directory.
 #
 try {
     # Construct the full path to the WGET.ps1 script.
-    # Note: `$ScriptDir` needs to be defined globally or passed as a parameter.
-    $WGETPath = Join-Path $ScriptDir "WGET.ps1"
-    
-    if (-not (Test-Path $WGETPath)) {
-        Log "WGET.ps1 not found. Downloading..."
-        # Construct the URL from which to download WGET.ps1.
-        # Note: `$BaseUrl` needs to be defined globally or passed as a parameter.
-        $WGETUrl = "$BaseUrl/WGET.ps1"
-        # Download the script.
-        Invoke-WebRequest -Uri $WGETUrl -OutFile $WGETPath -UseBasicParsing | Out-Null
-        Log "WGET.ps1 downloaded successfully."
-    } else {
-        Log "WGET.ps1 already exists. Skipping download."
-    }
+    $WGETPath = Join-Path $PSScriptRoot "WGET.ps1"
 
     Log "Running WGET.ps1..."
     # Execute the WGET.ps1 script, passing through verbosity and the log file path.
-    & $WGETPath -VerboseMode:$VerboseMode -LogFile $LogFile
+    # The LogFile parameter is now removed from WGET.ps1 as per the new logging structure.
+    & $WGETPath -VerboseMode:$VerboseMode
     Log "WGET.ps1 executed successfully."
 } catch {
     # Catch and log any errors related to WGET.ps1.
