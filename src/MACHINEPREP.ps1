@@ -228,61 +228,50 @@ try {
             }
         }
         "*hp*" {
-            Log "Detected manufacturer: HP. Checking if HP Support Assistant is already installed..."
-
-            # Add the function call to install Chocolatey before attempting any install or list commands.
-            if (Install-Chocolatey) {
-                # Check for existing installation using choco list --local-only now that Chocolatey is available.
-                $hpSupport = choco list --local-only | Select-String -Pattern "hpsupportassistant"
-                if ($hpSupport) {
-                    Log "HP Support Assistant is already installed. Skipping installation." "INFO"
+        Log "Detected manufacturer: HP. Checking if HP Support Assistant is already installed..."
+        # Using a dedicated function to reliably check for the program across the system,
+        # regardless of how it was installed.
+        if (Test-InstalledProgram -ProgramName "hpsupportassistant") {
+            Log "HP Support Assistant is already installed. Skipping installation." "INFO"
+        } else {
+            try {
+                Log "Installing HP Support Assistant via Chocolatey..." "INFO"
+                choco install hpsupportassistant --force -y
+                if ($LASTEXITCODE -eq 0) {
+                    Log "HP Support Assistant installed successfully via Chocolatey." "INFO"
+                } elseif ($LASTEXITCODE -eq 1) {
+                    Log "HP Support Assistant installation via Chocolatey completed with a known issue. Check Chocolatey logs." "WARN"
                 } else {
-                    try {
-                        Log "Installing HP Support Assistant via Chocolatey..." "INFO"
-                        choco install hpsupportassistant --force -y
-                        if ($LASTEXITCODE -eq 0) {
-                            Log "HP Support Assistant installed successfully via Chocolatey." "INFO"
-                        } elseif ($LASTEXITCODE -eq 1) {
-                            Log "HP Support Assistant installation via Chocolatey completed with a known issue. Check Chocolatey logs." "WARN"
-                        } else {
-                            Log "HP Support Assistant installation via Chocolatey failed with exit code $LASTEXITCODE. Review Chocolatey logs." "ERROR"
-                        }
-                    } catch {
-                        Log "Error during Chocolatey installation of HP Support Assistant: $_" "ERROR"
-                    }
+                    Log "HP Support Assistant installation via Chocolatey failed with exit code $LASTEXITCODE. Review Chocolatey logs." "ERROR"
                 }
-            } else {
-                Log "Chocolatey installation failed, skipping HP Support Assistant." "ERROR"
+            } catch {
+                Log "Error during Chocolatey installation of HP Support Assistant: $_" "ERROR"
             }
         }
+    }
         "*hewlett-packard*" {
-            Log "Detected manufacturer: Hewlett-Packard. Checking if HP Support Assistant is already installed..."
-            
-            # Add the function call to install Chocolatey before attempting any install or list commands.
-            if (Install-Chocolatey) {
-                # Check for existing installation using choco list --local-only now that Chocolatey is available.
-                $hpSupport = choco list --local-only | Select-String -Pattern "hpsupportassistant"
-                if ($hpSupport) {
-                    Log "HP Support Assistant is already installed. Skipping installation." "INFO"
+        Log "Detected manufacturer: Hewlett-Packard. Checking if HP Support Assistant is already installed..."
+        # Using a dedicated function to reliably check for the program across the system,
+        # regardless of how it was installed.
+        if (Test-InstalledProgram -ProgramName "hpsupportassistant") {
+            Log "HP Support Assistant is already installed. Skipping installation." "INFO"
+        } else {
+            try {
+                Log "Installing HP Support Assistant via Chocolatey..." "INFO"
+                choco install hpsupportassistant --force -y
+                if ($LASTEXITCODE -eq 0) {
+                    Log "HP Support Assistant installed successfully via Chocolatey." "INFO"
+                } elseif ($LASTEXITCODE -eq 1) {
+                    Log "HP Support Assistant installation via Chocolatey completed with a known issue. Check Chocolatey logs." "WARN"
                 } else {
-                    try {
-                        Log "Installing HP Support Assistant via Chocolatey..." "INFO"
-                        choco install hpsupportassistant --force -y
-                        if ($LASTEXITCODE -eq 0) {
-                            Log "HP Support Assistant installed successfully via Chocolatey." "INFO"
-                        } elseif ($LASTEXITCODE -eq 1) {
-                            Log "HP Support Assistant installation via Chocolatey completed with a known issue. Check Chocolatey logs." "WARN"
-                        } else {
-                            Log "HP Support Assistant installation via Chocolatey failed with exit code $LASTEXITCODE. Review Chocolatey logs." "ERROR"
-                        }
-                    } catch {
-                        Log "Error during Chocolatey installation of HP Support Assistant: $_" "ERROR"
-                    }
+                    Log "HP Support Assistant installation via Chocolatey failed with exit code $LASTEXITCODE. Review Chocolatey logs." "ERROR"
                 }
-            } else {
-                Log "Chocolatey installation failed, skipping HP Support Assistant." "ERROR"
+            } catch {
+                Log "Error during Chocolatey installation of HP Support Assistant: $_" "ERROR"
             }
         }
+    }
+
         "*dell*" {
             Log "Detected manufacturer: Dell. Checking if Dell Command Update is already installed..."
 
