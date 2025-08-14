@@ -227,11 +227,10 @@ try {
                 }
             }
         }
-        "*hp*" {
+            "*hp*" {
         Log "Detected manufacturer: HP. Checking if HP Support Assistant is already installed..."
-        # Using a dedicated function to reliably check for the program across the system,
-        # regardless of how it was installed.
-        if (Test-InstalledProgram -ProgramName "hpsupportassistant") {
+
+        if (Test-InstalledProgram -ProgramName "HP Support Assistant") {
             Log "HP Support Assistant is already installed. Skipping installation." "INFO"
         } else {
             try {
@@ -249,11 +248,10 @@ try {
             }
         }
     }
-        "*hewlett-packard*" {
+    "*hewlett-packard*" {
         Log "Detected manufacturer: Hewlett-Packard. Checking if HP Support Assistant is already installed..."
-        # Using a dedicated function to reliably check for the program across the system,
-        # regardless of how it was installed.
-        if (Test-InstalledProgram -ProgramName "hpsupportassistant") {
+
+        if (Test-InstalledProgram -ProgramName "HP Support Assistant") {
             Log "HP Support Assistant is already installed. Skipping installation." "INFO"
         } else {
             try {
@@ -271,6 +269,7 @@ try {
             }
         }
     }
+
 
         "*dell*" {
             Log "Detected manufacturer: Dell. Checking if Dell Command Update is already installed..."

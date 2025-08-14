@@ -1,6 +1,6 @@
 # ==================================================
 # Functions.ps1
-# Version: 1.0.2
+# Version: 1.0.3
 # Contains reusable functions for the IT maintenance project.
 # ==================================================
 
@@ -228,4 +228,34 @@ function Uninstall-Chocolatey {
 
         return $true
     }
+}
+# This function checks the Windows Registry for a program's installation.
+# This is a more reliable method than relying on a package manager's list.
+function Test-InstalledProgram {
+    param (
+        [Parameter(Mandatory=$true)]
+        [string]$ProgramName
+    )
+    
+    # Paths in the registry where installed programs are listed.
+    $regPaths = @(
+        'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall',
+        'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall'
+    )
+    
+    foreach ($path in $regPaths) {
+        if (Test-Path -Path $path) {
+            # Check for the program in each registry path.
+            # If a match is found, immediately return $true and exit the function.
+            $installedProgram = Get-ChildItem -Path $path | Where-Object {
+                (Get-ItemProperty -Path $_.PSPath -ErrorAction SilentlyContinue).DisplayName -like "*$ProgramName*"
+            }
+            if ($installedProgram) {
+                return $true
+            }
+        }
+    }
+    
+    # If the function completes without finding a match, it returns $false.
+    return $false
 }
