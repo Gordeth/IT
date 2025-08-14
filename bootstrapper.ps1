@@ -7,9 +7,6 @@
 
 # Define your GitHub repository details
 $repoName = "Gordeth/IT"
-$branch = "main"
-# Base URL for raw file downloads
-$rawUrl = "https://raw.githubusercontent.com/$repoName/$branch"
 # Base URL for the GitHub API to list directory contents
 $apiUrl = "https://api.github.com/repos/$repoName/contents"
 

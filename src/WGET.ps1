@@ -1,3 +1,6 @@
+# WGET.ps1
+# Version: 1.0
+
 param (
     # Parameter: VerboseMode
     # Type: Switch (boolean)
@@ -13,73 +16,44 @@ param (
     [string]$LogFile
 )
 
-# ==================== Define Log Function ====================
-#
-# Function: Log
-# Description: This function is responsible for writing timestamped messages to a
-#              specified log file and, based on configuration, to the console.
-#              It supports different levels of logging (INFO, WARN, ERROR, DEBUG)
-#              to categorize messages and control their visibility.
-#
-# Parameters:
-#   -Message (string): The actual text string that needs to be logged.
-#   -Level (string): Defines the severity or type of the log entry.
-#                    Valid options are "INFO", "WARN", "ERROR", "DEBUG".
-#                    Defaults to "INFO" if not explicitly provided.
-#
-# Console Output Behavior:
-#   - Every log entry is always written to the file specified by the `$LogFile` parameter.
-#   - Log entries with an "ERROR" level will always be displayed on the console,
-#     regardless of the `$VerboseMode` setting, to ensure critical issues are visible.
-#   - Other log entries (INFO, WARN, DEBUG) are displayed on the console only if the
-#     `$VerboseMode` switch parameter is set to `$true` when the script is executed.
-#
-# Error Handling:
-#   - Includes a `try-catch` block to gracefully handle potential failures during
-#     the file writing process (e.g., file locks, insufficient permissions).
-#     If file writing fails, an error message is printed directly to the console.
-#
-function Log {
-    param (
-        [string]$Message,
-        [ValidateSet("INFO", "WARN", "ERROR", "DEBUG")]
-        [string]$Level = "INFO"
-    )
+# ================== CONFIGURATION ==================
+# Using the built-in variable $PSScriptRoot is the most reliable way to get the script's directory.
+# This avoids issues with hardcoded paths that may change.
+$ScriptDir = $PSScriptRoot
+# The logging and script directories are now consistently based on $PSScriptRoot.
+$LogDir = Join-Path $ScriptDir "Log"
+# Define the log file specifically for this orchestrator script.
+$LogFile = Join-Path $LogDir "WGET.txt"
 
-    # Generate the current date and time, formatted as "day-month-year hour:minute:second",
-    # to serve as a timestamp for the log entry.
-    $timestamp = Get-Date -Format "dd-MM-yyyy HH:mm:ss"
-    
-    # Concatenate the timestamp, log level, and message into a single string
-    # that will be written to the log file and potentially the console.
-    $logEntry = "[$timestamp] [$Level] $Message"
+# --- Set the working location to the script's root ---
+Set-Location -Path $ScriptDir
 
-    # Attempt to append the `$logEntry` string to the file specified by `$LogFile`.
+# ================== CREATE DIRECTORIES AND LOG FILE ==================
+# This section ensures the logging environment is set up correctly before any
+# other scripts are called or logging is performed.
+# =====================================================================
+
+# Create the log directory if it doesn't exist.
+if (-not (Test-Path $LogDir)) {
+    Write-Host "Creating log directory: $LogDir"
     try {
-        Add-Content -Path $LogFile -Value $logEntry
+        New-Item -ItemType Directory -Path $LogDir | Out-Null
     } catch {
-        # If an error occurs during file writing (e.g., file access denied),
-        # print a descriptive error message to the console in red.
-        Write-Host "Failed to write to log file '$LogFile': $_" -ForegroundColor Red
-    }
-
-    # Conditional console output:
-    # Check if `$VerboseMode` is enabled OR if the current log `$Level` is "ERROR".
-    # If either condition is true, the log entry will be displayed on the console.
-    if ($VerboseMode -or $Level -eq "ERROR") {
-        # Use a `switch` statement to determine the appropriate console text color
-        # based on the `$Level` of the log entry.
-        $color = switch ($Level) {
-            "INFO"  { "White" }   # Standard informational messages.
-            "WARN"  { "Yellow" }  # Warnings, indicating potential non-critical issues.
-            "ERROR" { "Red" }     # Critical errors, requiring immediate attention.
-            "DEBUG" { "Gray" }    # Detailed debug messages, typically for troubleshooting.
-            default { "White" }   # Default color if the level is not recognized.
-        }
-        # Write the formatted log entry to the console using the chosen foreground color.
-        Write-Host $logEntry -ForegroundColor $color
+        Write-Host "ERROR: Failed to create log directory. $_" -ForegroundColor Red
+        # Exit the script if the log directory cannot be created.
+        exit 1
     }
 }
+
+# Create a new log file or append to the existing one.
+if (-not (Test-Path $LogFile)) {
+    "Log file created." | Out-File $LogFile -Append
+}
+
+# ================== LOAD FUNCTIONS MODULE ==================
+# This line makes all the functions in your separate Functions.ps1 script available.
+# The path is relative to this script's location ($PSScriptRoot).
+. "$PSScriptRoot/../modules/Functions.ps1"
 
 # ==================== Begin Script Execution ====================
 #
