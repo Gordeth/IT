@@ -337,13 +337,14 @@ try {
 #
 try {
     # Retrieve the manufacturer of the computer system using WMI.
-    $brand = (Get-WmiObject -Class Win32_ComputerSystem).Manufacturer
+    # Trim any whitespace and convert to lowercase for reliable comparison.
+    $brand = (Get-WmiObject -Class Win32_ComputerSystem).Manufacturer.Trim().ToLower()
     Log "Detected manufacturer: $brand"
 
     # Use a switch statement with wildcard matching to identify the brand
     # and install the appropriate driver update application.
     switch -Wildcard ($brand) {
-        "*Lenovo*" {
+        "*lenovo*" {
             Log "Detected manufacturer: Lenovo. Attempting to install Lenovo Vantage via winget."
             try {
                 # Search for the package by name to get the correct ID.
@@ -361,7 +362,7 @@ try {
                 Log "An error occurred while trying to install Lenovo Vantage: $_" -Level "ERROR"
             }
         }
-        "*HP*" {
+        "*hp*|*hewlett-packard*" {
             Log "Detected manufacturer: Hewlett-Packard. Attempting to install HP Support Assistant via winget."
             try {
                 # Search for the package by name to get the correct ID.
@@ -379,7 +380,7 @@ try {
                 Log "An error occurred while trying to install HP Support Assistant: $_" -Level "ERROR"
             }
         }
-        "*Dell*" {
+        "*dell*" {
             Log "Detected manufacturer: Dell. Attempting to install Dell Command Update via winget."
             try {
                 # Search for the package by name to get the correct ID.
