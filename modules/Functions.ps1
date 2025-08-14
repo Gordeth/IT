@@ -1,6 +1,6 @@
 # ==================================================
 # Functions.ps1
-# Version: 1.0.1
+# Version: 1.0.2
 # Contains reusable functions for the IT maintenance project.
 # ==================================================
 
@@ -134,6 +134,7 @@ function Install-Chocolatey {
 function Uninstall-Chocolatey {
     Log "Checking for Chocolatey to uninstall..." "INFO"
     $chocoInstallPath = "$env:ProgramData\chocolatey" # Default Chocolatey installation path
+    $chocoTempPath = "$env:TEMP\chocolatey"           # Temporary Chocolatey folder
 
     if (Get-Command choco.exe -ErrorAction SilentlyContinue) {
         Log "Chocolatey found. Attempting to uninstall Chocolatey..." "INFO"
@@ -159,11 +160,17 @@ function Uninstall-Chocolatey {
                 [System.Environment]::SetEnvironmentVariable("ChocolateyToolsRoot", $null, 'Machine') # Unset machine-wide
                 [System.Environment]::SetEnvironmentVariable("ChocolateyToolsRoot", $null, 'User')    # Unset user-specific
             }
-            
+
             # Check and delete the main Chocolatey installation folder if it still exists
             if (Test-Path $chocoInstallPath) {
                 Log "Main Chocolatey installation folder still exists: $chocoInstallPath. Deleting it." "INFO"
                 Remove-Item -Path $chocoInstallPath -Recurse -Force -ErrorAction SilentlyContinue
+            }
+            
+            # === NEW: Delete the temporary Chocolatey folder ===
+            if (Test-Path $chocoTempPath) {
+                Log "Deleting temporary Chocolatey folder: $chocoTempPath." "INFO"
+                Remove-Item -Path $chocoTempPath -Recurse -Force -ErrorAction SilentlyContinue
             }
 
             # Final verification if choco.exe is gone
@@ -205,14 +212,20 @@ function Uninstall-Chocolatey {
             try {
                 Remove-Item -Path $chocoInstallPath -Recurse -Force -ErrorAction Stop
                 Log "Chocolatey installation folder deleted successfully." "INFO"
-                return $true
             } catch {
                 Log "Failed to delete lingering Chocolatey installation folder: $_" "ERROR"
                 return $false
             }
         } else {
             Log "Chocolatey installation folder not found. No deletion needed." "INFO"
-            return $true
         }
+        
+        # === NEW: Delete the temporary Chocolatey folder ===
+        if (Test-Path $chocoTempPath) {
+            Log "Deleting temporary Chocolatey folder: $chocoTempPath." "INFO"
+            Remove-Item -Path $chocoTempPath -Recurse -Force -ErrorAction SilentlyContinue
+        }
+
+        return $true
     }
 }
