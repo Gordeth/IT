@@ -348,18 +348,20 @@ switch ($task) {
         Log "Task selected: Machine Preparation (semi-automated)"
         Log "Executing scripts from local path..."
         Invoke-Script -ScriptName "MACHINEPREP.ps1" -LogDir $LogDir -VerboseMode $VerboseMode
+        Repair-SystemFiles
         if (Confirm-OfficeInstalled) {
             Invoke-Script -ScriptName "MSO_UPDATE.ps1" -LogDir $LogDir -VerboseMode $VerboseMode
         } else {
             Log "Microsoft Office not detected. Skipping Office update script."
         }
         Log "Running System File Checker (SFC) to verify system integrity..."
-        Repair-SystemFiles
+        
     }
     "WindowsMaintenance" {
         Log "Task selected: Windows Maintenance"
         Log "Executing scripts from local path..."
         Invoke-Script -ScriptName "WU.ps1" -LogDir $LogDir -VerboseMode $VerboseMode
+        Repair-SystemFiles
         Invoke-Script -ScriptName "WGET.ps1" -LogDir $LogDir -VerboseMode $VerboseMode
         if (Confirm-OfficeInstalled) {
             Invoke-Script -ScriptName "MSO_UPDATE.ps1" -LogDir $LogDir -VerboseMode $VerboseMode
@@ -367,7 +369,7 @@ switch ($task) {
             Log "Microsoft Office not detected. Skipping Office update."
         }
         Log "Running System File Checker (SFC) to verify system integrity..."
-        Repair-SystemFiles
+        
     }
     default {
         Log "Invalid task selection. Exiting script. Received value: '$task'" -Level "ERROR"
