@@ -48,7 +48,7 @@ if (-not (Test-Path $LogFile)) {
 # The path is relative to this script's location ($PSScriptRoot).
 . "$PSScriptRoot/../modules/Functions.ps1"
 
-# ================== RUN SCRIPT FUNCTION ==================
+# ================== INVOKE SCRIPT FUNCTION ==================
 # Updated to pass key parameters like VerboseMode and LogFile to child scripts.
 function Invoke-Script {
     param (
@@ -60,11 +60,10 @@ function Invoke-Script {
     Log "Running $ScriptName..."
     try {
         # Pass the parameters to the child script
-        & $scriptPath -VerboseMode:$VerboseMode -LogFile:$LogFile
+        & $scriptPath -VerboseMode:$VerboseMode -LogFile:$LogFile -ErrorAction Stop
         Log "$ScriptName executed successfully."
     } catch {
         Log "Error during execution of ${ScriptName}: $_"
-        Exit 1
     }
 }
 # ================== FUNCTION: CHECK IF OFFICE IS INSTALLED ==================
