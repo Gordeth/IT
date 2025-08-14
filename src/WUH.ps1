@@ -348,8 +348,6 @@ switch ($task) {
         Log "Task selected: Machine Preparation (semi-automated)"
         Log "Executing scripts from local path..."
         Invoke-Script -ScriptName "MACHINEPREP.ps1" -LogDir $LogDir -VerboseMode $VerboseMode
-        Invoke-Script -ScriptName "WU.ps1" -LogDir $LogDir -VerboseMode $VerboseMode
-        Invoke-Script -ScriptName "WGET.ps1" -LogDir $LogDir -VerboseMode $VerboseMode
         if (Confirm-OfficeInstalled) {
             Invoke-Script -ScriptName "MSO_UPDATE.ps1" -LogDir $LogDir -VerboseMode $VerboseMode
         } else {
