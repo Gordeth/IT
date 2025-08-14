@@ -68,6 +68,21 @@ function Install-NuGetProvider {
     }
 }
 
+# ==================== Helper Function: Install Chocolatey ====================
+#
+# Function: Install-Chocolatey
+# Description: Checks if Chocolatey is installed and, if not, installs it.
+#              This function is critical for installing software packages not
+#              available via Winget.
+#
+# Prerequisites:
+#   - Internet connectivity.
+#   - PowerShell Execution Policy set to Bypass (handled by WUH.ps1 or temporarily here).
+#
+# Returns:
+#   - $true if Chocolatey is successfully installed or already present.
+#   - $false if Chocolatey installation fails.
+#
 function Install-Chocolatey {
     Log "Checking for Chocolatey installation..." "INFO"
     if (-not (Get-Command choco.exe -ErrorAction SilentlyContinue)) {
@@ -103,5 +118,101 @@ function Install-Chocolatey {
     } else {
         Log "Chocolatey is already installed." "INFO"
         return $true
+    }
+}
+
+# ==================== Helper Function: Uninstall Chocolatey ====================
+#
+# Function: Uninstall-Chocolatey
+# Description: Uninstalls Chocolatey from the system. This is intended for cleanup
+#              if Chocolatey was only needed temporarily for machine preparation.
+#
+# Returns:
+#   - $true if Chocolatey is successfully uninstalled or not found.
+#   - $false if Chocolatey uninstallation fails.
+#
+function Uninstall-Chocolatey {
+    Log "Checking for Chocolatey to uninstall..." "INFO"
+    $chocoInstallPath = "$env:ProgramData\chocolatey" # Default Chocolatey installation path
+
+    if (Get-Command choco.exe -ErrorAction SilentlyContinue) {
+        Log "Chocolatey found. Attempting to uninstall Chocolatey..." "INFO"
+        try {
+            # Attempt to uninstall Chocolatey package
+            choco uninstall chocolatey -y
+            
+            # Perform additional cleanup for Chocolatey-related directories and environment variables
+            Log "Performing additional cleanup for Chocolatey directories and environment variables." "INFO"
+
+            # Delete ChocolateyBinRoot if it exists and unset its environment variable
+            if ($env:ChocolateyBinRoot -ne '' -and $null -ne $env:ChocolateyBinRoot -and (Test-Path "$env:ChocolateyBinRoot")) {
+                Log "Deleting ChocolateyBinRoot: $($env:ChocolateyBinRoot)" "INFO"
+                Remove-Item -Recurse -Force "$env:ChocolateyBinRoot" -ErrorAction SilentlyContinue
+                [System.Environment]::SetEnvironmentVariable("ChocolateyBinRoot", $null, 'Machine') # Unset machine-wide
+                [System.Environment]::SetEnvironmentVariable("ChocolateyBinRoot", $null, 'User')    # Unset user-specific
+            }
+
+            # Delete ChocolateyToolsRoot if it exists and unset its environment variable
+            if ($env:ChocolateyToolsRoot -ne '' -and $null -ne $env:ChocolateyToolsRoot -and (Test-Path "$env:ChocolateyToolsRoot")) {
+                Log "Deleting ChocolateyToolsRoot: $($env:ChocolateyToolsRoot)" "INFO"
+                Remove-Item -Recurse -Force "$env:ChocolateyToolsRoot" -ErrorAction SilentlyContinue
+                [System.Environment]::SetEnvironmentVariable("ChocolateyToolsRoot", $null, 'Machine') # Unset machine-wide
+                [System.Environment]::SetEnvironmentVariable("ChocolateyToolsRoot", $null, 'User')    # Unset user-specific
+            }
+            
+            # Check and delete the main Chocolatey installation folder if it still exists
+            if (Test-Path $chocoInstallPath) {
+                Log "Main Chocolatey installation folder still exists: $chocoInstallPath. Deleting it." "INFO"
+                Remove-Item -Path $chocoInstallPath -Recurse -Force -ErrorAction SilentlyContinue
+            }
+
+            # Final verification if choco.exe is gone
+            if (-not (Get-Command choco.exe -ErrorAction SilentlyContinue)) {
+                Log "Chocolatey uninstalled and directories cleaned successfully." "INFO"
+                return $true
+            } else {
+                Log "Chocolatey uninstallation completed, but choco.exe still present despite cleanup attempts. Check logs." "WARN"
+                return $false
+            }
+        } catch {
+            Log "Failed during Chocolatey uninstallation or cleanup: $_" "ERROR"
+            return $false
+        }
+    } else {
+        Log "Chocolatey is not installed. No uninstallation needed for the package." "INFO"
+        # If choco.exe is not found, perform cleanup for lingering folders/environment variables.
+        Log "Chocolatey executable not found, performing cleanup for lingering folders and environment variables." "INFO"
+
+        # Delete ChocolateyBinRoot if it exists and unset its environment variable
+        if ($env:ChocolateyBinRoot -ne '' -and $null -ne $env:ChocolateyBinRoot -and (Test-Path "$env:ChocolateyBinRoot")) {
+            Log "Deleting lingering ChocolateyBinRoot: $($env:ChocolateyBinRoot)" "INFO"
+            Remove-Item -Recurse -Force "$env:ChocolateyBinRoot" -ErrorAction SilentlyContinue
+            [System.Environment]::SetEnvironmentVariable("ChocolateyBinRoot", $null, 'Machine')
+            [System.Environment]::SetEnvironmentVariable("ChocolateyBinRoot", $null, 'User')
+        }
+
+        # Delete ChocolateyToolsRoot if it exists and unset its environment variable
+        if ($env:ChocolateyToolsRoot -ne '' -and $null -ne $env:ChocolateyToolsRoot -and (Test-Path "$env:ChocolateyToolsRoot")) {
+            Log "Deleting lingering ChocolateyToolsRoot: $($env:ChocolateyToolsRoot)" "INFO"
+            Remove-Item -Recurse -Force "$env:ChocolateyToolsRoot" -ErrorAction SilentlyContinue
+            [System.Environment]::SetEnvironmentVariable("ChocolateyToolsRoot", $null, 'Machine')
+            [System.Environment]::SetEnvironmentVariable("ChocolateyToolsRoot", $null, 'User')
+        }
+
+        # Delete main Chocolatey install path if it exists
+        if (Test-Path $chocoInstallPath) {
+            Log "Lingering Chocolatey installation folder exists: $chocoInstallPath. Deleting it." "INFO"
+            try {
+                Remove-Item -Path $chocoInstallPath -Recurse -Force -ErrorAction Stop
+                Log "Chocolatey installation folder deleted successfully." "INFO"
+                return $true
+            } catch {
+                Log "Failed to delete lingering Chocolatey installation folder: $_" "ERROR"
+                return $false
+            }
+        } else {
+            Log "Chocolatey installation folder not found. No deletion needed." "INFO"
+            return $true
+        }
     }
 }
