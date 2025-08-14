@@ -224,7 +224,7 @@ Set-ExecutionPolicy Bypass -Scope Process -Force -ErrorAction SilentlyContinue
 # ================== INSTALL NUGET PROVIDER ==================
 Install-NuGetProvider
 # Verify if NuGet is installed before proceeding
-$isNugetInstalled = Get-PackageProvider -Name "NuGet" -ErrorAction SilentlyContinue
+$isNugetInstalled = Get-PackageProvider -ListAvailable | Where-Object { $_.Name -eq "NuGet" }
 if (-not $isNugetInstalled) {
     Log "ERROR: Failed to install NuGet provider. Cannot proceed with module installations." -Level "ERROR"
     # Exit the script to prevent any further module-dependent commands from failing.
