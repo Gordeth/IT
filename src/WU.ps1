@@ -1,5 +1,5 @@
 # ==============================================================================
-# Version: 1.0.0
+# Version: 1.0.1
 # This script automates Windows maintenance tasks.
 param (
     [switch]$VerboseMode = $false,
@@ -186,10 +186,25 @@ if ($UpdateList) {
         }
 
         if ($rebootPending) {
-            Log "Reboot is required to complete Windows Updates. Initiating reboot..." -Level "WARN"
-            # The script will stop here as the system restarts. The startup shortcut will handle re-execution.
-            Restart-Computer -Force
-            exit # Exit the script
+            Log "Reboot is required to complete Windows Updates." -Level "WARN"
+            
+            if ($VerboseMode) {
+                # In verbose mode, ask for explicit user confirmation before rebooting.
+                $confirmReboot = Read-Host "A reboot is required to complete updates. Reboot now? (Y/N)"
+                if ($confirmReboot.ToUpper() -eq 'Y') {
+                    Log "User confirmed reboot. Initiating restart..."
+                    Restart-Computer -Force
+                    exit # Exit the script after initiating the reboot
+                } else {
+                    # User denied reboot. The script will continue to the next block.
+                    Log "User denied reboot. Script will continue without restarting." -Level "INFO"
+                }
+            } else {
+                # In silent mode, proceed with the reboot without user confirmation.
+                Log "Initiating silent reboot..."
+                Restart-Computer -Force
+                exit # Exit the script after initiating the reboot
+            }
         } else {
             Log "No reboot required. Script execution will continue."
         }
@@ -197,7 +212,7 @@ if ($UpdateList) {
         # Log any errors that occur during the update installation process.
         Log "Error during update installation: $_" -Level "ERROR"
     }
-
+    
     # --- Clean up: remove startup shortcut if it exists ---
     # If no updates were found, or if the script has run post-reboot and completed
     # the update process, the startup shortcut is no longer needed and should be removed
