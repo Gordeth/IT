@@ -341,7 +341,7 @@ try {
             # Add the function call to install Chocolatey before attempting any install or list commands.
             if (Install-Chocolatey) {
                 # Check for existing installation using choco list --local-only now that Chocolatey is available.
-                $hpSupport = choco list hpsupportassistant --local-only | Select-String "1 packages"
+                $hpSupport = choco list --local-only | Select-String -Pattern "hpsupportassistant"
                 if ($hpSupport) {
                     Log "HP Support Assistant is already installed. Skipping installation." "INFO"
                 } else {
@@ -369,7 +369,7 @@ try {
             # Add the function call to install Chocolatey before attempting any install or list commands.
             if (Install-Chocolatey) {
                 # Check for existing installation using choco list --local-only now that Chocolatey is available.
-                $hpSupport = choco list hpsupportassistant --local-only | Select-String "1 packages"
+                $hpSupport = choco list --local-only | Select-String -Pattern "hpsupportassistant"
                 if ($hpSupport) {
                     Log "HP Support Assistant is already installed. Skipping installation." "INFO"
                 } else {
