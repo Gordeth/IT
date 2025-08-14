@@ -231,7 +231,7 @@ try {
     Log "Error installing TeamViewer: $_" -Level "ERROR"
 }
 
- ================== 2. Run WU.ps1 to perform Windows Updates ==================
+# ================== 2. Run WU.ps1 to perform Windows Updates ==================
 #
 # This section executes the `WU.ps1` script to perform Windows updates.
 # It assumes the WU.ps1 script is present in the same directory.
