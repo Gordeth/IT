@@ -227,12 +227,13 @@ try {
                 }
             }
         }
-            "*hp*" {
-        Log "Detected manufacturer: HP. Checking if HP Support Assistant is already installed..."
+        "*hp*" {
+    Log "Detected manufacturer: HP. Checking if HP Support Assistant is already installed..."
 
-        if (Test-InstalledProgram -ProgramName "HP Support Assistant") {
-            Log "HP Support Assistant is already installed. Skipping installation." "INFO"
-        } else {
+    if (Test-InstalledProgram -ProgramName "HP Support Assistant") {
+        Log "HP Support Assistant is already installed. Skipping installation." "INFO"
+    } else {
+        if (Install-Chocolatey) {
             try {
                 Log "Installing HP Support Assistant via Chocolatey..." "INFO"
                 choco install hpsupportassistant --force -y
@@ -248,12 +249,14 @@ try {
             }
         }
     }
-    "*hewlett-packard*" {
-        Log "Detected manufacturer: Hewlett-Packard. Checking if HP Support Assistant is already installed..."
+}
+"*hewlett-packard*" {
+    Log "Detected manufacturer: Hewlett-Packard. Checking if HP Support Assistant is already installed..."
 
-        if (Test-InstalledProgram -ProgramName "HP Support Assistant") {
-            Log "HP Support Assistant is already installed. Skipping installation." "INFO"
-        } else {
+    if (Test-InstalledProgram -ProgramName "HP Support Assistant") {
+        Log "HP Support Assistant is already installed. Skipping installation." "INFO"
+    } else {
+        if (Install-Chocolatey) {
             try {
                 Log "Installing HP Support Assistant via Chocolatey..." "INFO"
                 choco install hpsupportassistant --force -y
@@ -269,6 +272,7 @@ try {
             }
         }
     }
+}
 
 
         "*dell*" {
