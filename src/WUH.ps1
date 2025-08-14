@@ -49,14 +49,18 @@ if (-not (Test-Path $LogFile)) {
 . "$PSScriptRoot/../modules/Functions.ps1"
 
 # ================== RUN SCRIPT FUNCTION ==================
+# Updated to pass key parameters like VerboseMode and LogFile to child scripts.
 function Invoke-Script {
     param (
-        [string]$ScriptName
+        [string]$ScriptName,
+        [switch]$VerboseMode, # Parameter to receive VerboseMode
+        [string]$LogFile      # Parameter to receive LogFile path
     )
     $scriptPath = Join-Path $ScriptDir $ScriptName
     Log "Running $ScriptName..."
     try {
-        & $scriptPath
+        # Pass the parameters to the child script
+        & $scriptPath -VerboseMode:$VerboseMode -LogFile:$LogFile
         Log "$ScriptName executed successfully."
     } catch {
         Log "Error during execution of ${ScriptName}: $_"
