@@ -442,105 +442,133 @@ try {
 
 # ================== 7. Install Disk Management App ==================
 #
-# This section attempts to identify the manufacturer of the primary storage disk (SSD/HDD)
+# This section attempts to identify the manufacturer of *all* internal storage disks (SSD/HDD)
 # and install the corresponding manufacturer-specific utility tool (e.g., Samsung Magician).
 # These tools often provide firmware updates, health monitoring, and performance optimization.
 #
 try {
-    # Attempt to get disk information using `Get-PhysicalDisk` (more modern cmdlets).
-    # Selects the first physical disk found and its FriendlyName, Manufacturer, Model.
-    $disk = Get-PhysicalDisk | Select-Object -First 1 FriendlyName, Manufacturer, Model
+    Log "Starting disk management app installation..." "INFO"
+
+    # Use a variable to track which apps have already been installed to prevent duplicates.
+    $installedDiskApps = @()
+
+    # Get all physical disks, but filter out any that are external (e.g., USB drives).
+    # Common internal bus types are SATA, NVMe, SAS, and SCSI.
+    # We will exclude disks with a 'BusType' of 'USB' to ignore external hard drives.
+    $internalDisks = Get-PhysicalDisk | Where-Object { $_.BusType -ne 'USB' }
+
+    if (-not $internalDisks) {
+        Log "No internal physical disks found with recognized bus types (SATA, NVMe, etc.)." "WARN"
+    }
     
-    # If `Get-PhysicalDisk` doesn't return anything (e.g., older OS), try `Get-CimInstance`.
-    if (-not $disk) {
-        $disk = Get-CimInstance -ClassName Win32_DiskDrive | Select-Object -First 1 Model, Manufacturer
-    }
+    # Loop through each internal disk found on the system.
+    foreach ($disk in $internalDisks) {
+        # Determine the disk brand, prioritizing Manufacturer property.
+        $diskBrand = if ($disk.Manufacturer) {
+            $disk.Manufacturer
+        } else {
+            # Fallback to Model if Manufacturer is not available.
+            $disk.Model
+        }
 
-    # Determine the disk brand, prioritizing Manufacturer property.
-    if ($disk.Manufacturer) {
-        $diskBrand = $disk.Manufacturer
-    } else {
-        # Fallback to Model if Manufacturer is not available.
-        $diskBrand = $disk.Model
-    }
+        # Clean up the disk brand string by removing special characters for better matching.
+        $diskBrand = $diskBrand.ToUpper() -replace '[^A-Z0-9]', ''
+        Log "Processing disk with normalized brand: $diskBrand"
 
-    # Clean up the disk brand string by removing parenthesized text, brackets, spaces, and hyphens
-    # to facilitate better wildcard matching against known brand names.
-    $diskBrand = $diskBrand.ToUpper() -replace '[^A-Z0-9]', ''  # Remove non-alphanumeric and normalize
-    Log "Normalized disk brand: $diskBrand"
-    
-    switch -Regex ($diskBrand) {
-    'SAMSUNG'     { $diskBrand = "Samsung" }
-    'KINGSTON'    { $diskBrand = "Kingston" }
-    'CRUCIAL'     { $diskBrand = "Crucial" }
-    'WDC|WESTERN' { $diskBrand = "WesternDigital" }
-    'INTEL'       { $diskBrand = "Intel" }
-    'SANDISK'     { $diskBrand = "SanDisk" }
-    }
+        # Use a regex switch to normalize the brand name to a consistent string.
+        switch -Regex ($diskBrand) {
+            'SAMSUNG'     { $diskBrand = "Samsung" }
+            'KINGSTON'    { $diskBrand = "Kingston" }
+            'CRUCIAL'     { $diskBrand = "Crucial" }
+            'WDC|WESTERN' { $diskBrand = "WesternDigital" }
+            'INTEL'       { $diskBrand = "Intel" }
+            'SANDISK'     { $diskBrand = "SanDisk" }
+            default       { $diskBrand = "Other" } # Set to a default string if no match
+        }
 
-    # Use a switch statement with wildcard matching to install the appropriate disk management tool.
-    switch -Wildcard ($diskBrand) {
-        "*Samsung*" {
-            Log "Detected Samsung disk model: $disk . Attempting to install Samsung Magician." "INFO"
-            # Check for specific unsupported disk model
-            if ($disk.Model -eq "SAMSUNG MZALQ256HAJD-000L2") {
-                Log "Detected Samsung disk model SAMSUNG MZALQ256HAJD-000L2 which is not supported by Samsung Magician. Skipping installation." "INFO"
-            } else {
-                # Attempt to install Chocolatey first.
+        # Check if we have already installed an app for this brand.
+        if ($installedDiskApps -contains $diskBrand) {
+            Log "Disk management app for '$diskBrand' is already installed. Skipping." "INFO"
+            continue # Skip to the next disk in the loop
+        }
+
+        # Use a switch statement to install the appropriate disk management tool.
+        # This part has been updated to use separate cases for clarity, just like the previous fix.
+        switch -Wildcard ($diskBrand) {
+            "*Samsung*" {
+                Log "Detected Samsung disk model: $($disk.Model). Attempting to install Samsung Magician." "INFO"
+                # Check for specific unsupported disk model
+                if ($disk.Model -eq "SAMSUNG MZALQ256HAJD-000L2") {
+                    Log "Detected Samsung disk model $($disk.Model) which is not supported by Samsung Magician. Skipping installation." "INFO"
+                } else {
+                    if (Install-Chocolatey) {
+                        try {
+                            Log "Installing Samsung Magician via Chocolatey..." "INFO"
+                            choco install samsung-magician --force -y
+                            if ($LASTEXITCODE -eq 0) {
+                                Log "Samsung Magician installed successfully via Chocolatey." "INFO"
+                                $installedDiskApps += "Samsung"
+                            } elseif ($LASTEXITCODE -eq 1) {
+                                Log "Samsung Magician installation via Chocolatey completed with a known issue (e.g., already installed, reboot needed). Check Chocolatey logs." "WARN"
+                            } else {
+                                Log "Samsung Magician installation via Chocolatey failed with exit code $LASTEXITCODE. Review Chocolatey logs." "ERROR"
+                            }
+                        } catch {
+                            Log "Error during Chocolatey installation of Samsung Magician: $_" "ERROR"
+                        }
+                    } else {
+                        Log "Chocolatey installation failed, skipping Samsung Magician." "ERROR"
+                    }
+                }
+            }
+            "*Kingston*" { 
+                winget install --id=Kingston.SSDManager -e --silent --accept-package-agreements --accept-source-agreements
+                Log "Kingston SSD Manager installed." "INFO"
+                $installedDiskApps += "Kingston"
+            }
+            "*Crucial*" { 
+                winget install --id=Micron.CrucialStorageExecutive -e --silent --accept-package-agreements --accept-source-agreements
+                Log "Crucial Storage Executive installed." "INFO"
+                $installedDiskApps += "Crucial"
+            }
+            "*WesternDigital*" {
                 if (Install-Chocolatey) {
-                    # If Chocolatey is installed, proceed with Samsung Magician via choco.
                     try {
-                        Log "Installing Samsung Magician via Chocolatey..." "INFO"
-                        # -y: automatically answers yes to all prompts.
-                        choco install samsung-magician --force -y
-
-                        # Check Chocolatey's exit code for installation status.
+                        Log "Installing Western Digital Dashboard via Chocolatey..." "INFO"
+                        choco install wd-dashboard --force -y
                         if ($LASTEXITCODE -eq 0) {
-                            Log "Samsung Magician installed successfully via Chocolatey." "INFO"
+                            Log "Western Digital Dashboard installed successfully via Chocolatey." "INFO"
+                            $installedDiskApps += "WesternDigital"
                         } elseif ($LASTEXITCODE -eq 1) {
-                            Log "Samsung Magician installation via Chocolatey completed with a known issue (e.g., already installed, reboot needed). Check Chocolatey logs." "WARN"
+                            Log "Western Digital Dashboard installation via Chocolatey completed with a known issue. Check Chocolatey logs." "WARN"
                         } else {
-                            Log "Samsung Magician installation via Chocolatey failed with exit code $LASTEXITCODE. Review Chocolatey logs." "ERROR"
+                            Log "Western Digital Dashboard installation via Chocolatey failed with exit code $LASTEXITCODE. Review Chocolatey logs." "ERROR"
                         }
                     } catch {
-                        Log "Error during Chocolatey installation of Samsung Magician: $_" "ERROR"
+                        Log "Error during Chocolatey installation of Western Digital Dashboard: $_" "ERROR"
                     }
                 } else {
-                    Log "Chocolatey installation failed, skipping Samsung Magician." "ERROR"
+                    Log "Chocolatey installation failed, skipping Western Digital Dashboard." "ERROR"
                 }
             }
+            "*Intel*" {
+                winget install --id=Intel.MemoryAndStorageTool -e --silent --accept-package-agreements --accept-source-agreements
+                Log "Intel Memory and Storage Tool installed." "INFO"
+                $installedDiskApps += "Intel"
+            }
+            "*SanDisk*" {
+                winget install --id=SanDisk.Dashboard -e --silent --accept-package-agreements --accept-source-agreements
+                Log "SanDisk SSD Dashboard installed." "INFO"
+                $installedDiskApps += "SanDisk"
+            }
+            default { Log "No specific disk management app needed for this disk, or none found via winget." }
         }
-        "*Kingston*" { winget install --id=Kingston.SSDManager -e --silent --accept-package-agreements --accept-source-agreements; Log "Kingston SSD Manager installed." }
-        "*Crucial*" { winget install --id=Micron.CrucialStorageExecutive -e --silent --accept-package-agreements --accept-source-agreements; Log "Crucial Storage Executive installed." }
-        { $_ -like "*WesternDigital*" -or $_ -like "*WDC*" } {
-        # Install via Chocolatey as requested, and due to potential winget issues.
-            if (Install-Chocolatey) {
-                try {
-                    Log "Installing Western Digital Dashboard via Chocolatey..." "INFO"
-                    choco install wd-dashboard --force -y
-
-                    if ($LASTEXITCODE -eq 0) {
-                        Log "Western Digital Dashboard installed successfully via Chocolatey." "INFO"
-                    } elseif ($LASTEXITCODE -eq 1) {
-                        Log "Western Digital Dashboard installation via Chocolatey completed with a known issue (e.g., already installed, reboot needed). Check Chocolatey logs." "WARN"
-                    } else {
-                        Log "Western Digital Dashboard installation via Chocolatey failed with exit code $LASTEXITCODE. Review Chocolatey logs." "ERROR"
-                    }
-                } catch {
-                    Log "Error during Chocolatey installation of Western Digital Dashboard: $_" "ERROR"
-                }
-            } else {
-                Log "Chocolatey installation failed, skipping Western Digital Dashboard." "ERROR"
-            }
-    }
-        "*Intel*" { winget install --id=Intel.MemoryAndStorageTool -e --silent --accept-package-agreements --accept-source-agreements; Log "Intel Memory and Storage Tool installed." }
-        "*SanDisk*" { winget install --id=SanDisk.Dashboard -e --silent --accept-package-agreements --accept-source-agreements; Log "SanDisk SSD Dashboard installed." }
-        default { Log "No specific disk management app needed for this brand or none found via winget." }
     }
 } catch {
     # Log any errors during disk detection or management app installation.
     Log "Error installing disk management app: $_" -Level "ERROR"
 }
+
 
 # ================== 8. Disable OneDrive Auto-Start ==================
 #
