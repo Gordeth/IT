@@ -362,7 +362,32 @@ try {
                 Log "An error occurred while trying to install Lenovo Vantage: $_" -Level "ERROR"
             }
         }
-        "*hp*|*hewlett-packard*" {
+        "*hp*" {
+            Log "Detected manufacturer: Hewlett-Packard. Attempting to install HP Support Assistant via Chocolatey." "INFO"
+            # Attempt to install Chocolatey first. Assumes Install-Chocolatey function exists elsewhere.
+            if (Install-Chocolatey) {
+                # If Chocolatey is installed, proceed with HP Support Assistant via choco.
+                try {
+                    Log "Installing HP Support Assistant via Chocolatey..." "INFO"
+                    # -y: automatically answers yes to all prompts.
+                    choco install hpsupportassistant --force -y
+
+                    # Check Chocolatey's exit code for installation status.
+                    if ($LASTEXITCODE -eq 0) {
+                        Log "HP Support Assistant installed successfully via Chocolatey." "INFO"
+                    } elseif ($LASTEXITCODE -eq 1) {
+                        Log "HP Support Assistant installation via Chocolatey completed with a known issue (e.g., already installed, reboot needed). Check Chocolatey logs." "WARN"
+                    } else {
+                        Log "HP Support Assistant installation via Chocolatey failed with exit code $LASTEXITCODE. Review Chocolatey logs." "ERROR"
+                    }
+                } catch {
+                    Log "Error during Chocolatey installation of HP Support Assistant: $_" "ERROR"
+                }
+            } else {
+                Log "Chocolatey installation failed, skipping HP Support Assistant." "ERROR"
+            }
+        }
+        "*hewlett-packard*" {
             Log "Detected manufacturer: Hewlett-Packard. Attempting to install HP Support Assistant via Chocolatey." "INFO"
             # Attempt to install Chocolatey first. Assumes Install-Chocolatey function exists elsewhere.
             if (Install-Chocolatey) {
@@ -406,7 +431,7 @@ try {
             }
         }
         default {
-            Log "No specific driver update app found for this brand via winget."
+            Log "No specific driver update app found for this brand."
         }
     }
 } catch {
