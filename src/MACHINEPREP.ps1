@@ -363,21 +363,28 @@ try {
             }
         }
         "*hp*|*hewlett-packard*" {
-            Log "Detected manufacturer: Hewlett-Packard. Attempting to install HP Support Assistant via winget."
-            try {
-                # Search for the package by name to get the correct ID.
-                $package = winget search "HP Support Assistant" | Where-Object { $_.Name -like "*HP Support Assistant*" } | Select-Object -First 1
+            Log "Detected manufacturer: Hewlett-Packard. Attempting to install HP Support Assistant via Chocolatey." "INFO"
+            # Attempt to install Chocolatey first. Assumes Install-Chocolatey function exists elsewhere.
+            if (Install-Chocolatey) {
+                # If Chocolatey is installed, proceed with HP Support Assistant via choco.
+                try {
+                    Log "Installing HP Support Assistant via Chocolatey..." "INFO"
+                    # -y: automatically answers yes to all prompts.
+                    choco install hpsupportassistant --force -y
 
-                if ($package) {
-                    $packageId = $package.Id
-                    Log "Found HP Support Assistant with package ID: $packageId. Installing..."
-                    winget install --id=$packageId -e --silent --accept-package-agreements --accept-source-agreements
-                    Log "HP Support Assistant installed successfully."
-                } else {
-                    Log "HP Support Assistant package not found in winget repository. Skipping installation." -Level "WARN"
+                    # Check Chocolatey's exit code for installation status.
+                    if ($LASTEXITCODE -eq 0) {
+                        Log "HP Support Assistant installed successfully via Chocolatey." "INFO"
+                    } elseif ($LASTEXITCODE -eq 1) {
+                        Log "HP Support Assistant installation via Chocolatey completed with a known issue (e.g., already installed, reboot needed). Check Chocolatey logs." "WARN"
+                    } else {
+                        Log "HP Support Assistant installation via Chocolatey failed with exit code $LASTEXITCODE. Review Chocolatey logs." "ERROR"
+                    }
+                } catch {
+                    Log "Error during Chocolatey installation of HP Support Assistant: $_" "ERROR"
                 }
-            } catch {
-                Log "An error occurred while trying to install HP Support Assistant: $_" -Level "ERROR"
+            } else {
+                Log "Chocolatey installation failed, skipping HP Support Assistant." "ERROR"
             }
         }
         "*dell*" {
