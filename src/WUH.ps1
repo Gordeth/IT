@@ -1,6 +1,6 @@
 # ==============================================================================
 # PowerShell Maintenance Script
-# Version: 1.0.0
+# Version: 1.0.2
 # This script automates various machine preparation and Windows maintenance tasks.
 # It includes robust logging, internet connectivity checks, execution policy handling,
 # and a focus on silent execution for automation.
@@ -15,15 +15,27 @@ param (
 $ScriptDir = $PSScriptRoot
 # The logging and script directories are now consistently based on $PSScriptRoot.
 $LogDir = Join-Path $ScriptDir "Log"
+# Define the log file specifically for this orchestrator script.
 $LogFile = Join-Path $LogDir "WUH.txt"
 
 # --- Set the working location to the script's root ---
 Set-Location -Path $ScriptDir
 
-# ================== CREATE DIRECTORIES ==================
+# ================== CREATE DIRECTORIES AND LOG FILE ==================
+# This section ensures the logging environment is set up correctly before any
+# other scripts are called or logging is performed.
+# =====================================================================
+
 # Create the log directory if it doesn't exist.
 if (-not (Test-Path $LogDir)) {
-    New-Item -ItemType Directory -Path $LogDir | Out-Null
+    Write-Host "Creating log directory: $LogDir"
+    try {
+        New-Item -ItemType Directory -Path $LogDir | Out-Null
+    } catch {
+        Write-Host "ERROR: Failed to create log directory. $_" -ForegroundColor Red
+        # Exit the script if the log directory cannot be created.
+        exit 1
+    }
 }
 
 # Create a new log file or append to the existing one.
@@ -331,11 +343,11 @@ switch ($task) {
     "MachinePrep" {
         Log "Task selected: Machine Preparation (semi-automated)"
         Log "Executing scripts from local path..."
-        Invoke-Script -ScriptName "MACHINEPREP.ps1"
-        Invoke-Script -ScriptName "WU.ps1"
-        Invoke-Script -ScriptName "WGET.ps1"
+        Invoke-Script -ScriptName "MACHINEPREP.ps1" -LogDir $LogDir -VerboseMode $VerboseMode
+        Invoke-Script -ScriptName "WU.ps1" -LogDir $LogDir -VerboseMode $VerboseMode
+        Invoke-Script -ScriptName "WGET.ps1" -LogDir $LogDir -VerboseMode $VerboseMode
         if (Confirm-OfficeInstalled) {
-            Invoke-Script -ScriptName "MSO_UPDATE.ps1"
+            Invoke-Script -ScriptName "MSO_UPDATE.ps1" -LogDir $LogDir -VerboseMode $VerboseMode
         } else {
             Log "Microsoft Office not detected. Skipping Office update script."
         }
@@ -345,10 +357,10 @@ switch ($task) {
     "WindowsMaintenance" {
         Log "Task selected: Windows Maintenance"
         Log "Executing scripts from local path..."
-        Invoke-Script -ScriptName "WU.ps1"
-        Invoke-Script -ScriptName "WGET.ps1"
+        Invoke-Script -ScriptName "WU.ps1" -LogDir $LogDir -VerboseMode $VerboseMode
+        Invoke-Script -ScriptName "WGET.ps1" -LogDir $LogDir -VerboseMode $VerboseMode
         if (Confirm-OfficeInstalled) {
-            Invoke-Script -ScriptName "MSO_UPDATE.ps1"
+            Invoke-Script -ScriptName "MSO_UPDATE.ps1" -LogDir $LogDir -VerboseMode $VerboseMode
         } else {
             Log "Microsoft Office not detected. Skipping Office update."
         }

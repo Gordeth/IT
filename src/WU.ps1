@@ -16,6 +16,16 @@ param (
 # This ensures that the Log function is available in this script's scope.
 . "$PSScriptRoot/../modules/Functions.ps1"
 
+# Add a check to ensure a log directory path was provided.
+if (-not $LogDir) {
+    Write-Host "ERROR: The LogDir parameter is required and cannot be empty." -ForegroundColor Red
+    exit 1
+}
+
+# --- Construct the dedicated log file path for this script ---
+# This script will now create its own file named WU.txt within the provided log directory.
+$LogFile = Join-Path $LogDir "WU.txt"
+
 # Log the initial message indicating the script has started, using the `Log` function.
 Log "WU Script started." "INFO"
 
