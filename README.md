@@ -14,12 +14,12 @@ It is designed for IT automation, device preparation, and routine maintenance wi
 
 📂 Project Structure
 File	Purpose
-bootstrapper.ps1	Main entry point. Downloads and runs the latest WUH.ps1.
-WUH.ps1	Core maintenance script orchestrating all tasks.
-Functions.ps1	Shared helper functions (logging, script execution, Office detection).
-MACHINEPREP.ps1	Machine preparation tasks (driver tools, baseline IT setup).
-WGET.ps1	Winget update/cleanup routine.
-MSO_UPDATE.ps1	Optional Microsoft Office update routine.
+bootstrapper.ps1	Main Entry Point. Downloads and runs the core scripts. Use this one!
+WUH.ps1	The core script that orchestrates all maintenance tasks.
+Functions.ps1	Contains shared helper functions (logging, execution, etc.).
+MACHINEPREP.ps1	Contains all tasks for the "Machine Preparation" option.
+WGET.ps1	Handles Winget updates and cleanup.
+MSO_UPDATE.ps1	An optional routine for updating Microsoft Office.
 
 The bootstrapper:
 
