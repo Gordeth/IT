@@ -1,6 +1,6 @@
 # ==================================================
 # Functions.ps1
-# Version: 1.0.3
+# Version: 1.0.4
 # Contains reusable functions for the IT maintenance project.
 # ==================================================
 
@@ -9,13 +9,13 @@
 # and to a persistent log file.
 function Log {
     param (
-        [string]$Message,                               # The message to be logged
+        [string]$Message,                                     # The message to be logged
         [ValidateSet("INFO", "WARN", "ERROR", "DEBUG")] # Validation for log level
-        [string]$Level = "INFO"                         # Default log level is INFO
+        [string]$Level = "INFO"                               # Default log level is INFO
     )
 
     $timestamp = Get-Date -Format "dd-MM-yyyy HH:mm:ss" # Format the current date and time
-    $logEntry = "[$timestamp] [$Level] $Message"       # Construct the full log entry string
+    $logEntry = "[$timestamp] [$Level] $Message"      # Construct the full log entry string
 
     try {
         # Attempt to append the log entry to the specified log file.
@@ -139,6 +139,18 @@ function Uninstall-Chocolatey {
     if (Get-Command choco.exe -ErrorAction SilentlyContinue) {
         Log "Chocolatey found. Attempting to uninstall Chocolatey..." "INFO"
         try {
+            # === NEW: Terminate any processes that might be locking files ===
+            Log "Checking for and stopping any running Chocolatey processes..." "INFO"
+            $chocoProcesses = Get-Process -Name "choco*" -ErrorAction SilentlyContinue
+            if ($chocoProcesses) {
+                foreach ($process in $chocoProcesses) {
+                    Log "Stopping process '$($process.ProcessName)' with ID $($process.Id)." "INFO"
+                    Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+                }
+            } else {
+                Log "No Chocolatey-related processes found." "INFO"
+            }
+            
             # Attempt to uninstall Chocolatey package
             choco uninstall chocolatey -y
             
