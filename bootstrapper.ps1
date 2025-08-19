@@ -85,7 +85,6 @@ try {
         
         if (Test-Path $functionsScriptPath) {
             # Dot-source the shared functions script using its full path.
-            # Now that this is loaded, the Log function will be available.
             . $functionsScriptPath
             
             Write-Host "Shared functions loaded. Running the main orchestrator script..."

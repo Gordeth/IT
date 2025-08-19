@@ -259,3 +259,16 @@ function Test-InstalledProgram {
     # If the function completes without finding a match, it returns $false.
     return $false
 }
+
+# --- New/Updated Function to reliably test for installed programs ---
+function Test-InstalledProgram {
+    param (
+        [string]$ProgramName
+    )
+    # Search for the program in both 64-bit and 32-bit uninstall registry keys.
+    # We use a case-insensitive, wildcard match on the DisplayName property
+    # to account for variations in the program's name.
+    $programFound = Get-ItemProperty -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*", "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*" -ErrorAction SilentlyContinue |
+        Where-Object { $_.DisplayName -like "*$ProgramName*" }
+    return ($null -ne $programFound)
+}

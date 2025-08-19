@@ -1,5 +1,5 @@
 # MACHINEPREP.ps1
-# Version: 1.0.4
+# Version: 1.0.5
 #
 # This script automates the initial setup and preparation of a Windows machine.
 # It includes tasks such as installing essential software (TeamViewer, common apps),
@@ -196,118 +196,85 @@ try {
     # Retrieve the manufacturer of the computer system using WMI.
     # Trim any whitespace and convert to lowercase for reliable comparison.
     $brand = (Get-WmiObject -Class Win32_ComputerSystem).Manufacturer.Trim().ToLower()
-    Log "Detected manufacturer: $brand"
 
     # Use a switch statement with wildcard matching to identify the brand
     # and install the appropriate driver update application.
     switch -Wildcard ($brand) {
         "*lenovo*" {
-            Log "Detected manufacturer: Lenovo. Checking if Lenovo Vantage is already installed..."
-
             # Check for existing installation using winget list
             $lenovoVantage = winget list "Lenovo Vantage" | Where-Object { $_.Name -like "*Lenovo Vantage*" }
-            if ($lenovoVantage) {
-                Log "Lenovo Vantage is already installed. Skipping installation." "INFO"
-            } else {
+            if (-not $lenovoVantage) {
                 try {
-                    Log "Lenovo Vantage not found. Attempting to install via winget."
                     # Search for the package by name to get the correct ID.
                     $package = winget search "Lenovo Vantage" | Where-Object { $_.Name -like "*Lenovo Vantage*" } | Select-Object -First 1
 
                     if ($package) {
                         $packageId = $package.Id
-                        Log "Found Lenovo Vantage with package ID: $packageId. Installing..."
                         winget install --id=$packageId -e --silent --accept-package-agreements --accept-source-agreements
-                        Log "Lenovo Vantage installed successfully."
                     } else {
-                        Log "Lenovo Vantage package not found in winget repository. Skipping installation." "WARN"
+                        Write-Host "Lenovo Vantage package not found in winget repository. Skipping installation." -ForegroundColor Yellow
                     }
                 } catch {
-                    Log "An error occurred while trying to install Lenovo Vantage: $_" "ERROR"
+                    Write-Host "An error occurred while trying to install Lenovo Vantage: $_" -ForegroundColor Red
                 }
             }
         }
         "*hp*" {
-    Log "Detected manufacturer: HP. Checking if HP Support Assistant is already installed..."
-
-    if (Test-InstalledProgram -ProgramName "HP Support Assistant") {
-        Log "HP Support Assistant is already installed. Skipping installation." "INFO"
-    } else {
-        if (Install-Chocolatey) {
-            try {
-                Log "Installing HP Support Assistant via Chocolatey..." "INFO"
-                choco install hpsupportassistant --force -y
-                if ($LASTEXITCODE -eq 0) {
-                    Log "HP Support Assistant installed successfully via Chocolatey." "INFO"
-                } elseif ($LASTEXITCODE -eq 1) {
-                    Log "HP Support Assistant installation via Chocolatey completed with a known issue. Check Chocolatey logs." "WARN"
-                } else {
-                    Log "HP Support Assistant installation via Chocolatey failed with exit code $LASTEXITCODE. Review Chocolatey logs." "ERROR"
+            # The improved detection function is used here.
+            if (-not (Test-InstalledProgram -ProgramName "HP Support Assistant")) {
+                if (Install-Chocolatey) {
+                    try {
+                        choco install hpsupportassistant --force -y
+                        if ($LASTEXITCODE -ne 0) {
+                            Write-Host "HP Support Assistant installation via Chocolatey failed with exit code $LASTEXITCODE. Review Chocolatey logs." -ForegroundColor Red
+                        }
+                    } catch {
+                        Write-Host "Error during Chocolatey installation of HP Support Assistant: $_" -ForegroundColor Red
+                    }
                 }
-            } catch {
-                Log "Error during Chocolatey installation of HP Support Assistant: $_" "ERROR"
             }
         }
-    }
-}
-"*hewlett-packard*" {
-    Log "Detected manufacturer: Hewlett-Packard. Checking if HP Support Assistant is already installed..."
-
-    if (Test-InstalledProgram -ProgramName "HP Support Assistant") {
-        Log "HP Support Assistant is already installed. Skipping installation." "INFO"
-    } else {
-        if (Install-Chocolatey) {
-            try {
-                Log "Installing HP Support Assistant via Chocolatey..." "INFO"
-                choco install hpsupportassistant --force -y
-                if ($LASTEXITCODE -eq 0) {
-                    Log "HP Support Assistant installed successfully via Chocolatey." "INFO"
-                } elseif ($LASTEXITCODE -eq 1) {
-                    Log "HP Support Assistant installation via Chocolatey completed with a known issue. Check Chocolatey logs." "WARN"
-                } else {
-                    Log "HP Support Assistant installation via Chocolatey failed with exit code $LASTEXITCODE. Review Chocolatey logs." "ERROR"
+        "*hewlett-packard*" {
+            # The improved detection function is used here.
+            if (-not (Test-InstalledProgram -ProgramName "HP Support Assistant")) {
+                if (Install-Chocolatey) {
+                    try {
+                        choco install hpsupportassistant --force -y
+                        if ($LASTEXITCODE -ne 0) {
+                            Write-Host "HP Support Assistant installation via Chocolatey failed with exit code $LASTEXITCODE. Review Chocolatey logs." -ForegroundColor Red
+                        }
+                    } catch {
+                        Write-Host "Error during Chocolatey installation of HP Support Assistant: $_" -ForegroundColor Red
+                    }
                 }
-            } catch {
-                Log "Error during Chocolatey installation of HP Support Assistant: $_" "ERROR"
             }
         }
-    }
-}
-
-
         "*dell*" {
-            Log "Detected manufacturer: Dell. Checking if Dell Command Update is already installed..."
-
             # Check for existing installation using winget list
             $dellCommand = winget list "Dell Command Update" | Where-Object { $_.Name -like "*Dell Command Update*" }
-            if ($dellCommand) {
-                Log "Dell Command Update is already installed. Skipping installation." "INFO"
-            } else {
+            if (-not $dellCommand) {
                 try {
-                    Log "Dell Command Update not found. Attempting to install via winget."
                     # Search for the package by name to get the correct ID.
                     $package = winget search "Dell Command Update" | Where-Object { $_.Name -like "*Dell Command Update*" } | Select-Object -First 1
 
                     if ($package) {
                         $packageId = $package.Id
-                        Log "Found Dell Command Update with package ID: $packageId. Installing..."
                         winget install --id=$packageId -e --silent --accept-package-agreements --accept-source-agreements
-                        Log "Dell Command Update installed successfully."
                     } else {
-                        Log "Dell Command Update package not found in winget repository. Skipping installation." "WARN"
+                        Write-Host "Dell Command Update package not found in winget repository. Skipping installation." -ForegroundColor Yellow
                     }
                 } catch {
-                    Log "An error occurred while trying to install Dell Command Update: $_" "ERROR"
+                    Write-Host "An error occurred while trying to install Dell Command Update: $_" -ForegroundColor Red
                 }
             }
         }
         default {
-            Log "No specific driver update app found for this brand."
+            # No specific action for this brand
         }
     }
 } catch {
-    # Log any errors that occur during the detection or installation of driver update apps.
-    Log "Error installing driver update app: $_" "ERROR"
+    # Catch and log any errors that occur during the detection or installation of driver update apps.
+    Write-Host "Error installing driver update app: $_" -ForegroundColor Red
 }
 
 
