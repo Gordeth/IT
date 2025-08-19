@@ -237,14 +237,14 @@ try {
         "*hp*" {
             Write-Host "Found HP brand. Checking for HP Support Assistant..."
             
-            # Attempt to install Chocolatey (function call from external script)
-            if (Install-Chocolatey) {
-                # Check for HP Support Assistant using Chocolatey's local list
-                $hpAssistant = choco list --local-only --limit-output | Select-String -Pattern "hpsupportassistant"
-                
-                if ($hpAssistant) {
-                    Write-Host "HP Support Assistant is already installed via Chocolatey. Skipping." -ForegroundColor Yellow
-                } else {
+            # Use winget to check if HP Support Assistant is registered as installed.
+            $hpAssistant = winget list "HP Support Assistant" | Where-Object { $_.Name -like "*HP Support Assistant*" }
+            
+            if ($hpAssistant) {
+                Write-Host "HP Support Assistant is already installed. Skipping." -ForegroundColor Yellow
+            } else {
+                # Attempt to install Chocolatey (function call from external script)
+                if (Install-Chocolatey) {
                     try {
                         Write-Host "HP Support Assistant not found. Attempting installation via Chocolatey..."
                         choco install hpsupportassistant --force -y
@@ -256,22 +256,22 @@ try {
                     } catch {
                         Write-Host "Error during Chocolatey installation of HP Support Assistant: $_" -ForegroundColor Red
                     }
+                } else {
+                    Write-Host "Chocolatey installation failed, skipping HP Support Assistant." -ForegroundColor Red
                 }
-            } else {
-                Write-Host "Chocolatey installation failed, skipping HP Support Assistant." -ForegroundColor Red
             }
         }
         "*hewlett-packard*" {
             Write-Host "Found Hewlett-Packard brand. Checking for HP Support Assistant..."
-
-            # Attempt to install Chocolatey (function call from external script)
-            if (Install-Chocolatey) {
-                # Check for HP Support Assistant using Chocolatey's local list
-                $hpAssistant = choco list --local-only --limit-output | Select-String -Pattern "hpsupportassistant"
-
-                if ($hpAssistant) {
-                    Write-Host "HP Support Assistant is already installed via Chocolatey. Skipping." -ForegroundColor Yellow
-                } else {
+            
+            # Use winget to check if HP Support Assistant is registered as installed.
+            $hpAssistant = winget list "HP Support Assistant" | Where-Object { $_.Name -like "*HP Support Assistant*" }
+            
+            if ($hpAssistant) {
+                Write-Host "HP Support Assistant is already installed. Skipping." -ForegroundColor Yellow
+            } else {
+                # Attempt to install Chocolatey (function call from external script)
+                if (Install-Chocolatey) {
                     try {
                         Write-Host "HP Support Assistant not found. Attempting installation via Chocolatey..."
                         choco install hpsupportassistant --force -y
@@ -283,9 +283,9 @@ try {
                     } catch {
                         Write-Host "Error during Chocolatey installation of HP Support Assistant: $_" -ForegroundColor Red
                     }
+                } else {
+                    Write-Host "Chocolatey installation failed, skipping HP Support Assistant." -ForegroundColor Red
                 }
-            } else {
-                Write-Host "Chocolatey installation failed, skipping HP Support Assistant." -ForegroundColor Red
             }
         }
         "*dell*" {
@@ -322,6 +322,7 @@ try {
     # Catch and log any errors that occur during the detection or installation of driver update apps.
     Write-Host "Error installing driver update app: $_" -ForegroundColor Red
 }
+
 
 # ================== 7. Install Disk Management App ==================
 #
