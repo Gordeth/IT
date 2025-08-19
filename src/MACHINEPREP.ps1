@@ -238,7 +238,8 @@ try {
             Write-Host "Found HP brand. Checking for HP Support Assistant..."
             
             # Use winget to check if HP Support Assistant is registered as installed.
-            $hpAssistant = winget list "HP Support Assistant" | Where-Object { $_.Name -like "*HP Support Assistant*" }
+            # We now check the package ID which is more reliable.
+            $hpAssistant = winget list "HP Support Assistant" | Where-Object { $_.Id -like "*HP Support Assistant*" }
             
             if ($hpAssistant) {
                 Write-Host "HP Support Assistant is already installed. Skipping." -ForegroundColor Yellow
@@ -265,7 +266,8 @@ try {
             Write-Host "Found Hewlett-Packard brand. Checking for HP Support Assistant..."
             
             # Use winget to check if HP Support Assistant is registered as installed.
-            $hpAssistant = winget list "HP Support Assistant" | Where-Object { $_.Name -like "*HP Support Assistant*" }
+            # We now check the package ID which is more reliable.
+            $hpAssistant = winget list "HP Support Assistant" | Where-Object { $_.Id -like "*HP Support Assistant*" }
             
             if ($hpAssistant) {
                 Write-Host "HP Support Assistant is already installed. Skipping." -ForegroundColor Yellow
@@ -322,6 +324,7 @@ try {
     # Catch and log any errors that occur during the detection or installation of driver update apps.
     Write-Host "Error installing driver update app: $_" -ForegroundColor Red
 }
+
 
 
 # ================== 7. Install Disk Management App ==================
