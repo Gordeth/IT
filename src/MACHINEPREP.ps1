@@ -53,19 +53,17 @@ $LogFile = Join-Path $LogDir "MACHINEPREP.txt"
 . "$PSScriptRoot/../modules/Functions.ps1"
 
 # This function checks the Windows Registry for a program's installation.
-# This is a more reliable method than relying on a package manager's list.
-# --- New/Updated Function to reliably test for installed programs ---
+# It returns the program object if found, otherwise it returns $null.
 function Test-InstalledProgram {
     param (
         [string]$ProgramName
     )
     # Search for the program in both 64-bit and 32-bit uninstall registry keys.
-    # We use a case-insensitive, wildcard match on the DisplayName property
-    # to account for variations in the program's name.
-    $programFound = Get-ItemProperty -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*", "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*" -ErrorAction SilentlyContinue |
-        Where-Object { $_.DisplayName -like "*$ProgramName*" }
-    return ($null -ne $programFound)
+    # A case-insensitive, wildcard match is used to account for name variations.
+    return Get-ItemProperty -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*", "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*" -ErrorAction SilentlyContinue |
+        Where-Object { $_.DisplayName -like "*$ProgramName*" } | Select-Object -First 1
 }
+
 
 # ==================== Begin Script Execution ====================
 Log "Starting MACHINEPREP.ps1 script." "INFO"
