@@ -1,8 +1,8 @@
 # ==================================================
 # Bootstrapper.ps1
-# V 1.0.8
+# V 1.0.9
 # Downloads the src and modules folders for the IT maintenance project
-# using the GitHub API to ensure all files are fetched.
+# using the GitHub API to ensure all files are fetched, then cleans up.
 # ==================================================
 
 # Define your GitHub repository details
@@ -28,7 +28,7 @@ Write-Host "Saving current working directory and starting the process..."
 Push-Location
 
 # A try-finally block ensures that Pop-Location is always called,
-# even if an error occurs during the script's execution.
+# and also that the cleanup code runs.
 try {
     # Clean up old project directory if it exists
     Write-Host "Checking for old project directory..."
@@ -108,5 +108,18 @@ try {
     # This is critical for returning the user to their starting path.
     Write-Host "All operations complete. Returning to original directory."
     Pop-Location
+    
+    # --- Final Cleanup ---
+    # This section guarantees that the downloaded files are removed
+    # even if an error occurred during execution.
+    Write-Host "Starting final cleanup of temporary project files..."
+    if (Test-Path $projectDir) {
+        Write-Host "Removing temporary project directory: $projectDir"
+        Remove-Item -Path $projectDir -Recurse -Force
+        Write-Host "Temporary project directory removed."
+    } else {
+        Write-Host "Temporary project directory not found. No cleanup needed."
+    }
+    
     Write-Host "Script finished."
 }

@@ -47,14 +47,6 @@ if (-not $LogDir) {
 # This script will now create its own file named MACHINEPREP.txt within the provided log directory.
 $LogFile = Join-Path $LogDir "MACHINEPREP.txt"
 
-# ================== LOAD FUNCTIONS MODULE ==================
-# This line makes all the functions in your separate Functions.ps1 script available.
-# The path is relative to this script's location ($PSScriptRoot).
-. "$PSScriptRoot/../modules/Functions.ps1"
-
-
-
-
 # ==================== Begin Script Execution ====================
 Log "Starting MACHINEPREP.ps1 script." "INFO"
 
