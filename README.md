@@ -1,6 +1,6 @@
-# Windows Update Helper (WUH)
+# Genesis Apex
 
-WUH is a **PowerShell project** designed to automate common system maintenance and preparation tasks for Windows environments. It is intended for IT automation, device preparation, and routine maintenance, all from a single entry point.
+Genesis Apex is a **PowerShell project** designed to automate common system maintenance and preparation tasks for Windows environments. It is intended for IT automation, device preparation, and routine maintenance, all from a single entry point.
 
 ⚠️ **Important:** Do not run the included scripts individually. Always launch WUH via the bootstrapper, which ensures correct setup and execution.
 
