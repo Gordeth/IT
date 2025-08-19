@@ -52,17 +52,7 @@ $LogFile = Join-Path $LogDir "MACHINEPREP.txt"
 # The path is relative to this script's location ($PSScriptRoot).
 . "$PSScriptRoot/../modules/Functions.ps1"
 
-# This function checks the Windows Registry for a program's installation.
-# It returns the program object if found, otherwise it returns $null.
-function Test-InstalledProgram {
-    param (
-        [string]$ProgramName
-    )
-    # Search for the program in both 64-bit and 32-bit uninstall registry keys.
-    # A case-insensitive, wildcard match is used to account for name variations.
-    return Get-ItemProperty -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*", "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*" -ErrorAction SilentlyContinue |
-        Where-Object { $_.DisplayName -like "*$ProgramName*" } | Select-Object -First 1
-}
+
 
 
 # ==================== Begin Script Execution ====================
@@ -206,6 +196,9 @@ try {
 # This helps ensure drivers are kept up-to-date. The script now checks if
 # the app is already installed before attempting to install it.
 #
+# Note: The 'Install-Chocolatey' function is assumed to be available
+# from an external script or module.
+#
 try {
     # Retrieve the manufacturer of the computer system using WMI.
     # Trim any whitespace and convert to lowercase for reliable comparison.
@@ -243,10 +236,15 @@ try {
         }
         "*hp*" {
             Write-Host "Found HP brand. Checking for HP Support Assistant..."
-            if (Test-InstalledProgram -ProgramName "HP Support Assistant") {
-                Write-Host "HP Support Assistant is already installed. Skipping." -ForegroundColor Yellow
-            } else {
-                if (Install-Chocolatey) {
+            
+            # Attempt to install Chocolatey (function call from external script)
+            if (Install-Chocolatey) {
+                # Check for HP Support Assistant using Chocolatey's local list
+                $hpAssistant = choco list --local-only --limit-output | Select-String -Pattern "hpsupportassistant"
+                
+                if ($hpAssistant) {
+                    Write-Host "HP Support Assistant is already installed via Chocolatey. Skipping." -ForegroundColor Yellow
+                } else {
                     try {
                         Write-Host "HP Support Assistant not found. Attempting installation via Chocolatey..."
                         choco install hpsupportassistant --force -y
@@ -258,17 +256,22 @@ try {
                     } catch {
                         Write-Host "Error during Chocolatey installation of HP Support Assistant: $_" -ForegroundColor Red
                     }
-                } else {
-                    Write-Host "Chocolatey installation failed, skipping HP Support Assistant." -ForegroundColor Red
                 }
+            } else {
+                Write-Host "Chocolatey installation failed, skipping HP Support Assistant." -ForegroundColor Red
             }
         }
         "*hewlett-packard*" {
             Write-Host "Found Hewlett-Packard brand. Checking for HP Support Assistant..."
-            if (Test-InstalledProgram -ProgramName "HP Support Assistant") {
-                Write-Host "HP Support Assistant is already installed. Skipping." -ForegroundColor Yellow
-            } else {
-                if (Install-Chocolatey) {
+
+            # Attempt to install Chocolatey (function call from external script)
+            if (Install-Chocolatey) {
+                # Check for HP Support Assistant using Chocolatey's local list
+                $hpAssistant = choco list --local-only --limit-output | Select-String -Pattern "hpsupportassistant"
+
+                if ($hpAssistant) {
+                    Write-Host "HP Support Assistant is already installed via Chocolatey. Skipping." -ForegroundColor Yellow
+                } else {
                     try {
                         Write-Host "HP Support Assistant not found. Attempting installation via Chocolatey..."
                         choco install hpsupportassistant --force -y
@@ -280,9 +283,9 @@ try {
                     } catch {
                         Write-Host "Error during Chocolatey installation of HP Support Assistant: $_" -ForegroundColor Red
                     }
-                } else {
-                    Write-Host "Chocolatey installation failed, skipping HP Support Assistant." -ForegroundColor Red
                 }
+            } else {
+                Write-Host "Chocolatey installation failed, skipping HP Support Assistant." -ForegroundColor Red
             }
         }
         "*dell*" {
@@ -319,9 +322,6 @@ try {
     # Catch and log any errors that occur during the detection or installation of driver update apps.
     Write-Host "Error installing driver update app: $_" -ForegroundColor Red
 }
-
-
-
 
 # ================== 7. Install Disk Management App ==================
 #
