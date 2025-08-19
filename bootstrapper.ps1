@@ -1,6 +1,6 @@
 # ==================================================
 # Bootstrapper.ps1
-# V 1.0.7
+# V 1.0.8
 # Downloads the src and modules folders for the IT maintenance project
 # using the GitHub API to ensure all files are fetched.
 # ==================================================
@@ -23,73 +23,91 @@ $dirsToDownload = @(
 # Core Download and Execution Logic
 # ==================================================
 
-# Clean up old project directory if it exists
-Write-Host "Checking for old project directory..."
-if (Test-Path $projectDir) {
-    Write-Host "Removing old project directory: $projectDir"
-    Remove-Item -Path $projectDir -Recurse -Force
-}
+# Use Push-Location to save the current directory.
+Write-Host "Saving current working directory and starting the process..."
+Push-Location
 
-Write-Host "Creating new project directory: $projectDir"
-New-Item -ItemType Directory -Path $projectDir | Out-Null
+# A try-finally block ensures that Pop-Location is always called,
+# even if an error occurs during the script's execution.
+try {
+    # Clean up old project directory if it exists
+    Write-Host "Checking for old project directory..."
+    if (Test-Path $projectDir) {
+        Write-Host "Old project directory found. Removing old project directory: $projectDir"
+        Remove-Item -Path $projectDir -Recurse -Force
+    }
 
-# Download each required directory individually using the GitHub API
-foreach ($dir in $dirsToDownload) {
-    Write-Host "Downloading contents of '$dir' folder from GitHub..."
-    $dirApiUrl = "$apiUrl/$dir"
-    $destinationDir = Join-Path $projectDir $dir
-    
-    try {
-        # Fetch the list of files from the API
-        $files = Invoke-RestMethod -Uri $dirApiUrl
+    Write-Host "Creating new project directory: $projectDir"
+    New-Item -ItemType Directory -Path $projectDir | Out-Null
+
+    # Download each required directory individually using the GitHub API
+    foreach ($dir in $dirsToDownload) {
+        Write-Host "Downloading contents of '$dir' folder from GitHub..."
+        $dirApiUrl = "$apiUrl/$dir"
+        $destinationDir = Join-Path $projectDir $dir
         
-        # Create the local directory
-        New-Item -ItemType Directory -Path $destinationDir | Out-Null
-        
-        # Download each file individually
-        foreach ($file in $files) {
-            # Only download files, not sub-directories
-            if ($file.type -eq "file") {
-                $sourceUrl = $file.download_url
-                $destinationFile = Join-Path $destinationDir $file.name
-                Write-Host "Downloading $($file.name)..."
-                
-                try {
-                    Invoke-WebRequest -Uri $sourceUrl -OutFile $destinationFile -UseBasicParsing
-                    Write-Host "Successfully downloaded $($file.name)."
-                } catch {
-                    Write-Host "Failed to download $($file.name). Error: $_" -ForegroundColor Red
-                    Exit 1
+        try {
+            # Fetch the list of files from the API
+            $files = Invoke-RestMethod -Uri $dirApiUrl
+            
+            # Create the local directory
+            New-Item -ItemType Directory -Path $destinationDir | Out-Null
+            
+            # Download each file individually
+            foreach ($file in $files) {
+                # Only download files, not sub-directories
+                if ($file.type -eq "file") {
+                    $sourceUrl = $file.download_url
+                    $destinationFile = Join-Path $destinationDir $file.name
+                    Write-Host "Downloading $($file.name)..."
+                    
+                    try {
+                        Invoke-WebRequest -Uri $sourceUrl -OutFile $destinationFile -UseBasicParsing
+                        Write-Host "Successfully downloaded $($file.name)."
+                    } catch {
+                        Write-Host "Failed to download $($file.name). Error: $_" -ForegroundColor Red
+                        Exit 1
+                    }
                 }
             }
+        } catch {
+            Write-Host "Failed to access the GitHub API for '$dir'. Error: $_" -ForegroundColor Red
+            Exit 1
         }
-    } catch {
-        Write-Host "Failed to access the GitHub API for '$dir'. Error: $_" -ForegroundColor Red
-        Exit 1
     }
-}
 
-# --- Execute Logic ---
-$orchestratorScriptPath = "$projectDir\src\WUH.ps1"
-$functionsScriptPath = "$projectDir\modules\Functions.ps1"
+    # --- Execute Logic ---
+    $orchestratorScriptPath = "$projectDir\src\WUH.ps1"
+    $functionsScriptPath = "$projectDir\modules\Functions.ps1"
 
-if (Test-Path $orchestratorScriptPath) {
-    Write-Host "Loading shared functions..."
-    
-    if (Test-Path $functionsScriptPath) {
-        # Dot-source the shared functions script using its full path.
-        . $functionsScriptPath
+    if (Test-Path $orchestratorScriptPath) {
+        Write-Host "Loading shared functions..."
         
-        Write-Host "Shared functions loaded. Running the main orchestrator script..."
-        
-        # Execute the orchestrator script using its full path.
-        # This is where the script's core logic starts.
-        & $orchestratorScriptPath
+        if (Test-Path $functionsScriptPath) {
+            # Dot-source the shared functions script using its full path.
+            # Now that this is loaded, the Log function will be available.
+            . $functionsScriptPath
+            
+            Log "Shared functions loaded. Running the main orchestrator script..."
+            
+            # Change the working directory to where the main script is.
+            Set-Location -Path (Split-Path -Path $orchestratorScriptPath)
+            
+            # Execute the orchestrator script
+            & $orchestratorScriptPath
+        } else {
+            Write-Host "Could not find the shared functions script at $functionsScriptPath. Aborting." -ForegroundColor Red
+            Exit 1
+        }
     } else {
-        Write-Host "Could not find the shared functions script at $functionsScriptPath. Aborting." -ForegroundColor Red
+        Write-Host "Could not find the main orchestrator script at $orchestratorScriptPath. Aborting." -ForegroundColor Red
         Exit 1
     }
-} else {
-    Write-Host "Could not find the main orchestrator script at $orchestratorScriptPath. Aborting." -ForegroundColor Red
-    Exit 1
+
+} finally {
+    # Pop-Location restores the script to the original directory.
+    # This is critical for returning the user to their starting path.
+    Write-Host "All operations complete. Returning to original directory."
+    Pop-Location
+    Write-Host "Script finished."
 }
