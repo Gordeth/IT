@@ -88,7 +88,7 @@ try {
             # Now that this is loaded, the Log function will be available.
             . $functionsScriptPath
             
-            Log "Shared functions loaded. Running the main orchestrator script..."
+            Write-Host "Shared functions loaded. Running the main orchestrator script..."
             
             # Change the working directory to where the main script is.
             Set-Location -Path (Split-Path -Path $orchestratorScriptPath)
