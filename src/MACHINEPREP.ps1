@@ -199,21 +199,29 @@ try {
     # Retrieve the manufacturer of the computer system using WMI.
     # Trim any whitespace and convert to lowercase for reliable comparison.
     $brand = (Get-WmiObject -Class Win32_ComputerSystem).Manufacturer.Trim().ToLower()
+    Write-Host "Detected manufacturer: $brand" -ForegroundColor Cyan
 
     # Use a switch statement with wildcard matching to identify the brand
     # and install the appropriate driver update application.
     switch -Wildcard ($brand) {
         "*lenovo*" {
-            # Check for existing installation using winget list
+            Write-Host "Found Lenovo brand. Checking for Lenovo Vantage..."
             $lenovoVantage = winget list "Lenovo Vantage" | Where-Object { $_.Name -like "*Lenovo Vantage*" }
-            if (-not $lenovoVantage) {
+            if ($lenovoVantage) {
+                Write-Host "Lenovo Vantage is already installed. Skipping." -ForegroundColor Yellow
+            } else {
                 try {
-                    # Search for the package by name to get the correct ID.
+                    Write-Host "Lenovo Vantage not found. Attempting installation via winget..."
                     $package = winget search "Lenovo Vantage" | Where-Object { $_.Name -like "*Lenovo Vantage*" } | Select-Object -First 1
 
                     if ($package) {
                         $packageId = $package.Id
                         winget install --id=$packageId -e --silent --accept-package-agreements --accept-source-agreements
+                        if ($LASTEXITCODE -eq 0) {
+                            Write-Host "Successfully installed Lenovo Vantage." -ForegroundColor Green
+                        } else {
+                            Write-Host "Failed to install Lenovo Vantage. Winget exit code: $LASTEXITCODE." -ForegroundColor Red
+                        }
                     } else {
                         Write-Host "Lenovo Vantage package not found in winget repository. Skipping installation." -ForegroundColor Yellow
                     }
@@ -223,46 +231,67 @@ try {
             }
         }
         "*hp*" {
-            # The improved detection function is used here.
-            if (-not (Test-InstalledProgram -ProgramName "HP Support Assistant")) {
+            Write-Host "Found HP brand. Checking for HP Support Assistant..."
+            if (Test-InstalledProgram -ProgramName "HP Support Assistant") {
+                Write-Host "HP Support Assistant is already installed. Skipping." -ForegroundColor Yellow
+            } else {
                 if (Install-Chocolatey) {
                     try {
+                        Write-Host "HP Support Assistant not found. Attempting installation via Chocolatey..."
                         choco install hpsupportassistant --force -y
-                        if ($LASTEXITCODE -ne 0) {
+                        if ($LASTEXITCODE -eq 0) {
+                            Write-Host "Successfully installed HP Support Assistant." -ForegroundColor Green
+                        } elseif ($LASTEXITCODE -ne 0) {
                             Write-Host "HP Support Assistant installation via Chocolatey failed with exit code $LASTEXITCODE. Review Chocolatey logs." -ForegroundColor Red
                         }
                     } catch {
                         Write-Host "Error during Chocolatey installation of HP Support Assistant: $_" -ForegroundColor Red
                     }
+                } else {
+                    Write-Host "Chocolatey installation failed, skipping HP Support Assistant." -ForegroundColor Red
                 }
             }
         }
         "*hewlett-packard*" {
-            # The improved detection function is used here.
-            if (-not (Test-InstalledProgram -ProgramName "HP Support Assistant")) {
+            Write-Host "Found Hewlett-Packard brand. Checking for HP Support Assistant..."
+            if (Test-InstalledProgram -ProgramName "HP Support Assistant") {
+                Write-Host "HP Support Assistant is already installed. Skipping." -ForegroundColor Yellow
+            } else {
                 if (Install-Chocolatey) {
                     try {
+                        Write-Host "HP Support Assistant not found. Attempting installation via Chocolatey..."
                         choco install hpsupportassistant --force -y
-                        if ($LASTEXITCODE -ne 0) {
+                        if ($LASTEXITCODE -eq 0) {
+                            Write-Host "Successfully installed HP Support Assistant." -ForegroundColor Green
+                        } elseif ($LASTEXITCODE -ne 0) {
                             Write-Host "HP Support Assistant installation via Chocolatey failed with exit code $LASTEXITCODE. Review Chocolatey logs." -ForegroundColor Red
                         }
                     } catch {
                         Write-Host "Error during Chocolatey installation of HP Support Assistant: $_" -ForegroundColor Red
                     }
+                } else {
+                    Write-Host "Chocolatey installation failed, skipping HP Support Assistant." -ForegroundColor Red
                 }
             }
         }
         "*dell*" {
-            # Check for existing installation using winget list
+            Write-Host "Found Dell brand. Checking for Dell Command Update..."
             $dellCommand = winget list "Dell Command Update" | Where-Object { $_.Name -like "*Dell Command Update*" }
-            if (-not $dellCommand) {
+            if ($dellCommand) {
+                Write-Host "Dell Command Update is already installed. Skipping." -ForegroundColor Yellow
+            } else {
                 try {
-                    # Search for the package by name to get the correct ID.
+                    Write-Host "Dell Command Update not found. Attempting installation via winget..."
                     $package = winget search "Dell Command Update" | Where-Object { $_.Name -like "*Dell Command Update*" } | Select-Object -First 1
 
                     if ($package) {
                         $packageId = $package.Id
                         winget install --id=$packageId -e --silent --accept-package-agreements --accept-source-agreements
+                        if ($LASTEXITCODE -eq 0) {
+                            Write-Host "Successfully installed Dell Command Update." -ForegroundColor Green
+                        } else {
+                            Write-Host "Failed to install Dell Command Update. Winget exit code: $LASTEXITCODE." -ForegroundColor Red
+                        }
                     } else {
                         Write-Host "Dell Command Update package not found in winget repository. Skipping installation." -ForegroundColor Yellow
                     }
@@ -272,13 +301,14 @@ try {
             }
         }
         default {
-            # No specific action for this brand
+            Write-Host "No specific driver update app for detected brand '$brand'. Skipping." -ForegroundColor Yellow
         }
     }
 } catch {
     # Catch and log any errors that occur during the detection or installation of driver update apps.
     Write-Host "Error installing driver update app: $_" -ForegroundColor Red
 }
+
 
 
 
