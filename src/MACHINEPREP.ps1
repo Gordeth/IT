@@ -237,11 +237,12 @@ try {
         "*hp*" {
             Write-Host "Found HP brand. Checking for HP Support Assistant..."
             
-            # Use winget to check if HP Support Assistant is registered as installed.
-            # We now check the package ID which is more reliable.
-            $hpAssistant = winget list "HP Support Assistant" | Where-Object { $_.Id -like "*HP Support Assistant*" }
-            
-            if ($hpAssistant) {
+            # This is the new, more robust check. We pipe the output to Out-String
+            # to treat it as a single block of text and then search for the
+            # "HP Support Assistant" string, which is always present in the output
+            # when the app is installed.
+            $wingetOutput = winget list "HP Support Assistant" | Out-String
+            if ($wingetOutput -like "*HP Support Assistant*") {
                 Write-Host "HP Support Assistant is already installed. Skipping." -ForegroundColor Yellow
             } else {
                 # Attempt to install Chocolatey (function call from external script)
@@ -265,11 +266,12 @@ try {
         "*hewlett-packard*" {
             Write-Host "Found Hewlett-Packard brand. Checking for HP Support Assistant..."
             
-            # Use winget to check if HP Support Assistant is registered as installed.
-            # We now check the package ID which is more reliable.
-            $hpAssistant = winget list "HP Support Assistant" | Where-Object { $_.Id -like "*HP Support Assistant*" }
-            
-            if ($hpAssistant) {
+            # This is the new, more robust check. We pipe the output to Out-String
+            # to treat it as a single block of text and then search for the
+            # "HP Support Assistant" string, which is always present in the output
+            # when the app is installed.
+            $wingetOutput = winget list "HP Support Assistant" | Out-String
+            if ($wingetOutput -like "*HP Support Assistant*") {
                 Write-Host "HP Support Assistant is already installed. Skipping." -ForegroundColor Yellow
             } else {
                 # Attempt to install Chocolatey (function call from external script)
