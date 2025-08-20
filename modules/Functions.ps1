@@ -1,6 +1,6 @@
 # ==================================================
 # Functions.ps1
-# Version: 1.0.5
+# Version: 1.0.6
 # Contains reusable functions for the IT maintenance project.
 # ==================================================
 
@@ -47,29 +47,26 @@ function Log {
 function Install-NuGetProvider {
     Log "Checking for existing NuGet provider..."
 
-    # Use Get-PackageProvider to check if NuGet is already installed.
-    if (-not (Get-PackageProvider -Name 'NuGet' -ErrorAction SilentlyContinue)) {
-        Log "NuGet provider is not installed. Beginning installation..."
+    # Attempt to get the NuGet provider and store the result.
+    # The -ErrorAction SilentlyContinue is crucial here.
+    $provider = Get-PackageProvider -Name 'NuGet' -ErrorAction SilentlyContinue
+
+    # Check if a provider was found. If not, proceed with installation.
+    if (-not $provider) {
+        Log "NuGet provider not found. Beginning installation..."
         try {
-            # This is a robust and non-interactive way to install the NuGet provider.
-            # We use -Force to handle updates and -ErrorAction Stop to catch any critical failures.
+            # Use -Force and -Confirm:$false to ensure a non-interactive installation.
             Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Scope AllUsers -Force -Confirm:$false -ErrorAction Stop
             
-            Log "Install-PackageProvider command executed successfully. Waiting for installation to complete..."
+            Log "NuGet provider installation successful."
             
-            # Adding a short delay helps prevent race conditions where the provider
-            # might not be immediately ready for use by the parent script.
-            Start-Sleep -Seconds 5
-            
-            Log "NuGet provider installed and verified."
         } catch {
-            # This try/catch block will now catch any errors from the installation command itself.
-            Log "FATAL ERROR: Failed to install or verify NuGet provider: $($_.Exception.Message)" -Level "ERROR"
-            # Since this is a critical dependency, we exit the script if it fails.
+            Log "FATAL ERROR: Failed to install NuGet provider: $($_.Exception.Message)" -Level "ERROR"
             exit 1
         }
     } else {
-        Log "NuGet provider is already installed. Continuing."
+        # This branch will execute if the provider was successfully found.
+        Log "NuGet provider version $($provider.Version) is already installed. Continuing."
     }
 }
 
