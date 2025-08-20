@@ -1,6 +1,6 @@
 # ==============================================================================
 # PowerShell Maintenance Script
-# Version: 1.0.2
+# Version: 1.0.3
 # This script automates various machine preparation and Windows maintenance tasks.
 # It includes robust logging, internet connectivity checks, execution policy handling,
 # and a focus on silent execution for automation.
@@ -54,7 +54,7 @@ function Invoke-Script {
     param (
         [string]$ScriptName,
         [switch]$VerboseMode, # Parameter to receive VerboseMode
-        [string]$LogFile      # Parameter to receive LogFile path
+        [string]$LogFile# Parameter to receive LogFile path
     )
     $scriptPath = Join-Path $ScriptDir $ScriptName
     Log "Running $ScriptName..."
@@ -73,8 +73,8 @@ function Confirm-OfficeInstalled {
     # Define common installation paths for Microsoft Office (32-bit and 64-bit).
     $officePaths = @(
         "${env:ProgramFiles(x86)}\Microsoft Office", # Common 32-bit path on 64-bit OS
-        "${env:ProgramFiles}\Microsoft Office",       # Common 64-bit path
-        "${env:ProgramW6432}\Microsoft Office"        # Alternative 64-bit path
+        "${env:ProgramFiles}\Microsoft Office",# Common 64-bit path
+        "${env:ProgramW6432}\Microsoft Office"# Alternative 64-bit path
     )
     # Iterate through the paths to check for existence.
     foreach ($path in $officePaths) {
@@ -114,7 +114,7 @@ function Repair-SystemFiles {
             $processInfo.Arguments = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command `"$command`""
             $processInfo.UseShellExecute = $false # Crucial for redirecting output
             $processInfo.RedirectStandardOutput = $true # Attempt to redirect stdout
-            $processInfo.RedirectStandardError = $true  # Attempt to redirect stderr
+            $processInfo.RedirectStandardError = $true # Attempt to redirect stderr
 
             # Create and start the process
             $process = New-Object System.Diagnostics.Process
@@ -190,14 +190,16 @@ Write-Host ""
 Write-Host "Select Task:"
 Write-Host "[1] Machine Preparation (semi-automated)"
 Write-Host "[2] Windows Maintenance"
+Write-Host "[3] Install/Upgrade UniFi Server"
 
 $isValidInput = $false
 while (-not $isValidInput) {
-    $taskInput = Read-Host "Choose task [1/2]"
+    $taskInput = Read-Host "Choose task [1/2/3]"
     switch ($taskInput) {
         "1" { $task = "MachinePrep"; $isValidInput = $true }
         "2" { $task = "WindowsMaintenance"; $isValidInput = $true }
-        default { Write-Host "Invalid input. Please choose 1 or 2." -ForegroundColor Red }
+        "3" { $task = "InstallUpgradeUniFiServer"; $isValidInput = $true }
+        default { Write-Host "Invalid input. Please choose 1, 2, or 3." -ForegroundColor Red }
     }
 }
 Log "User interactively selected task: $task"
@@ -370,6 +372,11 @@ switch ($task) {
         }
         Log "Running System File Checker (SFC) to verify system integrity..."
         
+    }
+    "InstallUpgradeUniFiServer" {
+        Log "Task selected: Install/Upgrade UniFi Server"
+        Log "Executing INSTALLUNIFISERVER.ps1 from local path..."
+        Invoke-Script -ScriptName "INSTALLUNIFISERVER.ps1" -LogDir $LogDir -VerboseMode $VerboseMode
     }
     default {
         Log "Invalid task selection. Exiting script. Received value: '$task'" -Level "ERROR"
