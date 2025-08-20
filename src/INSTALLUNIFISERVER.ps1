@@ -1,5 +1,5 @@
 # INSTALLUNIFISERVER.ps1
-# Version: 1.0.4
+# Version: 1.0.5
 #
 # UNIFI NETWORK SERVER INSTALLATION SCRIPT (DYNAMIC & UPGRADE-READY)
 # THIS SCRIPT IS INTENDED FOR WINDOWS 10/11 (DESKTOP) ONLY, NOT SERVER VERSIONS.
@@ -37,15 +37,12 @@ if (-not $LogFile) {
 $LogFile = Join-Path $LogDir "INSTALL-UNIFI-SERVER.txt"
 
 # ==================== Begin Script Execution ====================
-Log "Running INSTALL-UNIFI-SERVER script Version: 1.0.4" "INFO"
+Log "Running INSTALL-UNIFI-SERVER script Version: 1.0.5" "INFO"
 Log "Starting UniFi Network Server installation process..." "INFO"
 
 # --- Step 1: Define Variables and Check for Existing Installation ---
 Log "Defining variables and checking for existing installation..." "INFO"
 
-$tempPath = [System.IO.Path]::GetTempPath()
-$unifiInstallerName = "UniFi-installer.exe"
-$unifiInstallerPath = Join-Path -Path $tempPath -ChildPath $unifiInstallerName
 $unifiDir = "$env:UserProfile\Ubiquiti UniFi"
 $aceJarPath = Join-Path -Path $unifiDir -ChildPath "lib\ace.jar"
 
@@ -68,56 +65,20 @@ if (Test-Path -Path $aceJarPath) {
   Log "No existing UniFi installation found. Proceeding with a new installation." "INFO"
 }
 
-# --- Step 2: Find and Download Latest UniFi and Java Versions ---
-# Find the latest UniFi version
-Log "Searching for the latest UniFi Network Server version..." "INFO"
-try {
-  $unifiApiUrl = "https://fw-update.ui.com/firmware.json"
-  $firmwareData = Invoke-WebRequest -Uri $unifiApiUrl -UseBasicParsing | ConvertFrom-Json
-  $latestUnifiVersion = ($firmwareData.unifi_os_firmware | Where-Object { $_.file -like "*UniFi-installer.exe" } | Sort-Object -Property version -Descending | Select-Object -First 1).version
-  $unifiInstallerUrl = "https://dl.ui.com/unifi/$latestUnifiVersion/$unifiInstallerName"
-  Log "Found latest UniFi version: $latestUnifiVersion" "INFO"
-} catch {
-  Log "ERROR: Failed to find the latest UniFi version. Using default URL." "ERROR"
-  $unifiInstallerUrl = "https://dl.ui.com/unifi/9.3.45/UniFi-installer.exe"
-}
+# --- Step 2: Install NuGet Provider ---
+Log "Ensuring NuGet provider is installed..." "INFO"
+Install-NuGetProvider
 
-# Find the latest Java 17 JRE MSI
-Log "Searching for the latest Java 17 JRE installer..." "INFO"
+# --- Step 3: Install UniFi and Java Dependencies via Winget ---
+Log "Installing/Updating UniFi Network Server and Java..." "INFO"
 try {
-  $azulApiUrl = "https://api.azul.com/zulu/download/community/v1.0/packages/latest?os=windows&architecture=x64&archive_type=zip&java_package=jre&release_status=ga&jvm_type=hotspot&jdk_version=17&ext=msi"
-  $azulData = Invoke-RestMethod -Uri $azulApiUrl
-  $javaInstallerUrl = $azulData.download_url
-  $javaInstallerName = $javaInstallerUrl.Substring($javaInstallerUrl.LastIndexOf('/') + 1)
-  $javaInstallerPath = Join-Path -Path $tempPath -ChildPath $javaInstallerName
-  Log "Found latest Java 17 JRE: $javaInstallerName" "INFO"
+    # UniFi Network Server requires Java. Winget will automatically handle this dependency.
+    winget install --id "Ubiquiti.UniFiNetworkServer" --accept-package-agreements --accept-source-agreements --silent
+    Log "UniFi Network Server and Java installation/update complete." "INFO"
+    Start-Sleep -Seconds 10 # Wait for services to initialize
 } catch {
-  Log "ERROR: Failed to find the latest Java version. Using default URL." "ERROR"
-  $javaInstallerUrl = "https://cdn.azul.com/zulu/bin/zulu17.48.15-sa-jre17.0.10-win_x64.msi"
-  $javaInstallerName = "zulu17.48.15-sa-jre17.0.10-win_x64.msi"
-  $javaInstallerPath = Join-Path -Path $tempPath -ChildPath $javaInstallerName
-}
-
-# --- Step 3: Install Java and UniFi ---
-Log "Downloading and installing Java 17 JRE..." "INFO"
-try {
-  Invoke-WebRequest -Uri $javaInstallerUrl -OutFile $javaInstallerPath -UseBasicParsing
-  Start-Process -FilePath msiexec.exe -ArgumentList "/i `"$javaInstallerPath`" /qn ADDLOCAL=ALL" -Wait
-  Log "Java installation complete." "INFO"
-} catch {
-  Log "ERROR: Failed to download or install Java." "ERROR"
-  exit
-}
-
-Log "Downloading and installing UniFi Network Server..." "INFO"
-try {
-  Invoke-WebRequest -Uri $unifiInstallerUrl -OutFile $unifiInstallerPath -UseBasicParsing
-  Start-Process -FilePath $unifiInstallerPath -ArgumentList "/S" -Wait
-  Log "UniFi installation complete. Waiting 10 seconds for services to initialize." "INFO"
-  Start-Sleep -Seconds 10
-} catch {
-  Log "ERROR: Failed to download or install UniFi." "ERROR"
-  exit
+    Log "ERROR: Failed to install UniFi Network Server via winget." "ERROR"
+    exit
 }
 
 # --- Step 4: Add Firewall Rules ---
@@ -150,9 +111,6 @@ if (Test-Path -Path $aceJarPath) {
 }
 
 # --- Step 6: Cleanup ---
-Log "Cleaning up temporary installation files..." "INFO"
-if (Test-Path -Path $unifiInstallerPath) { Remove-Item -Path $unifiInstallerPath -Force }
-if (Test-Path -Path $javaInstallerPath) { Remove-Item -Path $javaInstallerPath -Force }
-Log "Cleanup complete." "INFO"
+Log "No cleanup needed for winget installation." "INFO"
 
 Log "Script finished! UniFi Network Server is now installed and configured." "INFO"
