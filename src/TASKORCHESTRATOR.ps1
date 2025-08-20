@@ -16,7 +16,7 @@ $ScriptDir = $PSScriptRoot
 # The logging and script directories are now consistently based on $PSScriptRoot.
 $LogDir = Join-Path $ScriptDir "Log"
 # Define the log file specifically for this orchestrator script.
-$LogFile = Join-Path $LogDir "WUH.txt"
+$LogFile = Join-Path $LogDir "TASKORCHESTRATOR.txt"
 
 # --- Set the working location to the script's root ---
 Set-Location -Path $ScriptDir
@@ -145,7 +145,7 @@ function Repair-SystemFiles {
     }
 }
 # Log the initial message indicating the script has started, using the Log function.
-Log "WUH Script started."
+Log "Task Orchestrator script started."
 # ================== SAVE ORIGINAL EXECUTION POLICY ==================
 # Store the current PowerShell execution policy to restore it later.
 # This is crucial for maintaining system security posture after script execution.

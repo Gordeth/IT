@@ -77,7 +77,7 @@ try {
     }
 
     # --- Execute Logic ---
-    $orchestratorScriptPath = "$projectDir\src\WUH.ps1"
+    $orchestratorScriptPath = "$projectDir\src\TaskOrchestrator.ps1"
     $functionsScriptPath = "$projectDir\modules\Functions.ps1"
 
     if (Test-Path $orchestratorScriptPath) {
@@ -121,3 +121,4 @@ try {
     
     Write-Host "Script finished."
 }
+
