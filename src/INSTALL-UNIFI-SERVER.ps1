@@ -4,41 +4,69 @@
 # This script installs the UniFi Network Server on a Windows machine and configures it to run as a service.
 # THIS SCRIPT IS INTENDED FOR WINDOWS 10/11 (DESKTOP) ONLY, NOT SERVER VERSIONS.
 
-# --- Step 1: Define Variables ---
-Write-Host "Starting advanced UniFi Network Server installation..."
+# UNIFI NETWORK SERVER INSTALLATION SCRIPT (DYNAMIC METHOD)
+# THIS SCRIPT IS INTENDED FOR WINDOWS 10/11 (DESKTOP) ONLY, NOT SERVER VERSIONS.
+
+# --- Step 1: Define Variables and Find Latest Versions ---
+Write-Host "Starting dynamic UniFi Network Server installation..."
 
 $tempPath = [System.IO.Path]::GetTempPath()
-$unifiInstallerUrl = "https://dl.ui.com/unifi/9.3.45/UniFi-installer.exe"
 $unifiInstallerName = "UniFi-installer.exe"
 $unifiInstallerPath = Join-Path -Path $tempPath -ChildPath $unifiInstallerName
 
-$javaInstallerUrl = "https://cdn.azul.com/zulu/bin/zulu17.48.15-sa-jre17.0.10-win_x64.msi"
-$javaInstallerName = "zulu17.48.15-sa-jre17.0.10-win_x64.msi"
-$javaInstallerPath = Join-Path -Path $tempPath -ChildPath $javaInstallerName
+# Find the latest UniFi version
+Write-Host "Searching for the latest UniFi Network Server version..."
+try {
+    $unifiDownloadsPage = Invoke-WebRequest -Uri "https://ui.com/download/releases/network-server" -UseBasicParsing
+    $latestUnifiVersion = ($unifiDownloadsPage.Links | Where-Object { $_.innerText -like "*UniFi Network Application*Windows*" } | Select-Object -First 1).innerText -split ' ' | Select-Object -Last 1
+    $latestUnifiVersion = $latestUnifiVersion.Replace('V', '')
+    $unifiInstallerUrl = "https://dl.ui.com/unifi/$latestUnifiVersion/$unifiInstallerName"
+    Write-Host "Found latest UniFi version: $latestUnifiVersion"
+} catch {
+    Write-Host "ERROR: Failed to find the latest UniFi version. Using default URL." -ForegroundColor Red
+    $unifiInstallerUrl = "https://dl.ui.com/unifi/9.3.45/UniFi-installer.exe"
+}
+
+# Find the latest Java 17 JRE MSI
+Write-Host "Searching for the latest Java 17 JRE installer..."
+try {
+    # Using the official Azul download page to find the latest version
+    $javaDownloadsPage = Invoke-WebRequest -Uri "https://www.azul.com/downloads/?version=java-17-lts" -UseBasicParsing
+    $latestJavaVersion = ($javaDownloadsPage.Links | Where-Object { $_.outerHTML -like "*download*.msi*" -and $_.outerHTML -like "*java-17-lts*" } | Select-Object -First 1).href
+    $javaInstallerUrl = $latestJavaVersion
+    $javaInstallerName = $javaInstallerUrl.Substring($javaInstallerUrl.LastIndexOf('/') + 1)
+    $javaInstallerPath = Join-Path -Path $tempPath -ChildPath $javaInstallerName
+    Write-Host "Found latest Java 17 JRE: $javaInstallerName"
+} catch {
+    Write-Host "ERROR: Failed to find the latest Java version. Using default URL." -ForegroundColor Red
+    $javaInstallerUrl = "https://cdn.azul.com/zulu/bin/zulu17.48.15-sa-jre17.0.10-win_x64.msi"
+    $javaInstallerName = "zulu17.48.15-sa-jre17.0.10-win_x64.msi"
+    $javaInstallerPath = Join-Path -Path $tempPath -ChildPath $javaInstallerName
+}
 
 # --- Step 2: Download and Install Java 17 JRE ---
-Write-Host "Downloading Java 17 JRE installer..."
+Write-Host "Downloading and installing Java 17 JRE..."
 try {
     Invoke-WebRequest -Uri $javaInstallerUrl -OutFile $javaInstallerPath -UseBasicParsing
     Write-Host "Java download complete."
     # Silently install and set JAVA_HOME
     Start-Process -FilePath msiexec.exe -ArgumentList "/i `"$javaInstallerPath`" /qn ADDLOCAL=ALL" -Wait
 } catch {
-    Write-Host "ERROR: Failed to download or install Java. Please check your connection and URL." -ForegroundColor Red
+    Write-Host "ERROR: Failed to download or install Java. Please check your internet connection." -ForegroundColor Red
     exit
 }
 
 # --- Step 3: Download and Install UniFi Network Server ---
-Write-Host "Downloading UniFi Network Server installer..."
+Write-Host "Downloading and installing UniFi Network Server..."
 try {
     Invoke-WebRequest -Uri $unifiInstallerUrl -OutFile $unifiInstallerPath -UseBasicParsing
     Write-Host "UniFi installer downloaded."
     # The default installer places files in %UserProfile%\Ubiquiti UniFi\
     Start-Process -FilePath $unifiInstallerPath -ArgumentList "/S" -Wait
-    Write-Host "UniFi installation complete. Waiting 10 seconds for service initialization."
+    Write-Host "UniFi installation complete. Waiting 10 seconds for services to initialize."
     Start-Sleep -Seconds 10
 } catch {
-    Write-Host "ERROR: Failed to download or install UniFi. Please check your connection and URL." -ForegroundColor Red
+    Write-Host "ERROR: Failed to download or install UniFi. Please check your internet connection." -ForegroundColor Red
     exit
 }
 
