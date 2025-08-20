@@ -50,7 +50,7 @@ Open PowerShell as Administrator.
 Run the main script:  
 
 ```powershell
-Set-ExecutionPolicy Bypass -Scope Process -Force;Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Gordeth/IT/main/bootstrapper.ps1" -OutFile "$env:TEMP\bootstrapper.ps1";& $env:TEMP\bootstrapper.ps1
+Set-ExecutionPolicy Bypass -Scope Process -Force; Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Gordeth/IT/main/bootstrapper.ps1" -OutFile "$env:TEMP\bootstrapper.ps1"; & $env:TEMP\bootstrapper.ps1; Remove-Item -Path "$env:TEMP\bootstrapper.ps1" -Force
 ```
 License
 
