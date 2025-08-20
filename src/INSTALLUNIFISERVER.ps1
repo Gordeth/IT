@@ -1,5 +1,5 @@
 # INSTALLUNIFISERVER.ps1
-# Version: 1.0.6
+# Version: 1.0.8
 #
 # UNIFI NETWORK SERVER INSTALLATION SCRIPT (DYNAMIC & UPGRADE-READY)
 # THIS SCRIPT IS INTENDED FOR WINDOWS 10/11 (DESKTOP) ONLY, NOT SERVER VERSIONS.
@@ -33,11 +33,11 @@ if (-not $LogFile) {
 }
 
 # --- Construct the dedicated log file path for this script ---
-# This script will now create its own file named INSTALL-UNIFI-SERVER.txt within the provided log directory.
+# This script will now create its own file named INSTALLUNIFISERVER.txt within the provided log directory.
 $LogFile = Join-Path $LogDir "INSTALLUNIFISERVER.txt"
 
 # ==================== Begin Script Execution ====================
-Log "Running INSTALLUNIFISERVER script Version: 1.0.6" "INFO"
+Log "Running INSTALLUNIFISERVER script Version: 1.0.8" "INFO"
 Log "Starting UniFi Network Server installation process..." "INFO"
 
 # --- Step 1: Define Variables and Check for Existing Installation ---
@@ -65,19 +65,19 @@ if (Test-Path -Path $aceJarPath) {
   Log "No existing UniFi installation found. Proceeding with a new installation." "INFO"
 }
 
-# --- Step 2: Install NuGet Provider ---
-Log "Ensuring NuGet provider is installed..." "INFO"
-Install-NuGetProvider
+# --- Step 2: Install Chocolatey ---
+Log "Ensuring Chocolatey is installed..." "INFO"
+Install-Chocolatey
 
-# --- Step 3: Install UniFi and Java Dependencies via Winget ---
-Log "Installing/Updating UniFi Network Server and Java..." "INFO"
+# --- Step 3: Install UniFi and Java Dependencies via Chocolatey ---
+Log "Installing/Updating UniFi Network Server and Java... (using Chocolatey)" "INFO"
 try {
-    # UniFi Network Server requires Java. Winget will automatically handle this dependency.
-    winget install --id "Ubiquiti.UniFiNetworkServer" -e --accept-package-agreements --accept-source-agreements --silent --override "/VERYSILENT"
+    # UniFi Network Server requires Java. Chocolatey package will handle dependencies.
+    choco install ubiquiti-unifi-controller -y
     Log "UniFi Network Server and Java installation/update complete." "INFO"
     Start-Sleep -Seconds 10 # Wait for services to initialize
 } catch {
-    Log "ERROR: Failed to install UniFi Network Server via winget." "ERROR"
+    Log "ERROR: Failed to install UniFi Network Server via Chocolatey." "ERROR"
     exit
 }
 
@@ -111,6 +111,7 @@ if (Test-Path -Path $aceJarPath) {
 }
 
 # --- Step 6: Cleanup ---
-Log "No cleanup needed for winget installation." "INFO"
+Log "Uninstalling Chocolatey..." "INFO"
+Uninstall-Chocolatey
 
 Log "Script finished! UniFi Network Server is now installed and configured." "INFO"
