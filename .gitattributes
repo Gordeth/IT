@@ -1,0 +1,5 @@
+# Normalize all text files
+* text=auto
+
+# Treat .ps1 files as text and ensure they use LF line endings
+*.ps1 text eol=lf
