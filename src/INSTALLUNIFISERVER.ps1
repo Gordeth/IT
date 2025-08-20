@@ -1,5 +1,5 @@
 # INSTALLUNIFISERVER.ps1
-# Version: 1.0.8
+# Version: 1.0.9
 #
 # UNIFI NETWORK SERVER INSTALLATION SCRIPT (DYNAMIC & UPGRADE-READY)
 # THIS SCRIPT IS INTENDED FOR WINDOWS 10/11 (DESKTOP) ONLY, NOT SERVER VERSIONS.
@@ -33,11 +33,11 @@ if (-not $LogFile) {
 }
 
 # --- Construct the dedicated log file path for this script ---
-# This script will now create its own file named INSTALLUNIFISERVER.txt within the provided log directory.
-$LogFile = Join-Path $LogDir "INSTALLUNIFISERVER.txt"
+# This script will now create its own file named INSTALL-UNIFI-SERVER.txt within the provided log directory.
+$LogFile = Join-Path $LogDir "INSTALL-UNIFI-SERVER.txt"
 
 # ==================== Begin Script Execution ====================
-Log "Running INSTALLUNIFISERVER script Version: 1.0.8" "INFO"
+Log "Running INSTALL-UNIFI-SERVER script Version: 1.0.9" "INFO"
 Log "Starting UniFi Network Server installation process..." "INFO"
 
 # --- Step 1: Define Variables and Check for Existing Installation ---
@@ -100,14 +100,31 @@ foreach ($port in $ports) {
 
 # --- Step 5: Install and Start the Service ---
 Log "Installing UniFi as a Windows service..." "INFO"
-if (Test-Path -Path $aceJarPath) {
-  Set-Location -Path $unifiDir
-  Start-Process -FilePath "java" -ArgumentList "-jar `"$aceJarPath`" installsvc" -Wait
-  Log "UniFi service installed. Starting the service..." "INFO"
-  Start-Process -FilePath "java" -ArgumentList "-jar `"$aceJarPath`" startsvc" -Wait
-  Log "UniFi service started." "INFO"
+
+$possiblePaths = @(
+    "$env:UserProfile\Ubiquiti UniFi",
+    "$env:ProgramData\Ubiquiti UniFi",
+    "C:\Windows\SysWOW64\config\systemprofile\Ubiquiti UniFi"
+)
+
+$unifiDir = $null
+foreach ($path in $possiblePaths) {
+    if (Test-Path -Path (Join-Path -Path $path -ChildPath "lib\ace.jar")) {
+        $unifiDir = $path
+        break
+    }
+}
+
+if ($unifiDir) {
+    $aceJarPath = Join-Path -Path $unifiDir -ChildPath "lib\ace.jar"
+    Log "Found UniFi installation at: $unifiDir" "INFO"
+    Set-Location -Path $unifiDir
+    Start-Process -FilePath "java" -ArgumentList "-jar `"$aceJarPath`" installsvc" -Wait
+    Log "UniFi service installed. Starting the service..." "INFO"
+    Start-Process -FilePath "java" -ArgumentList "-jar `"$aceJarPath`" startsvc" -Wait
+    Log "UniFi service started." "INFO"
 } else {
-  Log "ERROR: 'ace.jar' file not found. Service cannot be created." "ERROR"
+    Log "ERROR: 'ace.jar' file not found in any of the possible locations. Service cannot be created." "ERROR"
 }
 
 # --- Step 6: Cleanup ---
