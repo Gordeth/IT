@@ -34,10 +34,10 @@ if (-not $LogFile) {
 
 # --- Construct the dedicated log file path for this script ---
 # This script will now create its own file named INSTALL-UNIFI-SERVER.txt within the provided log directory.
-$LogFile = Join-Path $LogDir "INSTALL-UNIFI-SERVER.txt"
+$LogFile = Join-Path $LogDir "INSTALLUNIFISERVER.txt"
 
 # ==================== Begin Script Execution ====================
-Log "Running INSTALL-UNIFI-SERVER script Version: 1.0.6" "INFO"
+Log "Running INSTALLUNIFISERVER script Version: 1.0.6" "INFO"
 Log "Starting UniFi Network Server installation process..." "INFO"
 
 # --- Step 1: Define Variables and Check for Existing Installation ---
@@ -73,7 +73,7 @@ Install-NuGetProvider
 Log "Installing/Updating UniFi Network Server and Java..." "INFO"
 try {
     # UniFi Network Server requires Java. Winget will automatically handle this dependency.
-    winget install --id "Ubiquiti.UniFiNetworkServer" --accept-package-agreements --accept-source-agreements --silent --override "/S"
+    winget install --id "Ubiquiti.UniFiNetworkServer" --accept-package-agreements --accept-source-agreements --silent --override "/VERYSILENT"
     Log "UniFi Network Server and Java installation/update complete." "INFO"
     Start-Sleep -Seconds 10 # Wait for services to initialize
 } catch {
