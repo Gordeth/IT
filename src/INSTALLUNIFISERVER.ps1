@@ -1,5 +1,5 @@
-# INSTALL-UNIFI-SERVER.ps1
-# Version: 1.0.3
+# INSTALLUNIFISERVER.ps1
+# Version: 1.0.4
 #
 # UNIFI NETWORK SERVER INSTALLATION SCRIPT (DYNAMIC & UPGRADE-READY)
 # THIS SCRIPT IS INTENDED FOR WINDOWS 10/11 (DESKTOP) ONLY, NOT SERVER VERSIONS.
@@ -37,6 +37,7 @@ if (-not $LogFile) {
 $LogFile = Join-Path $LogDir "INSTALL-UNIFI-SERVER.txt"
 
 # ==================== Begin Script Execution ====================
+Log "Running INSTALL-UNIFI-SERVER script Version: 1.0.4" "INFO"
 Log "Starting UniFi Network Server installation process..." "INFO"
 
 # --- Step 1: Define Variables and Check for Existing Installation ---
