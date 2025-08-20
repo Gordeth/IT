@@ -7,10 +7,11 @@ Genesis Apex is a **PowerShell project** designed to automate common system main
 ### ✨ Features
 
 * **💽 Disk Utility:** Auto-detects and runs disk utility software like Samsung Magician or Kingston SSD Manager.
-* **🛠️ System Health:** Runs System File Checker (SFC) and analyzes the CBS.log file.
+* **🛠️ System Health:** Runs System File Checker (SFC) to ensure system integrity.
 * **⚡ Performance:** Temporarily sets the power plan to "Maximum Performance" and restores it after the run is complete.
 * **📦 Software Management:** Sets up NuGet and PSGallery with trust handling, and handles software installation and cleanup via Chocolatey and Winget.
-* **📝 Logging:** Creates a detailed log file located at `%TEMP%\ITScripts\Log\WUH.txt`.
+* **🌐 UniFi Server Management:** Installs or upgrades the UniFi Network Server and its Java dependency.
+* **📝 Ephemeral Logging:** Creates detailed, task-specific log files during execution inside a temporary folder (`%TEMP%\WUH\src\Log`). **Note:** This folder is automatically deleted by the bootstrapper upon script completion.
 
 ---
 
@@ -29,6 +30,7 @@ When you launch the bootstrapper, you'll be prompted to select a mode and a task
 **Task Selection:**
 * **Machine Preparation (semi-automated):** This option downloads and runs vendor driver tools, installs baseline IT software via Chocolatey/Winget, and then runs all the maintenance tasks, including Windows Update, Winget cleanup, Office updates, and System File Checker.
 * **Windows Maintenance:** This option runs the core maintenance tasks, including Windows Update, Winget cleanup, Office updates, and System File Checker.
+* **Install/Upgrade UniFi Server:** A dedicated task to download, install, or upgrade the UniFi Network Server, including its Java dependency and firewall rules.
 
 ---
 
@@ -42,6 +44,7 @@ When you launch the bootstrapper, you'll be prompted to select a mode and a task
 | `MACHINEPREP.ps1` | Contains tasks specifically for the "Machine Preparation" option. |
 | `WGET.ps1` | Handles the Winget update and cleanup routine. |
 | `MSO_UPDATE.ps1` | An optional routine for updating Microsoft Office. |
+| `INSTALLUNIFISERVER.ps1` | Handles the installation and upgrade of the UniFi Network Server. |
 
 ---
 
