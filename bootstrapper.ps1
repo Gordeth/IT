@@ -1,6 +1,6 @@
 # ==================================================
 # Bootstrapper.ps1
-# V 1.0.9
+# V 1.0.10
 # Downloads the src and modules folders for the IT maintenance project
 # using the GitHub API to ensure all files are fetched, then cleans up.
 # ==================================================
@@ -104,14 +104,12 @@ try {
     }
 
 } finally {
-    # Pop-Location restores the script to the original directory.
-    # This is critical for returning the user to their starting path.
+    # --- IMPORTANT: BEGIN FINAL CLEANUP BY RESTORING ORIGINAL DIRECTORY ---
+    # This must be the first command in the 'finally' block to release file locks.
     Write-Host "All operations complete. Returning to original directory."
     Pop-Location
     
-    # --- Final Cleanup ---
-    # This section guarantees that the downloaded files are removed
-    # even if an error occurred during execution.
+    # --- Now we can safely remove the temporary directory ---
     Write-Host "Starting final cleanup of temporary project files..."
     if (Test-Path $projectDir) {
         Write-Host "Removing temporary project directory: $projectDir"
