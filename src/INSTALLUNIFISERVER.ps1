@@ -73,7 +73,7 @@ Install-NuGetProvider
 Log "Installing/Updating UniFi Network Server and Java..." "INFO"
 try {
     # UniFi Network Server requires Java. Winget will automatically handle this dependency.
-    winget install --id "Ubiquiti.UniFiNetworkServer" --accept-package-agreements --accept-source-agreements --override "/S"
+    winget install --id "Ubiquiti.UniFiNetworkServer" --accept-package-agreements --accept-source-agreements --silent --override "/S"
     Log "UniFi Network Server and Java installation/update complete." "INFO"
     Start-Sleep -Seconds 10 # Wait for services to initialize
 } catch {
