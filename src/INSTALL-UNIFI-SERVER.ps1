@@ -4,9 +4,6 @@
 # This script installs the UniFi Network Server on a Windows machine and configures it to run as a service.
 # THIS SCRIPT IS INTENDED FOR WINDOWS 10/11 (DESKTOP) ONLY, NOT SERVER VERSIONS.
 
-# UNIFI NETWORK SERVER INSTALLATION SCRIPT (DYNAMIC METHOD)
-# THIS SCRIPT IS INTENDED FOR WINDOWS 10/11 (DESKTOP) ONLY, NOT SERVER VERSIONS.
-
 # --- Step 1: Define Variables and Find Latest Versions ---
 Write-Host "Starting dynamic UniFi Network Server installation..."
 
