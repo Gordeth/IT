@@ -1,5 +1,5 @@
 # INSTALL-UNIFI-SERVER.ps1
-# Version: 1.0.2
+# Version: 1.0.3
 #
 # UNIFI NETWORK SERVER INSTALLATION SCRIPT (DYNAMIC & UPGRADE-READY)
 # THIS SCRIPT IS INTENDED FOR WINDOWS 10/11 (DESKTOP) ONLY, NOT SERVER VERSIONS.
@@ -26,9 +26,9 @@ param (
 # This ensures that the Log function is available in this script's scope.
 . "$PSScriptRoot/../modules/Functions.ps1"
 
-# Add a check to ensure a log directory path was provided.
-if (-not $LogDir) {
-  Write-Host "ERROR: The LogDir parameter is required and cannot be empty." -ForegroundColor Red
+# Add a check to ensure a log file path was provided.
+if (-not $LogFile) {
+  Write-Host "ERROR: The LogFile parameter is required and cannot be empty." -ForegroundColor Red
   exit 1
 }
 
@@ -71,9 +71,9 @@ if (Test-Path -Path $aceJarPath) {
 # Find the latest UniFi version
 Log "Searching for the latest UniFi Network Server version..." "INFO"
 try {
-  $unifiDownloadsPage = Invoke-WebRequest -Uri "https://ui.com/download/releases/network-server" -UseBasicParsing
-  $latestUnifiVersion = ($unifiDownloadsPage.Links | Where-Object { $_.innerText -like "*UniFi Network Application*Windows*" } | Select-Object -First 1).innerText -split ' ' | Select-Object -Last 1
-  $latestUnifiVersion = $latestUnifiVersion.Replace('V', '')
+  $unifiApiUrl = "https://fw-update.ui.com/firmware.json"
+  $firmwareData = Invoke-WebRequest -Uri $unifiApiUrl -UseBasicParsing | ConvertFrom-Json
+  $latestUnifiVersion = ($firmwareData.unifi_os_firmware | Where-Object { $_.file -like "*UniFi-installer.exe" } | Sort-Object -Property version -Descending | Select-Object -First 1).version
   $unifiInstallerUrl = "https://dl.ui.com/unifi/$latestUnifiVersion/$unifiInstallerName"
   Log "Found latest UniFi version: $latestUnifiVersion" "INFO"
 } catch {
@@ -84,9 +84,9 @@ try {
 # Find the latest Java 17 JRE MSI
 Log "Searching for the latest Java 17 JRE installer..." "INFO"
 try {
-  $javaDownloadsPage = Invoke-WebRequest -Uri "https://www.azul.com/downloads/?version=java-17-lts" -UseBasicParsing
-  $latestJavaVersion = ($javaDownloadsPage.Links | Where-Object { $_.outerHTML -like "*download*.msi*" -and $_.outerHTML -like "*java-17-lts*" } | Select-Object -First 1).href
-  $javaInstallerUrl = $latestJavaVersion
+  $azulApiUrl = "https://api.azul.com/zulu/download/community/v1.0/packages/latest?os=windows&architecture=x64&archive_type=zip&java_package=jre&release_status=ga&jvm_type=hotspot&jdk_version=17&ext=msi"
+  $azulData = Invoke-RestMethod -Uri $azulApiUrl
+  $javaInstallerUrl = $azulData.download_url
   $javaInstallerName = $javaInstallerUrl.Substring($javaInstallerUrl.LastIndexOf('/') + 1)
   $javaInstallerPath = Join-Path -Path $tempPath -ChildPath $javaInstallerName
   Log "Found latest Java 17 JRE: $javaInstallerName" "INFO"
