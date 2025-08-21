@@ -1,10 +1,11 @@
 # INSTALLUNIFISERVER.ps1
-# Version: 2.10.1
+# Version: 2.10.2
 #
 # UNIFI NETWORK SERVER INSTALLATION SCRIPT (DYNAMIC & UPGRADE-READY)
 # THIS SCRIPT IS INTENDED FOR WINDOWS 10/11 (DESKTOP) ONLY, NOT SERVER VERSIONS.
 #
 # CHANGELOG:
+#   - 2.10.2: Implemented Java version check and conditional installation of Java 21.
 #   - 2.10.1: Increased initial UniFi application startup sleep duration and fixed Java version mismatch for service installation.
 #   - 2.10.0: Use the command from the shortcut to start the UniFi application.
 #   - 2.9.0: Added a check to ensure the UniFi process started correctly before attempting to stop it.
@@ -51,7 +52,7 @@ $LogFile = Join-Path $LogDir "INSTALL-UNIFI-SERVER.txt"
 
 # ==================== Begin Script Execution ====================
 
-Log "Running INSTALL-UNIFI-SERVER script Version: 2.10.0" "INFO"
+Log "Running INSTALL-UNIFI-SERVER script Version: 2.10.2" "INFO"
 Log "Starting UniFi Network Server installation process..." "INFO"
 
 # --- Step 1: Define Variables and Check for Existing Installation ---
@@ -83,32 +84,51 @@ if (Test-Path -Path $aceJarPath) {
 # --- Step 2: Check for Java and Install if Necessary ---
 Log "Checking for Java installation..." "INFO"
 $javaInstalled = $false
+$javaMajorVersion = 0
 try {
-    $javaVersion = java -version 2>&1
-    if ($javaVersion) {
+    $javaVersionOutput = java -version 2>&1
+    if ($javaVersionOutput) {
         Log "Java is already installed." "INFO"
-        $javaInstalled = $true
+        Log "Detected Java version output: $($javaVersionOutput)" "INFO"
+
+        # Extract major version number
+        if ($javaVersionOutput -match 'version `"(\d+)\.?`"') {
+            $javaMajorVersion = [int]$Matches[1]
+        } elseif ($javaVersionOutput -match 'version `"1\.(\d+)\.?`"') {
+            $javaMajorVersion = [int]$Matches[1]
+        }
+
+        Log "Detected Java major version: $($javaMajorVersion)" "INFO"
+
+        if ($javaMajorVersion -ge 21) {
+            $javaInstalled = $true
+            Log "Installed Java version ($($javaMajorVersion)) is 21 or newer. No new installation needed." "INFO"
+        } else {
+            Log "Installed Java version ($($javaMajorVersion)) is older than 21. Proceeding with Java 21 installation." "INFO"
+        }
     }
 }
 catch {
-    Log "Java not found, proceeding with installation."
+    Log "Java not found or error checking version, proceeding with installation." "WARN"
 }
 
 if (-not $javaInstalled) {
-    Log "Downloading and installing Java..." "INFO"
+    Log "Downloading and installing Java 21..." "INFO"
     $downloadUrl = "https://api.adoptium.net/v3/binary/latest/21/ga/windows/x64/jdk/hotspot/normal/eclipse"
     $outputFile = "$env:TEMP\openjdk.msi"
 
     try {
         Invoke-WebRequest -Uri $downloadUrl -OutFile $outputFile
+        # The Adoptium MSI installer typically sets JAVA_HOME by default.
         Start-Process msiexec.exe -ArgumentList "/i `"$outputFile`" /qn" -Wait
         Remove-Item $outputFile
-        Log "Java installation complete." "INFO"
-        Log "Installed Java version:" "INFO"
-        java -version 2>&1 | ForEach-Object { Log $_ "INFO" }
+        Log "Java 21 installation complete." "INFO"
+        # Re-check Java version after installation
+        $javaVersionOutputAfterInstall = java -version 2>&1
+        Log "Java version after installation: $($javaVersionOutputAfterInstall)" "INFO"
     } catch {
-        Log "ERROR: Failed to install Java." "ERROR"
-        exit
+        Log "ERROR: Failed to install Java 21." "ERROR"
+        exit 1
     }
 }
 
