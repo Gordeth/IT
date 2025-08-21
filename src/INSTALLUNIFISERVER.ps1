@@ -1,8 +1,11 @@
 # INSTALLUNIFISERVER.ps1
-# Version: 1.0.9
+# Version: 2.1.0
 #
 # UNIFI NETWORK SERVER INSTALLATION SCRIPT (DYNAMIC & UPGRADE-READY)
 # THIS SCRIPT IS INTENDED FOR WINDOWS 10/11 (DESKTOP) ONLY, NOT SERVER VERSIONS.
+#
+# CHANGELOG:
+#   - 2.1.0: Replaced hardcoded download URL with dynamic URL retrieval.
 
 # Parameters:
 #   -VerboseMode (switch): If specified, enables detailed logging output to the console.
@@ -37,10 +40,12 @@ if (-not $LogFile) {
 $LogFile = Join-Path $LogDir "INSTALL-UNIFI-SERVER.txt"
 
 # ==================== Begin Script Execution ====================
-Log "Running INSTALL-UNIFI-SERVER script Version: 1.0.9" "INFO"
+
+Log "Running INSTALL-UNIFI-SERVER script Version: 2.1.0" "INFO"
 Log "Starting UniFi Network Server installation process..." "INFO"
 
 # --- Step 1: Define Variables and Check for Existing Installation ---
+
 Log "Defining variables and checking for existing installation..." "INFO"
 
 $unifiDir = "$env:UserProfile\Ubiquiti UniFi"
@@ -65,20 +70,68 @@ if (Test-Path -Path $aceJarPath) {
   Log "No existing UniFi installation found. Proceeding with a new installation." "INFO"
 }
 
-# --- Step 2: Install Chocolatey ---
-Log "Ensuring Chocolatey is installed..." "INFO"
-Install-Chocolatey
-
-# --- Step 3: Install UniFi and Java Dependencies via Chocolatey ---
-Log "Installing/Updating UniFi Network Server and Java... (using Chocolatey)" "INFO"
+# --- Step 2: Check for Java and Install if Necessary ---
+Log "Checking for Java installation..." "INFO"
+$javaInstalled = $false
 try {
-    # UniFi Network Server requires Java. Chocolatey package will handle dependencies.
-    choco install ubiquiti-unifi-controller -y
-    Log "UniFi Network Server and Java installation/update complete." "INFO"
-    Start-Sleep -Seconds 10 # Wait for services to initialize
+    $javaVersion = java -version 2>&1
+    if ($javaVersion) {
+        Log "Java is already installed." "INFO"
+        $javaInstalled = $true
+    }
 } catch {
-    Log "ERROR: Failed to install UniFi Network Server via Chocolatey." "ERROR"
-    exit
+    Log "Java not found, proceeding with installation." "INFO"
+}
+
+if (-not $javaInstalled) {
+    Log "Downloading and installing Java..." "INFO"
+    $downloadUrl = "https://api.adoptium.net/v3/binary/latest/21/ga/windows/x64/jdk/hotspot/normal/eclipse"
+    $outputFile = "$env:TEMP\openjdk.msi"
+
+    try {
+        Invoke-WebRequest -Uri $downloadUrl -OutFile $outputFile
+        Start-Process msiexec.exe -ArgumentList "/i `"$outputFile`" /qn" -Wait
+        Remove-Item $outputFile
+        Log "Java installation complete." "INFO"
+    } catch {
+        Log "ERROR: Failed to install Java." "ERROR"
+        exit
+    }
+}
+
+# --- Step 3: Download and Install UniFi Network Server ---
+Log "Downloading and installing UniFi Network Server..." "INFO"
+
+# --- Dynamically find the latest UniFi Network Server download URL ---
+$UiDownloadsPage = "https://www.ui.com/download/unifi"
+try {
+    Log "Fetching available downloads from $UiDownloadsPage..." "INFO"
+    $response = Invoke-WebRequest -Uri $UiDownloadsPage -UseBasicParsing -ErrorAction Stop
+    $regex = 'https?://[^\s"]+?/UniFi-Network-Application-.*?\.exe'
+    Log "Searching for the latest Windows download link..." "INFO"
+    $match = $response.Content | Select-String -Pattern $regex | Select-Object -First 1
+    if ($null -ne $match) {
+        $unifiDownloadUrl = $match.Matches.Value
+        Log "Successfully found download link: $unifiDownloadUrl" "INFO"
+    } else {
+        Log "ERROR: Could not automatically find the download link. Please visit $UiDownloadsPage manually to download the file." "ERROR"
+        exit 1
+    }
+} catch {
+    Log "ERROR: An error occurred while fetching the download link: $($_.Exception.Message)" "ERROR"
+    exit 1
+}
+
+$unifiInstaller = "$env:TEMP\UniFi-installer.exe"
+
+try {
+    Invoke-WebRequest -Uri $unifiDownloadUrl -OutFile $unifiInstaller
+    Start-Process -FilePath $unifiInstaller -ArgumentList "/S" -Wait
+    Remove-Item $unifiInstaller
+    Log "UniFi Network Server installation complete." "INFO"
+} catch {
+    Log "ERROR: Failed to download or install UniFi Network Server." "ERROR"
+exit
 }
 
 # --- Step 4: Add Firewall Rules ---
@@ -126,9 +179,5 @@ if ($unifiDir) {
 } else {
     Log "ERROR: 'ace.jar' file not found in any of the possible locations. Service cannot be created." "ERROR"
 }
-
-# --- Step 6: Cleanup ---
-Log "Uninstalling Chocolatey..." "INFO"
-Uninstall-Chocolatey
 
 Log "Script finished! UniFi Network Server is now installed and configured." "INFO"
