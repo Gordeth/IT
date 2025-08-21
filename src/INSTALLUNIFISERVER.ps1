@@ -132,11 +132,14 @@ if (-not $javaInstalled) {
 
 # --- Step 2.5: Kill Existing UniFi Process ---
 Log "Checking for existing UniFi Network Application process..." "INFO"
-$unifiProcess = Get-Process -Name "UniFi" -ErrorAction SilentlyContinue
-if ($unifiProcess) {
-    Log "Found running UniFi Network Application process. Killing it..." "INFO"
-    Stop-Process -Name "UniFi" -Force
-    Log "UniFi Network Application process killed." "INFO"
+$unifiProcesses = Get-WmiObject -Class Win32_Process | Where-Object {$_.CommandLine -like "*ace.jar*"}
+if ($unifiProcesses) {
+    Log "Found running UniFi Network Application process(es). Killing it/them..." "INFO"
+    foreach ($process in $unifiProcesses) {
+        Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue
+        Log "Killed process with ID: $($process.ProcessId) and command line: $($process.CommandLine)" "INFO"
+    }
+    Log "UniFi Network Application process(es) killed." "INFO"
 } else {
     Log "No running UniFi Network Application process found." "INFO"
 }
