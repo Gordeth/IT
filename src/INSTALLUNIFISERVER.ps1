@@ -1,10 +1,11 @@
 # INSTALLUNIFISERVER.ps1
-# Version: 2.3.0
+# Version: 2.4.0
 #
 # UNIFI NETWORK SERVER INSTALLATION SCRIPT (DYNAMIC & UPGRADE-READY)
 # THIS SCRIPT IS INTENDED FOR WINDOWS 10/11 (DESKTOP) ONLY, NOT SERVER VERSIONS.
 #
 # CHANGELOG:
+#   - 2.4.0: Switched to a static download link to avoid parsing issues.
 #   - 2.3.0: Added verbose logging to debug download link parsing.
 #   - 2.2.0: Switched to curl with a user-agent to fix dynamic URL retrieval.
 #   - 2.1.0: Replaced hardcoded download URL with dynamic URL retrieval.
@@ -43,7 +44,7 @@ $LogFile = Join-Path $LogDir "INSTALL-UNIFI-SERVER.txt"
 
 # ==================== Begin Script Execution ====================
 
-Log "Running INSTALL-UNIFI-SERVER script Version: 2.3.0" "INFO"
+Log "Running INSTALL-UNIFI-SERVER script Version: 2.4.0" "INFO"
 Log "Starting UniFi Network Server installation process..." "INFO"
 
 # --- Step 1: Define Variables and Check for Existing Installation ---
@@ -104,30 +105,9 @@ if (-not $javaInstalled) {
 # --- Step 3: Download and Install UniFi Network Server ---
 Log "Downloading and installing UniFi Network Server..." "INFO"
 
-# --- Dynamically find the latest UniFi Network Server download URL ---
-$UiDownloadsPage = "https://www.ui.com/download/unifi"
-try {
-    Log "Fetching available downloads from $UiDownloadsPage..." "INFO"
-    $userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36"
-    $response = C:\Windows\System32\curl.exe -sL -A $userAgent $UiDownloadsPage
-    Log "Response from curl: $response" "INFO"
-    $regex = 'UniFi Network Application ([\d\.]+) for Windows'
-    Log "Searching for the latest Windows download link..." "INFO"
-    $match = $response | Select-String -Pattern $regex | Select-Object -First 1
-    if ($null -ne $match) {
-        Log "Matched line: $($match.Line)" "INFO"
-        $version = $match.Matches.Groups[1].Value
-        Log "Extracted version: $version" "INFO"
-        $unifiDownloadUrl = "https://dl.ui.com/unifi/$version/UniFi-Network-Application-$version.exe"
-        Log "Successfully found download link: $unifiDownloadUrl" "INFO"
-    } else {
-        Log "ERROR: Could not automatically find the download link. Please visit $UiDownloadsPage manually to download the file." "ERROR"
-        exit 1
-    }
-} catch {
-    Log "ERROR: An error occurred while fetching the download link: $($_.Exception.Message)" "ERROR"
-    exit 1
-}
+# --- Statically set the UniFi Network Server download URL ---
+$unifiDownloadUrl = "https://dl.ui.com/unifi/9.3.45/UniFi-installer.exe"
+Log "Using static download link: $unifiDownloadUrl" "INFO"
 
 $unifiInstaller = "$env:TEMP\UniFi-installer.exe"
 
