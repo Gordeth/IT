@@ -107,11 +107,12 @@ $UiDownloadsPage = "https://www.ui.com/download/unifi"
 try {
     Log "Fetching available downloads from $UiDownloadsPage..." "INFO"
     $response = Invoke-WebRequest -Uri $UiDownloadsPage -UseBasicParsing -ErrorAction Stop
-    $regex = 'https?://[^\s"]+?/UniFi-Network-Application-.*?\.exe'
+    $regex = 'UniFi Network Application (\d+\.\d+\.\d+) for Windows'
     Log "Searching for the latest Windows download link..." "INFO"
     $match = $response.Content | Select-String -Pattern $regex | Select-Object -First 1
     if ($null -ne $match) {
-        $unifiDownloadUrl = $match.Matches.Value
+        $version = $match.Matches.Groups[1].Value
+        $unifiDownloadUrl = "https://dl.ui.com/unifi/$version/UniFi-Network-Application-$version.exe"
         Log "Successfully found download link: $unifiDownloadUrl" "INFO"
     } else {
         Log "ERROR: Could not automatically find the download link. Please visit $UiDownloadsPage manually to download the file." "ERROR"
