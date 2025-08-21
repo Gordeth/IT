@@ -1,10 +1,11 @@
 # INSTALLUNIFISERVER.ps1
-# Version: 2.8.0
+# Version: 2.9.0
 #
 # UNIFI NETWORK SERVER INSTALLATION SCRIPT (DYNAMIC & UPGRADE-READY)
 # THIS SCRIPT IS INTENDED FOR WINDOWS 10/11 (DESKTOP) ONLY, NOT SERVER VERSIONS.
 #
 # CHANGELOG:
+#   - 2.9.0: Added a check to ensure the UniFi process started correctly before attempting to stop it.
 #   - 2.8.0: Correctly start the UniFi application using ace.jar before installing the service.
 #   - 2.7.0: Added a step to kill existing UniFi processes before installation.
 #   - 2.6.0: Added a step to start the UniFi Network Application once before installing it as a service.
@@ -48,7 +49,7 @@ $LogFile = Join-Path $LogDir "INSTALL-UNIFI-SERVER.txt"
 
 # ==================== Begin Script Execution ====================
 
-Log "Running INSTALL-UNIFI-SERVER script Version: 2.8.0" "INFO"
+Log "Running INSTALL-UNIFI-SERVER script Version: 2.9.0" "INFO"
 Log "Starting UniFi Network Server installation process..." "INFO"
 
 # --- Step 1: Define Variables and Check for Existing Installation ---
@@ -157,11 +158,16 @@ if ($unifiDir) {
     $aceJarPath = Join-Path -Path $unifiDir -ChildPath "lib\ace.jar"
     Log "Found ace.jar at: $aceJarPath" "INFO"
     $process = Start-Process -FilePath "java" -ArgumentList "-jar `"$aceJarPath`" ui" -PassThru
-    Log "Waiting for UniFi Network Application to initialize..." "INFO"
-    Start-Sleep -Seconds 30
-    Log "Stopping UniFi Network Application..." "INFO"
-    Stop-Process -Id $process.Id -Force
-    Log "UniFi Network Application stopped." "INFO"
+    if ($process) {
+        Log "UniFi Network Application process started with ID: $($process.Id)" "INFO"
+        Log "Waiting for UniFi Network Application to initialize..." "INFO"
+        Start-Sleep -Seconds 30
+        Log "Stopping UniFi Network Application..." "INFO"
+        Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+        Log "UniFi Network Application stopped." "INFO"
+    } else {
+        Log "ERROR: Failed to start UniFi Network Application process." "ERROR"
+    }
 } else {
     Log "WARNING: ace.jar not found in any of the possible locations. Skipping first start." "WARN"
 }
