@@ -1,10 +1,11 @@
 # INSTALLUNIFISERVER.ps1
-# Version: 2.4.0
+# Version: 2.5.0
 #
 # UNIFI NETWORK SERVER INSTALLATION SCRIPT (DYNAMIC & UPGRADE-READY)
 # THIS SCRIPT IS INTENDED FOR WINDOWS 10/11 (DESKTOP) ONLY, NOT SERVER VERSIONS.
 #
 # CHANGELOG:
+#   - 2.5.0: Switched to curl for downloading to provide progress indication.
 #   - 2.4.0: Switched to a static download link to avoid parsing issues.
 #   - 2.3.0: Added verbose logging to debug download link parsing.
 #   - 2.2.0: Switched to curl with a user-agent to fix dynamic URL retrieval.
@@ -44,7 +45,7 @@ $LogFile = Join-Path $LogDir "INSTALL-UNIFI-SERVER.txt"
 
 # ==================== Begin Script Execution ====================
 
-Log "Running INSTALL-UNIFI-SERVER script Version: 2.4.0" "INFO"
+Log "Running INSTALL-UNIFI-SERVER script Version: 2.5.0" "INFO"
 Log "Starting UniFi Network Server installation process..." "INFO"
 
 # --- Step 1: Define Variables and Check for Existing Installation ---
@@ -112,7 +113,7 @@ Log "Using static download link: $unifiDownloadUrl" "INFO"
 $unifiInstaller = "$env:TEMP\UniFi-installer.exe"
 
 try {
-    Invoke-WebRequest -Uri $unifiDownloadUrl -OutFile $unifiInstaller
+    C:\Windows\System32\curl.exe -# -L $unifiDownloadUrl -o $unifiInstaller
     Start-Process -FilePath $unifiInstaller -ArgumentList "/S" -Wait
     Remove-Item $unifiInstaller
     Log "UniFi Network Server installation complete." "INFO"
