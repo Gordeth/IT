@@ -106,10 +106,10 @@ Log "Downloading and installing UniFi Network Server..." "INFO"
 $UiDownloadsPage = "https://www.ui.com/download/unifi"
 try {
     Log "Fetching available downloads from $UiDownloadsPage..." "INFO"
-    $response = Invoke-WebRequest -Uri $UiDownloadsPage -UseBasicParsing -ErrorAction Stop
+    $response = curl -L $UiDownloadsPage
     $regex = 'UniFi Network Application (\d+\.\d+\.\d+) for Windows'
     Log "Searching for the latest Windows download link..." "INFO"
-    $match = $response.Content | Select-String -Pattern $regex | Select-Object -First 1
+    $match = $response | Select-String -Pattern $regex | Select-Object -First 1
     if ($null -ne $match) {
         $version = $match.Matches.Groups[1].Value
         $unifiDownloadUrl = "https://dl.ui.com/unifi/$version/UniFi-Network-Application-$version.exe"
