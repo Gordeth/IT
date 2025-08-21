@@ -1,10 +1,11 @@
 # INSTALLUNIFISERVER.ps1
-# Version: 2.5.0
+# Version: 2.6.0
 #
 # UNIFI NETWORK SERVER INSTALLATION SCRIPT (DYNAMIC & UPGRADE-READY)
 # THIS SCRIPT IS INTENDED FOR WINDOWS 10/11 (DESKTOP) ONLY, NOT SERVER VERSIONS.
 #
 # CHANGELOG:
+#   - 2.6.0: Added a step to start the UniFi Network Application once before installing it as a service.
 #   - 2.5.0: Switched to curl for downloading to provide progress indication.
 #   - 2.4.0: Switched to a static download link to avoid parsing issues.
 #   - 2.3.0: Added verbose logging to debug download link parsing.
@@ -45,7 +46,7 @@ $LogFile = Join-Path $LogDir "INSTALL-UNIFI-SERVER.txt"
 
 # ==================== Begin Script Execution ====================
 
-Log "Running INSTALL-UNIFI-SERVER script Version: 2.5.0" "INFO"
+Log "Running INSTALL-UNIFI-SERVER script Version: 2.6.0" "INFO"
 Log "Starting UniFi Network Server installation process..." "INFO"
 
 # --- Step 1: Define Variables and Check for Existing Installation ---
@@ -122,6 +123,36 @@ try {
 exit
 }
 
+# --- Step 3.5: Start UniFi Network Application for the first time ---
+Log "Starting UniFi Network Application for the first time..." "INFO"
+
+$possiblePaths = @(
+    "$env:UserProfile\Ubiquiti UniFi",
+    "$env:ProgramData\Ubiquiti UniFi",
+    "C:\Windows\SysWOW64\config\systemprofile\Ubiquiti UniFi"
+)
+
+$unifiDir = $null
+foreach ($path in $possiblePaths) {
+    if (Test-Path -Path (Join-Path -Path $path -ChildPath "UniFi.exe")) {
+        $unifiDir = $path
+        break
+    }
+}
+
+if ($unifiDir) {
+    $unifiExe = Join-Path -Path $unifiDir -ChildPath "UniFi.exe"
+    Log "Found UniFi.exe at: $unifiExe" "INFO"
+    $process = Start-Process -FilePath $unifiExe -PassThru
+    Log "Waiting for UniFi Network Application to initialize..." "INFO"
+    Start-Sleep -Seconds 30
+    Log "Stopping UniFi Network Application..." "INFO"
+    Stop-Process -Id $process.Id -Force
+    Log "UniFi Network Application stopped." "INFO"
+} else {
+    Log "WARNING: UniFi.exe not found in any of the possible locations. Skipping first start." "WARN"
+}
+
 # --- Step 4: Add Firewall Rules ---
 Log "Configuring firewall rules..." "INFO"
 $ports = @(
@@ -141,12 +172,6 @@ foreach ($port in $ports) {
 
 # --- Step 5: Install and Start the Service ---
 Log "Installing UniFi as a Windows service..." "INFO"
-
-$possiblePaths = @(
-    "$env:UserProfile\Ubiquiti UniFi",
-    "$env:ProgramData\Ubiquiti UniFi",
-    "C:\Windows\SysWOW64\config\systemprofile\Ubiquiti UniFi"
-)
 
 $unifiDir = $null
 foreach ($path in $possiblePaths) {
