@@ -106,7 +106,7 @@ Log "Downloading and installing UniFi Network Server..." "INFO"
 $UiDownloadsPage = "https://www.ui.com/download/unifi"
 try {
     Log "Fetching available downloads from $UiDownloadsPage..." "INFO"
-    $response = curl -L $UiDownloadsPage
+    $response = C:\Windows\System32\curl.exe -sL $UiDownloadsPage
     $regex = 'UniFi Network Application (\d+\.\d+\.\d+) for Windows'
     Log "Searching for the latest Windows download link..." "INFO"
     $match = $response | Select-String -Pattern $regex | Select-Object -First 1
