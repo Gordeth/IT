@@ -1,10 +1,11 @@
 # INSTALLUNIFISERVER.ps1
-# Version: 2.9.0
+# Version: 2.10.0
 #
 # UNIFI NETWORK SERVER INSTALLATION SCRIPT (DYNAMIC & UPGRADE-READY)
 # THIS SCRIPT IS INTENDED FOR WINDOWS 10/11 (DESKTOP) ONLY, NOT SERVER VERSIONS.
 #
 # CHANGELOG:
+#   - 2.10.0: Use the command from the shortcut to start the UniFi application.
 #   - 2.9.0: Added a check to ensure the UniFi process started correctly before attempting to stop it.
 #   - 2.8.0: Correctly start the UniFi application using ace.jar before installing the service.
 #   - 2.7.0: Added a step to kill existing UniFi processes before installation.
@@ -49,7 +50,7 @@ $LogFile = Join-Path $LogDir "INSTALL-UNIFI-SERVER.txt"
 
 # ==================== Begin Script Execution ====================
 
-Log "Running INSTALL-UNIFI-SERVER script Version: 2.9.0" "INFO"
+Log "Running INSTALL-UNIFI-SERVER script Version: 2.10.0" "INFO"
 Log "Starting UniFi Network Server installation process..." "INFO"
 
 # --- Step 1: Define Variables and Check for Existing Installation ---
@@ -155,9 +156,12 @@ foreach ($path in $possiblePaths) {
 }
 
 if ($unifiDir) {
+    $javawExe = Join-Path -Path $unifiDir -ChildPath "jre\bin\javaw.exe"
     $aceJarPath = Join-Path -Path $unifiDir -ChildPath "lib\ace.jar"
+    Log "Found javaw.exe at: $javawExe" "INFO"
     Log "Found ace.jar at: $aceJarPath" "INFO"
-    $process = Start-Process -FilePath "java" -ArgumentList "-jar `"$aceJarPath`" ui" -PassThru
+    $arguments = "--add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.time=ALL-UNNAMED --add-opens java.base/sun.security.util=ALL-UNNAMED --add-opens java.base/java.io=ALL-UNNAMED --add-opens java.rmi/sun.rmi.transport=ALL-UNNAMED -jar `"$aceJarPath`" ui"
+    $process = Start-Process -FilePath $javawExe -ArgumentList $arguments -PassThru
     if ($process) {
         Log "UniFi Network Application process started with ID: $($process.Id)" "INFO"
         Log "Waiting for UniFi Network Application to initialize..." "INFO"
