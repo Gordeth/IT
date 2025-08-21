@@ -92,9 +92,7 @@ try {
         Log "Detected Java version output: $($javaVersionOutput)" "INFO"
 
         # Extract major version number
-        if ($javaVersionOutput -match 'version `"(\d+)\.?`"') {
-            $javaMajorVersion = [int]$Matches[1]
-        } elseif ($javaVersionOutput -match 'version `"1\.(\d+)\.?`"') {
+        if ($javaVersionOutput -match 'version `"(?:1\.)?(\d+)(?:\.\d+)*`"') {
             $javaMajorVersion = [int]$Matches[1]
         }
 
@@ -118,7 +116,7 @@ if (-not $javaInstalled) {
     $outputFile = "$env:TEMP\openjdk.msi"
 
     try {
-        Invoke-WebRequest -Uri $downloadUrl -OutFile $outputFile
+        C:\Windows\System32\curl.exe -# -L $downloadUrl -o $outputFile
         # The Adoptium MSI installer typically sets JAVA_HOME by default.
         Start-Process msiexec.exe -ArgumentList "/i `"$outputFile`" /qn" -Wait
         Remove-Item $outputFile
