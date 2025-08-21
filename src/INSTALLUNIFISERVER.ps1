@@ -165,7 +165,7 @@ if ($unifiDir) {
     if ($process) {
         Log "UniFi Network Application process started with ID: $($process.Id)" "INFO"
         Log "Waiting for UniFi Network Application to initialize..." "INFO"
-        Start-Sleep -Seconds 30
+        Start-Sleep -Seconds 90
         Log "Stopping UniFi Network Application..." "INFO"
         Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
         Log "UniFi Network Application stopped." "INFO"
