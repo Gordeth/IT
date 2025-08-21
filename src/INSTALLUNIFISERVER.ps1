@@ -1,10 +1,11 @@
 # INSTALLUNIFISERVER.ps1
-# Version: 2.10.0
+# Version: 2.10.1
 #
 # UNIFI NETWORK SERVER INSTALLATION SCRIPT (DYNAMIC & UPGRADE-READY)
 # THIS SCRIPT IS INTENDED FOR WINDOWS 10/11 (DESKTOP) ONLY, NOT SERVER VERSIONS.
 #
 # CHANGELOG:
+#   - 2.10.1: Increased initial UniFi application startup sleep duration and fixed Java version mismatch for service installation.
 #   - 2.10.0: Use the command from the shortcut to start the UniFi application.
 #   - 2.9.0: Added a check to ensure the UniFi process started correctly before attempting to stop it.
 #   - 2.8.0: Correctly start the UniFi application using ace.jar before installing the service.
@@ -88,7 +89,8 @@ try {
         Log "Java is already installed." "INFO"
         $javaInstalled = $true
     }
-} catch {
+}
+catch {
     Log "Java not found, proceeding with installation." "INFO"
 }
 
@@ -208,9 +210,10 @@ if ($unifiDir) {
     $aceJarPath = Join-Path -Path $unifiDir -ChildPath "lib\ace.jar"
     Log "Found UniFi installation at: $unifiDir" "INFO"
     Set-Location -Path $unifiDir
-    Start-Process -FilePath "java" -ArgumentList "-jar `"$aceJarPath`" installsvc" -Wait
+    $javaExe = Join-Path -Path $unifiDir -ChildPath "jre\bin\java.exe"
+    Start-Process -FilePath $javaExe -ArgumentList "-jar `"$aceJarPath`" installsvc" -Wait
     Log "UniFi service installed. Starting the service..." "INFO"
-    Start-Process -FilePath "java" -ArgumentList "-jar `"$aceJarPath`" startsvc" -Wait
+    Start-Process -FilePath $javaExe -ArgumentList "-jar `"$aceJarPath`" startsvc" -Wait
     Log "UniFi service started." "INFO"
 } else {
     Log "ERROR: 'ace.jar' file not found in any of the possible locations. Service cannot be created." "ERROR"
