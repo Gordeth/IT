@@ -91,7 +91,7 @@ try {
     }
 }
 catch {
-    Log "Java not found, proceeding with installation." "INFO"
+    Log "Java not found, proceeding with installation."
 }
 
 if (-not $javaInstalled) {
@@ -104,6 +104,8 @@ if (-not $javaInstalled) {
         Start-Process msiexec.exe -ArgumentList "/i `"$outputFile`" /qn" -Wait
         Remove-Item $outputFile
         Log "Java installation complete." "INFO"
+        Log "Installed Java version:" "INFO"
+        java -version 2>&1 | ForEach-Object { Log $_ "INFO" }
     } catch {
         Log "ERROR: Failed to install Java." "ERROR"
         exit
