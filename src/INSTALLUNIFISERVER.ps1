@@ -1,10 +1,11 @@
 # INSTALLUNIFISERVER.ps1
-# Version: 2.10.2
+# Version: 2.10.3
 #
 # UNIFI NETWORK SERVER INSTALLATION SCRIPT (DYNAMIC & UPGRADE-READY)
 # THIS SCRIPT IS INTENDED FOR WINDOWS 10/11 (DESKTOP) ONLY, NOT SERVER VERSIONS.
 #
 # CHANGELOG:
+#   - 2.10.3: Added UniFi Network Application restart between firewall rules and service installation.
 #   - 2.10.2: Implemented Java version check and conditional installation of Java 21.
 #   - 2.10.1: Increased initial UniFi application startup sleep duration and fixed Java version mismatch for service installation.
 #   - 2.10.0: Use the command from the shortcut to start the UniFi application.
@@ -52,7 +53,7 @@ $LogFile = Join-Path $LogDir "INSTALL-UNIFI-SERVER.txt"
 
 # ==================== Begin Script Execution ====================
 
-Log "Running INSTALL-UNIFI-SERVER script Version: 2.10.2" "INFO"
+Log "Running INSTALL-UNIFI-SERVER script Version: 2.10.3" "INFO"
 Log "Starting UniFi Network Server installation process..." "INFO"
 
 # --- Step 1: Define Variables and Check for Existing Installation ---
@@ -216,6 +217,38 @@ foreach ($port in $ports) {
   } else {
     Log "  - Rule for $($port.Name) already exists. Skipping." "INFO"
   }
+}
+
+# --- Step 4.5: Restart UniFi Network Application to apply new firewall rules ---
+Log "Restarting UniFi Network Application to apply new firewall rules..." "INFO"
+
+$unifiDir = $null
+foreach ($path in $possiblePaths) {
+    if (Test-Path -Path (Join-Path -Path $path -ChildPath "lib\ace.jar")) {
+        $unifiDir = $path
+        break
+    }
+}
+
+if ($unifiDir) {
+    $javawExe = Join-Path -Path $unifiDir -ChildPath "jre\bin\javaw.exe"
+    $aceJarPath = Join-Path -Path $unifiDir -ChildPath "lib\ace.jar"
+    Log "Found javaw.exe at: $javawExe" "INFO"
+    Log "Found ace.jar at: $aceJarPath" "INFO"
+    $arguments = "--add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.time=ALL-UNNAMED --add-opens java.base/sun.security.util=ALL-UNNAMED --add-opens java.base/java.io=ALL-UNNAMED --add-opens java.rmi/sun.rmi.transport=ALL-UNNAMED -jar `"$aceJarPath`" ui"
+    $process = Start-Process -FilePath $javawExe -ArgumentList $arguments -PassThru
+    if ($process) {
+        Log "UniFi Network Application process started with ID: $($process.Id)" "INFO"
+        Log "Waiting for UniFi Network Application to initialize after firewall changes..." "INFO"
+        Start-Sleep -Seconds 30 # Shorter sleep for restart
+        Log "Stopping UniFi Network Application..." "INFO"
+        Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+        Log "UniFi Network Application stopped." "INFO"
+    } else {
+        Log "ERROR: Failed to restart UniFi Network Application process." "ERROR"
+    }
+} else {
+    Log "WARNING: ace.jar not found in any of the possible locations. Skipping restart." "WARN"
 }
 
 # --- Step 5: Install and Start the Service ---
