@@ -1,10 +1,11 @@
 # INSTALLUNIFISERVER.ps1
-# Version: 2.6.0
+# Version: 2.7.0
 #
 # UNIFI NETWORK SERVER INSTALLATION SCRIPT (DYNAMIC & UPGRADE-READY)
 # THIS SCRIPT IS INTENDED FOR WINDOWS 10/11 (DESKTOP) ONLY, NOT SERVER VERSIONS.
 #
 # CHANGELOG:
+#   - 2.7.0: Added a step to kill existing UniFi processes before installation.
 #   - 2.6.0: Added a step to start the UniFi Network Application once before installing it as a service.
 #   - 2.5.0: Switched to curl for downloading to provide progress indication.
 #   - 2.4.0: Switched to a static download link to avoid parsing issues.
@@ -46,7 +47,7 @@ $LogFile = Join-Path $LogDir "INSTALL-UNIFI-SERVER.txt"
 
 # ==================== Begin Script Execution ====================
 
-Log "Running INSTALL-UNIFI-SERVER script Version: 2.6.0" "INFO"
+Log "Running INSTALL-UNIFI-SERVER script Version: 2.7.0" "INFO"
 Log "Starting UniFi Network Server installation process..." "INFO"
 
 # --- Step 1: Define Variables and Check for Existing Installation ---
@@ -102,6 +103,17 @@ if (-not $javaInstalled) {
         Log "ERROR: Failed to install Java." "ERROR"
         exit
     }
+}
+
+# --- Step 2.5: Kill Existing UniFi Process ---
+Log "Checking for existing UniFi Network Application process..." "INFO"
+$unifiProcess = Get-Process -Name "UniFi" -ErrorAction SilentlyContinue
+if ($unifiProcess) {
+    Log "Found running UniFi Network Application process. Killing it..." "INFO"
+    Stop-Process -Name "UniFi" -Force
+    Log "UniFi Network Application process killed." "INFO"
+} else {
+    Log "No running UniFi Network Application process found." "INFO"
 }
 
 # --- Step 3: Download and Install UniFi Network Server ---
