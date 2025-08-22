@@ -12,9 +12,11 @@
 #
 # ==============================================================================
 param (
-    [switch]$VerboseMode = $false,
-    [Parameter(Mandatory=$true)]
-    [string]$LogDir
+  # Parameter passed from the orchestrator script (WUH.ps1) to control console verbosity.
+  [switch]$VerboseMode = $false,
+  # Parameter passed from the orchestrator script (WUH.ps1) for centralized logging.
+  [Parameter(Mandatory=$true)]
+  [string]$LogDir
 )
 
 # ==================== Setup Paths and Global Variables ====================
@@ -40,6 +42,14 @@ $ScriptPath = $MyInvocation.MyCommand.Path
 # Define the target path for the startup shortcut. This shortcut ensures the script
 # can re-run automatically after a system reboot if updates require it.
 $StartupShortcut = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\WUA.lnk"
+
+
+
+# Create a new log file or append to the existing one.
+if (-not (Test-Path $LogFile)) {
+    "Log file created by WUA.ps1." | Out-File $LogFile -Append
+}
+
 
 # ==================== Ensure PSWindowsUpdate Module ====================
 #

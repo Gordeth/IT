@@ -16,18 +16,11 @@
 # ---------------------------------------------------------------------------------------------------
 
 param (
-    # Parameter: VerboseMode
-    # Type: Switch (boolean)
-    # Default: $false
-    # Description: When specified, enables detailed console output for log messages.
-    #              If omitted, only ERROR level messages will be shown on the console.
-    [switch]$VerboseMode = $false,
-
-    # Parameter: LogFile
-    # Type: String
-    # Description: Specifies the full path to the log file where script activities
-    #              will be recorded. This parameter is mandatory for logging.
-    [string]$LogFile
+  # Parameter passed from the orchestrator script (WUH.ps1) to control console verbosity.
+  [switch]$VerboseMode = $false,
+  # Parameter passed from the orchestrator script (WUH.ps1) for centralized logging.
+  [Parameter(Mandatory=$true)]
+  [string]$LogDir
 )
 
 # ================== CONFIGURATION ==================
@@ -59,10 +52,13 @@ if (-not (Test-Path $LogDir)) {
     }
 }
 
+
+
 # Create a new log file or append to the existing one.
 if (-not (Test-Path $LogFile)) {
-    "Log file created." | Out-File $LogFile -Append
+    "Log file created by WGET.ps1." | Out-File $LogFile -Append
 }
+
 
 # ================== LOAD FUNCTIONS MODULE ==================
 # This line makes all the functions in your separate Functions.ps1 script available.

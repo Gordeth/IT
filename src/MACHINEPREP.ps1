@@ -22,9 +22,10 @@
 #
 param (
     # Parameter passed from the orchestrator script (WUH.ps1) to control console verbosity.
-    [switch]$VerboseMode = $false,
-    # Parameter passed from the orchestrator script (WUH.ps1) for centralized logging.
-    [string]$LogFile
+  [switch]$VerboseMode = $false,
+  # Parameter passed from the orchestrator script (WUH.ps1) for centralized logging.
+  [Parameter(Mandatory=$true)]
+  [string]$LogDir
 )
 
 # ==================== Setup Paths and Global Variables ====================
@@ -46,6 +47,13 @@ if (-not $LogDir) {
 # --- Construct the dedicated log file path for this script ---
 # This script will now create its own file named MACHINEPREP.txt inside the provided log directory.
 $LogFile = Join-Path $LogDir "MACHINEPREP.txt"
+
+
+# Create a new log file or append to the existing one.
+if (-not (Test-Path $LogFile)) {
+    "Log file created by MACHINEPREP.ps1." | Out-File $LogFile -Append
+}
+
 
 # ==================== Script Execution Start ====================
 Log "Starting MACHINEPREP.ps1 script." "INFO"

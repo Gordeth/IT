@@ -48,6 +48,11 @@ param (
 # This script will now create its own file named INSTALL-UNIFI-SERVER.txt within the provided log directory.
 $LogFile = Join-Path $LogDir "INSTALL-UNIFI-SERVER.txt"
 
+# Create a new log file or append to the existing one.
+if (-not (Test-Path $LogFile)) {
+    "Log file created by IUS.ps1." | Out-File $LogFile -Append
+}
+
 # ==================== Begin Script Execution ====================
 
 Log "Running INSTALL-UNIFI-SERVER script Version: 2.10.3" "INFO"

@@ -1,19 +1,9 @@
 param (
-    # Parameter: VerboseMode
-    # Type: [switch]
-    # Default: $false (if not provided, it defaults to false)
-    # Description: Controls the level of output displayed on the console.
-    #              If this switch is present (`-VerboseMode`), detailed log messages
-    #              (INFO, WARN, DEBUG) will be shown on the console, in addition to errors.
-    #              If omitted, only ERROR messages will appear on the console.
-    [switch]$VerboseMode = $false,
-    
-    # Parameter: LogFile
-    # Type: [string]
-    # Description: Specifies the full path to the log file where all script activities,
-    #              including informational messages, warnings, and errors, will be recorded.
-    #              This parameter is mandatory for enabling persistent logging.
-    [string]$LogFile
+  # Parameter passed from the orchestrator script (WUH.ps1) to control console verbosity.
+  [switch]$VerboseMode = $false,
+  # Parameter passed from the orchestrator script (WUH.ps1) for centralized logging.
+  [Parameter(Mandatory=$true)]
+  [string]$LogDir
 )
 
 # ==================== Define Log Function ====================
