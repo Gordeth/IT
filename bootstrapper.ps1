@@ -15,9 +15,6 @@
 #
 # ==================================================
 
-# Source the Functions script
-. "$PSScriptRoot/../modules/Functions.ps1"
-
 # Define your GitHub repository details
 $repoName = "Gordeth/IT"
 # Base URL for the GitHub API to list directory contents
