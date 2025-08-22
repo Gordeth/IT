@@ -11,7 +11,7 @@ $repoName = "Gordeth/IT"
 $apiUrl = "https://api.github.com/repos/$repoName/contents"
 
 # Define the local directory to download the project to
-$projectDir = "$env:TEMP\WUH"
+$projectDir = "$env:TEMP\IAP"
 
 # Define the directories to download
 $dirsToDownload = @(
