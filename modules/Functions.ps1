@@ -1,11 +1,13 @@
 # ================================================== 
 # Functions.ps1
-# Version: 1.0.8
+# Version: 1.0.9
 # Contains reusable functions for the IT maintenance project.
 # ================================================== 
 #
 # ================== Change Log ================== 
 #
+# V 1.0.9
+# - Added debug logging to Log function for troubleshooting.
 # V 1.0.8
 # - Improved logging and module installation robustness.
 # V 1.0.7
@@ -20,13 +22,18 @@
 # and to a persistent log file.
 function Log {
     param (
-        [string]$Message,                                     # The message to be logged
-        [ValidateSet("INFO", "WARN", "ERROR", "DEBUG")] # Validation for log level
-        [string]$Level = "INFO"                               # Default log level is INFO
+        [string]$Message,
+        [ValidateSet("INFO", "WARN", "ERROR", "DEBUG")]
+        [string]$Level = "INFO"
     )
 
-    $timestamp = Get-Date -Format "dd-MM-yyyy HH:mm:ss" # Format the current date and time
-    $logEntry = "[$timestamp] [$Level] $Message"      # Construct the full log entry string
+    Write-Host "DEBUG: Inside Log function." -ForegroundColor Cyan
+    Write-Host "DEBUG: Message: $Message" -ForegroundColor Cyan
+    Write-Host "DEBUG: Level: $Level" -ForegroundColor Cyan
+    Write-Host "DEBUG: Value of `$LogFile`: $LogFile" -ForegroundColor Cyan
+
+    $timestamp = Get-Date -Format "dd-MM-yyyy HH:mm:ss"
+    $logEntry = "[$timestamp] [$Level] $Message"
 
     try {
         # Attempt to append the log entry to the specified log file.
@@ -34,6 +41,7 @@ function Log {
     } catch {
         # If writing to the log file fails, output an error to the console.
         Write-Host "Failed to write to log file: $_" -ForegroundColor Red
+        Write-Host "DEBUG: Error in Add-Content. Exception: $($_.Exception.Message)" -ForegroundColor Red
     }
 
     # If VerboseMode is enabled or the log level is ERROR, also output to the console.
