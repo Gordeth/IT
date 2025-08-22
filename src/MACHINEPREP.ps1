@@ -16,7 +16,6 @@
 .NOTES
     Script: MACHINEPREP.ps1
     Version: 1.0.6
-    Execution: This script should be run with Administrator privileges.
     Dependencies:
         - winget (Windows Package Manager) must be installed and configured.
         - Internet connectivity for downloading files and installing packages.
@@ -29,10 +28,32 @@
         - Improved HP Support Assistant installation logic to check for existing installation more robustly.
         - Added more robust checks for existing installations of Lenovo Vantage and Dell Command Update.
         - Refined disk management application installation to avoid duplicates and handle unsupported Samsung models.
-        - Added Chocolatey uninstallation at the end of the script.
+        - Added Chocolatey uninstallation at the end of the script.        v1.0.5
+        - Added Chocolatey installation and uninstallation logic.
+        - Improved driver update application installation for HP (using Chocolatey) and Dell/Lenovo (using winget).
+        - Enhanced disk management application installation to support more brands (Kingston, Crucial, WD, Intel, SanDisk) and avoid re-installation.
+        - Added robust checks for existing installations of applications.
+        - Refined logging and error handling.
+        v1.0.4
+        - Added logic to install brand-specific driver update applications (Lenovo Vantage, HP Support Assistant, Dell Command Update).
+        - Added logic to install disk management applications (e.g., Samsung Magician) based on detected disk manufacturer.
+        - Improved error handling and logging for various sections.
+        v1.0.3
+        - Integrated WGET.ps1 execution for winget package updates.
+        - Added installation of standard applications (7-Zip, Chrome, Adobe Reader).
+        - Included an interactive prompt for OpenVPN Connect installation.
+        - Enhanced logging with more specific messages.
+        v1.0.2
+        - Integrated WUA.ps1 execution for Windows Updates.
+        - Added TeamViewer Host installation.
+        - Implemented OneDrive autostart disabling.
+        - Configured File Explorer to open to 'This PC'.
+        - Set common desktop icons (This PC, Network, Control Panel, User's Files).
+        - Improved logging and error handling.
+        v1.0.1
+        - Initial release with basic structure and logging.
 #>
 
-#
 param (
     # Parameter passed from the orchestrator script (WUH.ps1) to control console verbosity.
   [switch]$VerboseMode = $false,

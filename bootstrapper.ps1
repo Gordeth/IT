@@ -16,10 +16,16 @@
         - Internet connectivity for downloading files and installing packages.
         - Optional: Chocolatey (will be installed by this script if needed)
     Changelog:
-        v1.0.6
-        - Added changelog.
-        - Improved error handling and logging.
-        
+        v1.0.6:
+        - Added changelog
+        - Improved error handling and logging.        
+        v1.0.5:
+        - Added logic to download specific directories from GitHub.
+        - Implemented cleanup for temporary project files.
+        - Improved error handling for GitHub API calls and file downloads.
+        v1.0.4:
+        - Initial version of the bootstrapper script.
+
 #>
 
 # Define your GitHub repository details

@@ -14,10 +14,10 @@
         - modules/Functions.ps1 for logging and other utility functions.
         - Child scripts: MACHINEPREP.ps1, WUA.ps1, WGET.ps1, MSO_UPDATE.ps1, IUS.ps1 (located in the same directory or relative paths).
     Change Log:
-        - Version 1.0.0: Initial release.
-        - Version 1.0.1: Added support for new child scripts.
-        - Version 1.0.2: Improved logging and error handling.
-        - Version 1.0.3: Updated script descriptions and metadata.
+        Version 1.0.0: Initial release.
+        Version 1.0.1: Added support for new child scripts.
+        Version 1.0.2: Improved logging and error handling.
+        Version 1.0.3: Updated script descriptions and metadata.
 #>
 param (
     [switch]$VerboseMode = $false # Default to false, can be set to true by user input
