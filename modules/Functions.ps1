@@ -1,10 +1,19 @@
-# ==================================================
+# ================================================== 
 # Functions.ps1
-# Version: 1.0.6
+# Version: 1.0.7
 # Contains reusable functions for the IT maintenance project.
-# ==================================================
+# ================================================== 
+#
+# ================== Change Log ================== 
+#
+# V 1.0.7
+# - Updated Save-File to show download speed
+# V 1.0.6
+# - Initial Release
+#
+# ================================================== 
 
-# ================== DEFINE LOG FUNCTION ==================
+# ================== DEFINE LOG FUNCTION ================== 
 # A custom logging function to write messages to the console (if verbose mode is on)
 # and to a persistent log file.
 function Log {
@@ -474,7 +483,7 @@ function Save-File {
     )
     Log "Downloading $Url to $OutputPath..." "INFO"
     try {
-        C:\Windows\System32\curl.exe -# -L $Url -o $OutputPath
+        C:\Windows\System32\curl.exe -L --output $OutputPath --write-out "Downloaded %{filename_effective} in %{time_total}s, Average Speed: %{speed_download} B/s\n" $Url
         Log "Successfully downloaded $Url." "INFO"
         return $true
     } catch {
