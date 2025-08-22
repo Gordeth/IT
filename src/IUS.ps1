@@ -1,29 +1,37 @@
-# INSTALLUNIFISERVER.ps1
-# Version: 2.10.3
-#
-# UNIFI NETWORK SERVER INSTALLATION SCRIPT (DYNAMIC & UPGRADE-READY)
-# THIS SCRIPT IS INTENDED FOR WINDOWS 10/11 (DESKTOP) ONLY, NOT SERVER VERSIONS.
-#
-# CHANGELOG:
-#   - 2.10.3: Added UniFi Network Application restart between firewall rules and service installation.
-#   - 2.10.2: Implemented Java version check and conditional installation of Java 21.
-#   - 2.10.1: Increased initial UniFi application startup sleep duration and fixed Java version mismatch for service installation.
-#   - 2.10.0: Use the command from the shortcut to start the UniFi application.
-#   - 2.9.0: Added a check to ensure the UniFi process started correctly before attempting to stop it.
-#   - 2.8.0: Correctly start the UniFi application using ace.jar before installing the service.
-#   - 2.7.0: Added a step to kill existing UniFi processes before installation.
-#   - 2.6.0: Added a step to start the UniFi Network Application once before installing it as a service.
-#   - 2.5.0: Switched to curl for downloading to provide progress indication.
-#   - 2.4.0: Switched to a static download link to avoid parsing issues.
-#   - 2.3.0: Added verbose logging to debug download link parsing.
-#   - 2.2.0: Switched to curl with a user-agent to fix dynamic URL retrieval.
-#   - 2.1.0: Replaced hardcoded download URL with dynamic URL retrieval.
-
-# Parameters:
-#   -VerboseMode (switch): If specified, enables detailed logging output to the console.
-#                        Otherwise, only ERROR level messages are displayed on the console.
-#   -LogDir (string): The full path to the log directory where script logs will be created.
-#                    This parameter is mandatory.
+<#
+.SYNOPSIS
+    Installs and configures UniFi Network Server.
+.DESCRIPTION
+    This script automates the installation and configuration of the UniFi Network Server on Windows 10/11 (desktop versions only).
+    It handles Java installation, downloads and installs the UniFi Network Server, configures firewall rules, and sets up the UniFi service.
+    It also includes logic for upgrading existing installations.
+.PARAMETER VerboseMode
+    If specified, enables detailed logging output to the console.
+    Otherwise, only ERROR level messages are displayed on the console.
+.PARAMETER LogDir
+    The full path to the log directory where all script actions will be recorded.
+    This parameter is mandatory.
+.NOTES
+    Script: IUS.ps1
+    Version: 2.10.3
+    Dependencies:
+        - Java (will be installed if needed)
+        - Internet connectivity
+    Changelog:
+        2.10.3: Added UniFi Network Application restart between firewall rules and service installation.
+        2.10.2: Implemented Java version check and conditional installation of Java 21.
+        2.10.1: Increased initial UniFi application startup sleep duration and fixed Java version mismatch for service installation.
+        2.10.0: Use the command from the shortcut to start the UniFi application.
+        2.9.0: Added a check to ensure the UniFi process started correctly before attempting to stop it.
+        2.8.0: Correctly start the UniFi application using ace.jar before installing the service.
+        2.7.0: Added a step to kill existing UniFi processes before installation.
+        2.6.0: Added a step to start the UniFi Network Application once before installing it as a service.
+        2.5.0: Switched to curl for downloading to provide progress indication.
+        2.4.0: Switched to a static download link to avoid parsing issues.
+        2.3.0: Added verbose logging to debug download link parsing.
+        2.2.0: Switched to curl with a user-agent to fix dynamic URL retrieval.
+        2.1.0: Replaced hardcoded download URL with dynamic URL retrieval.
+#>
 param (
   # Parameter passed from the orchestrator script (WUH.ps1) to control console verbosity.
   [switch]$VerboseMode = $false,
