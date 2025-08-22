@@ -77,7 +77,7 @@ try {
     }
 
     # --- Execute Logic ---
-    $orchestratorScriptPath = "$projectDir\src\TaskOrchestrator.ps1"
+    $orchestratorScriptPath = "$projectDir\src\TO.ps1"
     $functionsScriptPath = "$projectDir\modules\Functions.ps1"
 
     if (Test-Path $orchestratorScriptPath) {
