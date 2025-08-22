@@ -31,6 +31,26 @@ param (
   [string]$LogFile
 )
 
+# ==================== Helper Functions ====================
+
+function Save-File {
+    param (
+        [Parameter(Mandatory=$true)]
+        [string]$Url,
+        [Parameter(Mandatory=$true)]
+        [string]$OutputPath
+    )
+    Log "Downloading $Url to $OutputPath..." "INFO"
+    try {
+        C:\Windows\System32\curl.exe -# -L $Url -o $OutputPath
+        Log "Successfully downloaded $Url." "INFO"
+        return $true
+    } catch {
+        Log "ERROR: Failed to download $Url. Error: $($_.Exception.Message)" "ERROR"
+        return $false
+    }
+}
+
 # ==================== Setup Paths and Global Variables ====================
 #
 # This section initializes essential paths and variables used throughout the script,
@@ -117,7 +137,10 @@ if (-not $javaInstalled) {
     $outputFile = "$env:TEMP\openjdk.msi"
 
     try {
-        C:\Windows\System32\curl.exe -# -L $downloadUrl -o $outputFile
+        if (-not (Save-File -Url $downloadUrl -OutputPath $outputFile)) {
+            Log "ERROR: Failed to install Java 21." "ERROR"
+            exit 1
+        }
         # The Adoptium MSI installer typically sets JAVA_HOME by default.
         Start-Process msiexec.exe -ArgumentList "/i `"$outputFile`" /qn" -Wait
         Remove-Item $outputFile
@@ -155,7 +178,10 @@ Log "Using static download link: $unifiDownloadUrl" "INFO"
 $unifiInstaller = "$env:TEMP\UniFi-installer.exe"
 
 try {
-    C:\Windows\System32\curl.exe -# -L $unifiDownloadUrl -o $unifiInstaller
+    if (-not (Save-File -Url $unifiDownloadUrl -OutputPath $unifiInstaller)) {
+        Log "ERROR: Failed to download or install UniFi Network Server." "ERROR"
+        exit
+    }
     Start-Process -FilePath $unifiInstaller -ArgumentList "/S" -Wait
     Remove-Item $unifiInstaller
     Log "UniFi Network Server installation complete." "INFO"
