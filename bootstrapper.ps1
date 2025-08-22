@@ -9,7 +9,7 @@
 #
 # V 1.2.0
 # - Updated dot-sourcing to be relative
-# - Removed redundant Save-File function
+# - Reverted to Invoke-WebRequest for file downloads
 # V 1.1.0
 # - Initial Release
 #
@@ -73,8 +73,10 @@ try {
                     $sourceUrl = $file.download_url
                     $destinationFile = Join-Path $destinationDir $file.name
                                         
-                    if (-not (Save-File -Url $sourceUrl -OutputPath $destinationFile)) {
-                        Write-Host "ERROR: Failed to download $($file.name)." -ForegroundColor Red
+                    try {
+                        Invoke-WebRequest -Uri $sourceUrl -OutFile $destinationFile -ErrorAction Stop
+                    } catch {
+                        Write-Host "ERROR: Failed to download $($file.name). Error: $_" -ForegroundColor Red
                         Exit 1
                     }
                 }
