@@ -1,24 +1,37 @@
-# MACHINEPREP.ps1
-# Version: 1.0.5
-#
-# This script automates the initial setup and preparation of a Windows machine.
-# It includes tasks such as installing essential software (TeamViewer, common apps),
-# ensuring related scripts (WUA.ps1, WGET.ps1) are present and executed,
-# configuring system settings (OneDrive, File Explorer, desktop icons),
-# and installing brand-specific utilities (driver update tools, disk management apps).
-#
-# Execution: This script should be run with Administrator privileges.
-#
-# Parameters:
-#   -VerboseMode (switch): If specified, enables detailed logging output to the console.
-#                          Otherwise, only ERROR level messages are displayed on the console.
-#   -LogFile (string): The full path to the log file where all script actions will be recorded.
-#                      This parameter is mandatory.
-#
-# Dependencies:
-#   - winget (Windows Package Manager) must be installed and configured.
-#   - Internet connectivity for downloading files and installing packages.
-#   - Optional: Chocolatey (will be installed by this script if needed)
+<#
+.SYNOPSIS
+    Automates initial setup and preparation of a Windows machine.
+.DESCRIPTION
+    This script automates the initial setup and preparation of a Windows machine.
+    It includes tasks such as installing essential software (TeamViewer, common apps),
+    ensuring related scripts (WUA.ps1, WGET.ps1) are present and executed,
+    configuring system settings (OneDrive, File Explorer, desktop icons),
+    and installing brand-specific utilities (driver update tools, disk management apps).
+.PARAMETER VerboseMode
+    If specified, enables detailed logging output to the console.
+    Otherwise, only ERROR level messages are displayed on the console.
+.PARAMETER LogDir
+    The full path to the log directory where all script actions will be recorded.
+    This parameter is mandatory.
+.NOTES
+    Script: MACHINEPREP.ps1
+    Version: 1.0.6
+    Execution: This script should be run with Administrator privileges.
+    Dependencies:
+        - winget (Windows Package Manager) must be installed and configured.
+        - Internet connectivity for downloading files and installing packages.
+        - Optional: Chocolatey (will be installed by this script if needed)
+    Changelog:
+        v1.0.6
+        - Added changelog.
+        - Updated TeamViewer installation to use --accept-package-agreements and --accept-source-agreements.
+        - Updated winget install commands to include --accept-package-agreements and --accept-source-agreements.
+        - Improved HP Support Assistant installation logic to check for existing installation more robustly.
+        - Added more robust checks for existing installations of Lenovo Vantage and Dell Command Update.
+        - Refined disk management application installation to avoid duplicates and handle unsupported Samsung models.
+        - Added Chocolatey uninstallation at the end of the script.
+#>
+
 #
 param (
     # Parameter passed from the orchestrator script (WUH.ps1) to control console verbosity.
@@ -28,16 +41,19 @@ param (
   [string]$LogDir
 )
 
-# ==================== Setup Paths and Global Variables ====================
-#
-# This section initializes essential paths and variables used throughout the script,
-# ensuring correct file locations for logging and script execution.
-#
+# ==================== Preference Variables ====================
+# Set common preference variables for consistent script behavior.
+$ErrorActionPreference = 'Stop' # Stop on any error
+$WarningPreference = 'Continue' # Display warnings but continue
+$VerbosePreference = 'Continue' # Display verbose messages
+
+# ==================== Module Imports / Dot Sourcing ====================
 # --- IMPORTANT: Sourcing the Functions.ps1 module to make the Log function available.
 # The path is relative to the location of this script (which should be the 'src' folder).
 # This ensures that the Log function is available in the scope of this script.
 . "$PSScriptRoot/../modules/Functions.ps1"
 
+# ==================== Global Variable Initialization & Log Setup ====================
 # Add a check to ensure the log directory path was provided.
 if (-not $LogDir) {
     Write-Host "ERROR: The LogDir parameter is mandatory and cannot be empty." -ForegroundColor Red
@@ -175,7 +191,7 @@ try {
     $openvpnChoice = Read-Host "Do you want to install OpenVPN Connect? (Y/N)"
     
     # Use a regex match to check if the response is 'y' or 'yes' (case-insensitive).
-    if ($openvpnChoice -match '^(?i)y(es)?$') {
+    if ($openvpnChoice -match '^(?i)y(es)?') {
         Log "Installing OpenVPN Connect..."
         # Install OpenVPN Connect using winget.
         # `--scope machine`: Installs for all users on the machine.
