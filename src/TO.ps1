@@ -159,7 +159,7 @@ function Repair-SystemFiles {
     }
 }
 # Log the initial message indicating the script has started, using the Log function.
-Log "Task Orchestrator script started."
+Log "Starting Task Orchestrator script v1.0.3..." "INFO"
 # ================== SAVE ORIGINAL EXECUTION POLICY ==================
 # Store the current PowerShell execution policy to restore it later.
 # This is crucial for maintaining system security posture after script execution.
