@@ -74,7 +74,7 @@ function Invoke-Script {
     Log "Running $ScriptName..."
     try {
         # Pass the parameters to the child script
-        & $scriptPath -VerboseMode:$VerboseMode -LogFile:$LogFile -ErrorAction Stop
+        & $scriptPath -VerboseMode:$VerboseMode -LogDir:$LogDir -ErrorAction Stop
         Log "$ScriptName executed successfully."
     } catch {
         Log "Error during execution of ${ScriptName}: $_"
