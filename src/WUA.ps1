@@ -53,7 +53,7 @@ if (-not $LogDir) {
 
 # --- Construct the dedicated log file path for this script ---
 # This script will now create its own file named WUA.txt inside the provided log directory.
-$global:LogFile = Join-Path $LogDir "WUA.txt"
+$LogFile = Join-Path $LogDir "WUA.txt"
 
 
 # Create a new log file or append to the existing one.
