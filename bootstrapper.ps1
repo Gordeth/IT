@@ -1,6 +1,6 @@
 # ==================================================
 # Bootstrapper.ps1
-# V 1.0.10
+# V 1.1.0
 # Downloads the src and modules folders for the IT maintenance project
 # using the GitHub API to ensure all files are fetched, then cleans up.
 # ==================================================
@@ -18,6 +18,28 @@ $dirsToDownload = @(
     "src",
     "modules"
 )
+
+# ==================================================
+# Helper Functions
+# ==================================================
+
+function Save-File {
+    param (
+        [Parameter(Mandatory=$true)]
+        [string]$Url,
+        [Parameter(Mandatory=$true)]
+        [string]$OutputPath
+    )
+    Write-Host "Downloading $Url to $OutputPath..."
+    try {
+        C:\Windows\System32\curl.exe -# -L $Url -o $OutputPath
+        Write-Host "Successfully downloaded $Url."
+        return $true
+    } catch {
+        Write-Host "ERROR: Failed to download $Url. Error: $($_.Exception.Message)" -ForegroundColor Red
+        return $false
+    }
+}
 
 # ==================================================
 # Core Download and Execution Logic
@@ -59,13 +81,9 @@ try {
                 if ($file.type -eq "file") {
                     $sourceUrl = $file.download_url
                     $destinationFile = Join-Path $destinationDir $file.name
-                    Write-Host "Downloading $($file.name)..."
-                    
-                    try {
-                        Invoke-WebRequest -Uri $sourceUrl -OutFile $destinationFile -UseBasicParsing
-                        Write-Host "Successfully downloaded $($file.name)."
-                    } catch {
-                        Write-Host "Failed to download $($file.name). Error: $_" -ForegroundColor Red
+                                        
+                    if (-not (Save-File -Url $sourceUrl -OutputPath $destinationFile)) {
+                        Write-Host "ERROR: Failed to download $($file.name)." -ForegroundColor Red
                         Exit 1
                     }
                 }
