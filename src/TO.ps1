@@ -1,10 +1,24 @@
-# ==============================================================================
-# PowerShell Maintenance Script
-# Version: 1.0.3
-# This script automates various machine preparation and Windows maintenance tasks.
-# It includes robust logging, internet connectivity checks, execution policy handling,
-# and a focus on silent execution for automation.
-# ==============================================================================
+<#
+.SYNOPSIS
+    Orchestrates various machine preparation and Windows maintenance tasks.
+.DESCRIPTION
+    This script acts as a central orchestrator for automating machine setup, Windows maintenance, and UniFi server management.
+    It features robust logging, internet connectivity checks, dynamic execution policy handling, and offers interactive task selection for silent or verbose operation.
+    It can perform tasks such as system file repair, power plan optimization, and execution of child scripts like MACHINEPREP.ps1, WUA.ps1, WGET.ps1, MSO_UPDATE.ps1, and IUS.ps1.
+.NOTES
+    Script: TO.ps1
+    Version: 1.0.3
+    Execution: This script should be run with Administrator privileges. It provides interactive prompts for mode (Silent/Verbose) and task selection.
+    Dependencies:
+        - Internet connectivity for various operations.
+        - modules/Functions.ps1 for logging and other utility functions.
+        - Child scripts: MACHINEPREP.ps1, WUA.ps1, WGET.ps1, MSO_UPDATE.ps1, IUS.ps1 (located in the same directory or relative paths).
+    Change Log:
+        - Version 1.0.0: Initial release.
+        - Version 1.0.1: Added support for new child scripts.
+        - Version 1.0.2: Improved logging and error handling.
+        - Version 1.0.3: Updated script descriptions and metadata.
+#>
 param (
     [switch]$VerboseMode = $false # Default to false, can be set to true by user input
 )
