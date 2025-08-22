@@ -375,8 +375,8 @@ switch ($task) {
     }
     "InstallUpgradeUniFiServer" {
         Log "Task selected: Install/Upgrade UniFi Server"
-        Log "Executing INSTALLUNIFISERVER.ps1 from local path..."
-        Invoke-Script -ScriptName "INSTALLUNIFISERVER.ps1" -LogDir $LogDir -VerboseMode $VerboseMode
+        Log "Executing IUS.ps1 from local path..."
+        Invoke-Script -ScriptName "IUS.ps1" -LogDir $LogDir -VerboseMode $VerboseMode
     }
     default {
         Log "Invalid task selection. Exiting script. Received value: '$task'" -Level "ERROR"
