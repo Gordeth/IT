@@ -33,24 +33,6 @@ param (
 
 # ==================== Helper Functions ====================
 
-function Save-File {
-    param (
-        [Parameter(Mandatory=$true)]
-        [string]$Url,
-        [Parameter(Mandatory=$true)]
-        [string]$OutputPath
-    )
-    Log "Downloading $Url to $OutputPath..." "INFO"
-    try {
-        C:\Windows\System32\curl.exe -# -L $Url -o $OutputPath
-        Log "Successfully downloaded $Url." "INFO"
-        return $true
-    } catch {
-        Log "ERROR: Failed to download $Url. Error: $($_.Exception.Message)" "ERROR"
-        return $false
-    }
-}
-
 # ==================== Setup Paths and Global Variables ====================
 #
 # This section initializes essential paths and variables used throughout the script,

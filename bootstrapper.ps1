@@ -1,9 +1,22 @@
 # ==================================================
 # Bootstrapper.ps1
-# V 1.1.0
+# V 1.2.0
 # Downloads the src and modules folders for the IT maintenance project
 # using the GitHub API to ensure all files are fetched, then cleans up.
 # ==================================================
+#
+# ================== Change Log ==================
+#
+# V 1.2.0
+# - Updated dot-sourcing to be relative
+# - Removed redundant Save-File function
+# V 1.1.0
+# - Initial Release
+#
+# ==================================================
+
+# Source the Functions script
+. "$PSScriptRoot/../modules/Functions.ps1"
 
 # Define your GitHub repository details
 $repoName = "Gordeth/IT"
@@ -18,28 +31,6 @@ $dirsToDownload = @(
     "src",
     "modules"
 )
-
-# ==================================================
-# Helper Functions
-# ==================================================
-
-function Save-File {
-    param (
-        [Parameter(Mandatory=$true)]
-        [string]$Url,
-        [Parameter(Mandatory=$true)]
-        [string]$OutputPath
-    )
-    Write-Host "Downloading $Url to $OutputPath..."
-    try {
-        C:\Windows\System32\curl.exe -# -L $Url -o $OutputPath
-        Write-Host "Successfully downloaded $Url."
-        return $true
-    } catch {
-        Write-Host "ERROR: Failed to download $Url. Error: $($_.Exception.Message)" -ForegroundColor Red
-        return $false
-    }
-}
 
 # ==================================================
 # Core Download and Execution Logic
@@ -96,26 +87,15 @@ try {
 
     # --- Execute Logic ---
     $orchestratorScriptPath = "$projectDir\src\TO.ps1"
-    $functionsScriptPath = "$projectDir\modules\Functions.ps1"
 
     if (Test-Path $orchestratorScriptPath) {
-        Write-Host "Loading shared functions..."
+        Write-Host "Running the main orchestrator script..."
         
-        if (Test-Path $functionsScriptPath) {
-            # Dot-source the shared functions script using its full path.
-            . $functionsScriptPath
-            
-            Write-Host "Shared functions loaded. Running the main orchestrator script..."
-            
-            # Change the working directory to where the main script is.
-            Set-Location -Path (Split-Path -Path $orchestratorScriptPath)
-            
-            # Execute the orchestrator script
-            & $orchestratorScriptPath
-        } else {
-            Write-Host "Could not find the shared functions script at $functionsScriptPath. Aborting." -ForegroundColor Red
-            Exit 1
-        }
+        # Change the working directory to where the main script is.
+        Set-Location -Path (Split-Path -Path $orchestratorScriptPath)
+        
+        # Execute the orchestrator script
+        & $orchestratorScriptPath
     } else {
         Write-Host "Could not find the main orchestrator script at $orchestratorScriptPath. Aborting." -ForegroundColor Red
         Exit 1
@@ -139,4 +119,3 @@ try {
     
     Write-Host "Script finished."
 }
-
