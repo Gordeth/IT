@@ -1,3 +1,25 @@
+<#
+.SYNOPSIS
+    Automates Microsoft Office updates.
+.DESCRIPTION
+    This script automates the update process for Microsoft Office installations using the Click-to-Run (C2R) technology.
+    It locates the `OfficeC2RClient.exe` and executes it to force an update, logging the process and handling potential issues.
+.PARAMETER VerboseMode
+    If specified, enables detailed logging output to the console.
+    Otherwise, only ERROR level messages are displayed on the console.
+.PARAMETER LogDir
+    The full path to the log directory where all script actions will be recorded.
+    This parameter is mandatory.
+.NOTES
+    Script: MSO_UPDATE.ps1
+    Version: 1.0
+    Dependencies:
+        - Microsoft Office (Click-to-Run installation)
+    Changelog:
+        v1.0
+        - Initial release.
+#>
+
 param (
   # Parameter passed from the orchestrator script (WUH.ps1) to control console verbosity.
   [switch]$VerboseMode = $false,
