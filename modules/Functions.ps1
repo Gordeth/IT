@@ -1,11 +1,13 @@
 # ================================================== 
 # Functions.ps1
-# Version: 1.0.7
+# Version: 1.0.8
 # Contains reusable functions for the IT maintenance project.
 # ================================================== 
 #
 # ================== Change Log ================== 
 #
+# V 1.0.8
+# - Improved logging and module installation robustness.
 # V 1.0.7
 # - Updated Save-File to show download speed
 # V 1.0.6

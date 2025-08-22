@@ -13,7 +13,8 @@
 # ==============================================================================
 param (
     [switch]$VerboseMode = $false,
-    [string]$LogFile
+    [Parameter(Mandatory=$true)]
+    [string]$LogDir
 )
 
 # ==================== Setup Paths and Global Variables ====================
@@ -25,12 +26,6 @@ param (
 # The path is relative to this script's location (which should be the 'src' folder).
 # This ensures that the Log function is available in this script's scope.
 . "$PSScriptRoot/../modules/Functions.ps1"
-
-# Add a check to ensure a log directory path was provided.
-if (-not $LogDir) {
-    Write-Host "ERROR: The LogDir parameter is required and cannot be empty." -ForegroundColor Red
-    exit 1
-}
 
 # --- Construct the dedicated log file path for this script ---
 # This script will now create its own file named WUA.txt within the provided log directory.
@@ -55,10 +50,7 @@ Log "Checking for PSWindowsUpdate module..."
 if (-not (Get-Module -ListAvailable -Name PSWindowsUpdate)) {
     Log "PSWindowsUpdate module not found. Installing..."
     try {
-        # Attempt to install the PSWindowsUpdate module from PowerShell Gallery.
-        # `-Force` to overwrite existing files, `-SkipPublisherCheck` to bypass certificate warnings,
-        # `-AllowClobber` to allow cmdlets with the same names as existing ones.
-        Install-Module -Name PSWindowsUpdate -Force -SkipPublisherCheck -AllowClobber
+        Install-Module -Name PSWindowsUpdate -Force -SkipPublisherCheck
         Log "PSWindowsUpdate module installed successfully."
     } catch {
         # If module installation fails, log an error and terminate the script.
@@ -117,8 +109,9 @@ if ($UpdateList) {
         Set-Service -Name 'VSS' -StartupType Manual -ErrorAction SilentlyContinue
         Start-Service -Name 'VSS' -ErrorAction SilentlyContinue
         
-        # Enable system restore on the C: drive. This command can be idempotent.
-        Enable-ComputerRestore -Drive "C:\"
+        # Enable system restore on the system drive.
+        $SystemDrive = (Get-PSDrive -PSProvider FileSystem | Where-Object {$_.Root -eq "$env:SystemDrive\"}).Name
+        Enable-ComputerRestore -Drive "$SystemDrive\"
         Log "Enabled VSS and System Restore."
         
         # Create the actual restore point with a descriptive name.
@@ -207,7 +200,7 @@ if ($UpdateList) {
                     exit # Exit the script after initiating the reboot
                 } else {
                     # User denied reboot. The script will continue to the next block.
-                    Log "User denied reboot. Script will continue without restarting." -Level "INFO"
+                    Log "User denied reboot. Script will continue without restarting."
                 }
             } else {
                 # In silent mode, proceed with the reboot without user confirmation.
