@@ -28,7 +28,8 @@ param (
   # Parameter passed from the orchestrator script (WUH.ps1) to control console verbosity.
   [switch]$VerboseMode = $false,
   # Parameter passed from the orchestrator script (WUH.ps1) for centralized logging.
-  [string]$LogFile
+  [Parameter(Mandatory=$true)]
+  [string]$LogDir
 )
 
 # ==================== Helper Functions ====================
@@ -42,12 +43,6 @@ param (
 # The path is relative to this script's location (which should be the 'src' folder).
 # This ensures that the Log function is available in this script's scope.
 . "$PSScriptRoot/../modules/Functions.ps1"
-
-# Add a check to ensure a log file path was provided.
-if (-not $LogFile) {
-  Write-Host "ERROR: The LogFile parameter is required and cannot be empty." -ForegroundColor Red
-  exit 1
-}
 
 # --- Construct the dedicated log file path for this script ---
 # This script will now create its own file named INSTALL-UNIFI-SERVER.txt within the provided log directory.
