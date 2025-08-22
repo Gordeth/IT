@@ -7,9 +7,6 @@
     ensuring related scripts (WUA.ps1, WGET.ps1) are present and executed,
     configuring system settings (OneDrive, File Explorer, desktop icons),
     and installing brand-specific utilities (driver update tools, disk management apps).
-.PARAMETER VerboseMode
-    If specified, enables detailed logging output to the console.
-    Otherwise, only ERROR level messages are displayed on the console.
 .NOTES
     Script: Bootstrapper.ps1
     Version: 1.0.6
