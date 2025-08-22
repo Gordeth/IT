@@ -31,22 +31,34 @@ param (
   [string]$LogDir
 )
 
-# ==================== Setup Paths and Global Variables ====================
-#
-# This section initializes essential paths and variables used throughout the script,
-# ensuring proper file locations for logging and script execution.
-#
-# --- IMPORTANT: Dot-source the Functions.ps1 module to make the Log function available.
-# The path is relative to this script's location (which should be the 'src' folder).
-# This ensures that the Log function is available in this script's scope.
+# ==================== Preference Variables ====================
+# Set common preference variables for consistent script behavior.
+$ErrorActionPreference = 'Stop' # Stop on any error
+$WarningPreference = 'Continue' # Display warnings but continue
+$VerbosePreference = 'Continue' # Display verbose messages
+
+# ==================== Module Imports / Dot Sourcing ====================
+# --- IMPORTANT: Sourcing the Functions.ps1 module to make the Log function available.
+# The path is relative to the location of this script (which should be the 'src' folder).
+# This ensures that the Log function is available in the scope of this script.
 . "$PSScriptRoot/../modules/Functions.ps1"
 
+# ==================== Global Variable Initialization & Log Setup ====================
+# Add a check to ensure the log directory path was provided.
+if (-not $LogDir) {
+    Write-Host "ERROR: The LogDir parameter is mandatory and cannot be empty." -ForegroundColor Red
+    exit 1
+}
+
 # --- Construct the dedicated log file path for this script ---
-# This script will now create its own file named WUA.txt within the provided log directory.
+# This script will now create its own file named WUA.txt inside the provided log directory.
 $LogFile = Join-Path $LogDir "WUA.txt"
 
-# Log the initial message indicating the script has started, using the `Log` function.
-Log "WUA Script started." "INFO"
+
+# Create a new log file or append to the existing one.
+if (-not (Test-Path $LogFile)) {
+    "Log file created by WUA.ps1." | Out-File $LogFile -Append
+}
 
 # Get the full path of the current script, which is needed for creating the startup shortcut.
 $ScriptPath = $MyInvocation.MyCommand.Path
@@ -57,11 +69,8 @@ $StartupShortcut = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\W
 
 
 
-# Create a new log file or append to the existing one.
-if (-not (Test-Path $LogFile)) {
-    "Log file created by WUA.ps1." | Out-File $LogFile -Append
-}
-
+# Log the initial message indicating the script has started, using the Log function.
+Log "Starting Windows Update Automation script v1.0.2..." "INFO"
 
 # ==================== Ensure PSWindowsUpdate Module ====================
 #

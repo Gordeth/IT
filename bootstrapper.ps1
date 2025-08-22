@@ -28,6 +28,7 @@
 
 #>
 
+# ================== CONFIGURATION ==================
 # Define your GitHub repository details
 $repoName = "Gordeth/IT"
 # Base URL for the GitHub API to list directory contents
