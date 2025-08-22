@@ -1,6 +1,16 @@
 # ==============================================================================
-# Version: 1.0.1
+# Windows Update Automation Script
+# WUA.ps1
+# Version: 1.0.2
 # This script automates Windows maintenance tasks.
+# ================== Change Log ==================
+#
+# V 1.0.2
+# - Added changelog
+# V 1.0.1
+# - Initial Release
+#
+# ==============================================================================
 param (
     [switch]$VerboseMode = $false,
     [string]$LogFile
@@ -23,18 +33,18 @@ if (-not $LogDir) {
 }
 
 # --- Construct the dedicated log file path for this script ---
-# This script will now create its own file named WU.txt within the provided log directory.
-$LogFile = Join-Path $LogDir "WU.txt"
+# This script will now create its own file named WUA.txt within the provided log directory.
+$LogFile = Join-Path $LogDir "WUA.txt"
 
 # Log the initial message indicating the script has started, using the `Log` function.
-Log "WU Script started." "INFO"
+Log "WUA Script started." "INFO"
 
 # Get the full path of the current script, which is needed for creating the startup shortcut.
 $ScriptPath = $MyInvocation.MyCommand.Path
 
 # Define the target path for the startup shortcut. This shortcut ensures the script
 # can re-run automatically after a system reboot if updates require it.
-$StartupShortcut = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\WU.lnk"
+$StartupShortcut = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\WUA.lnk"
 
 # ==================== Ensure PSWindowsUpdate Module ====================
 #
@@ -113,7 +123,7 @@ if ($UpdateList) {
         
         # Create the actual restore point with a descriptive name.
         # `RestorePointType "MODIFY_SETTINGS"` is appropriate for system changes.
-        Checkpoint-Computer -Description "Pre-WindowsUpdateScript" -RestorePointType "MODIFY_SETTINGS"
+        Checkpoint-Computer -Description "Pre-WUA_Script" -RestorePointType "MODIFY_SETTINGS"
         Log "Restore point created successfully."
     } catch {
         # Log any errors encountered during restore point creation.
@@ -122,9 +132,9 @@ if ($UpdateList) {
 
     # --- Add to Startup if not already present ---
     # If updates are found, a shortcut is added to the Startup folder. This ensures
-    # the script runs again automatically after any reboots triggered by updates,
-    # allowing it to complete the update process (e.g., post-reboot installations)
-    # or clean up.
+# the script runs again automatically after any reboots triggered by updates,
+# allowing it to complete the update process (e.g., post-reboot installations)
+# or clean up.
     if (-not (Test-Path $StartupShortcut)) {
         try {
             Log "Adding script shortcut to Startup folder."

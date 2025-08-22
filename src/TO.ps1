@@ -198,7 +198,7 @@ while (-not $isValidInput) {
     switch ($taskInput) {
         "1" { $task = "MachinePrep"; $isValidInput = $true }
         "2" { $task = "WindowsMaintenance"; $isValidInput = $true }
-        "3" { $task = "InstallUpgradeUniFiServer"; $isValidInput = $true }
+        "3" { $task = "InstallUpgradeUniFiServer"; $isValidInput = true }
         default { Write-Host "Invalid input. Please choose 1, 2, or 3." -ForegroundColor Red }
     }
 }
@@ -342,7 +342,7 @@ try {
 
 } catch {
     # Log any unexpected errors during power plan operations.
-    Log "An error occurred during power plan creation or setting: $_" -Level "ERROR"
+    Log "An unexpected error occurred during power plan creation or setting: $($_.Exception.Message)" -Level "ERROR"
 }
 # ================== TASK SELECTION ==================
 switch ($task) {
@@ -362,7 +362,7 @@ switch ($task) {
     "WindowsMaintenance" {
         Log "Task selected: Windows Maintenance"
         Log "Executing scripts from local path..."
-        Invoke-Script -ScriptName "WU.ps1" -LogDir $LogDir -VerboseMode $VerboseMode
+        Invoke-Script -ScriptName "WUA.ps1" -LogDir $LogDir -VerboseMode $VerboseMode
         Repair-SystemFiles
         Invoke-Script -ScriptName "WGET.ps1" -LogDir $LogDir -VerboseMode $VerboseMode
         if (Confirm-OfficeInstalled) {

@@ -3,7 +3,7 @@
 #
 # This script automates the initial setup and preparation of a Windows machine.
 # It includes tasks such as installing essential software (TeamViewer, common apps),
-# ensuring related scripts (WU.ps1, WGET.ps1) are present and executed,
+# ensuring related scripts (WUA.ps1, WGET.ps1) are present and executed,
 # configuring system settings (OneDrive, File Explorer, desktop icons),
 # and installing brand-specific utilities (driver update tools, disk management apps).
 #
@@ -83,23 +83,23 @@ try {
     Log "Error installing TeamViewer: $_" -Level "ERROR"
 }
 
-# ================== 2. Run WU.ps1 to perform Windows Updates ==================
+# ================== 2. Run WUA.ps1 to perform Windows Updates ==================
 #
-# This section executes the `WU.ps1` script to perform Windows updates.
-# It assumes the WU.ps1 script is present in the same directory.
+# This section executes the `WUA.ps1` script to perform Windows updates.
+# It assumes the WUA.ps1 script is present in the same directory.
 #
 try {
-    # Construct the full path to the WU.ps1 script.
-    $WUPath = Join-Path $PSScriptRoot "WU.ps1"
+    # Construct the full path to the WUA.ps1 script.
+    $WUAPath = Join-Path $PSScriptRoot "WUA.ps1"
     
-    Log "Running WU.ps1..."
-    # Execute the WU.ps1 script, passing through verbosity and the log file path.
-    # The LogFile parameter is now removed from WU.ps1 as per the new logging structure.
-    & $WUPath -VerboseMode:$VerboseMode
-    Log "WU.ps1 executed successfully."
+    Log "Running WUA.ps1..."
+    # Execute the WUA.ps1 script, passing through verbosity and the log file path.
+    # The LogFile parameter is now removed from WUA.ps1 as per the new logging structure.
+    & $WUAPath -VerboseMode:$VerboseMode
+    Log "WUA.ps1 executed successfully."
 } catch {
-    # Catch and log any errors encountered while running WU.ps1.
-    Log "Error with WU.ps1: $_" -Level "ERROR"
+    # Catch and log any errors encountered while running WUA.ps1.
+    Log "Error with WUA.ps1: $_" -Level "ERROR"
 }
 
 # ================== 3. Run WGET.ps1 to update winget packages ==================
@@ -251,7 +251,7 @@ try {
                         Write-Host "Error during Chocolatey installation of HP Support Assistant: $_" -ForegroundColor Red
                     }
                 } else {
-                    Write-Host "Chocolatey installation failed, skipping HP Support Assistant." -ForegroundColor Red
+                    Log "Chocolatey installation failed, skipping HP Support Assistant." -ForegroundColor Red
                 }
             }
         }
@@ -280,7 +280,7 @@ try {
                         Write-Host "Error during Chocolatey installation of HP Support Assistant: $_" -ForegroundColor Red
                     }
                 } else {
-                    Write-Host "Chocolatey installation failed, skipping HP Support Assistant." -ForegroundColor Red
+                    Log "Chocolatey installation failed, skipping HP Support Assistant." -ForegroundColor Red
                 }
             }
         }
@@ -315,10 +315,9 @@ try {
         }
     }
 } catch {
-    # Catch and log any errors that occur during the detection or installation of driver update apps.
-    Write-Host "Error installing driver update app: $_" -ForegroundColor Red
+    # Log any errors that occur during the detection or installation of driver update apps.
+    Write-Host "Error installing driver update app: $_" -Level "ERROR"
 }
-
 
 
 # ================== 7. Install Disk Management App ==================
@@ -391,8 +390,6 @@ try {
                                 $installedDiskApps += "Samsung"
                             } elseif ($LASTEXITCODE -eq 1) {
                                 Log "Samsung Magician installation via Chocolatey completed with a known issue (e.g., already installed, reboot needed). Check Chocolatey logs." "WARN"
-                            } else {
-                                Log "Samsung Magician installation via Chocolatey failed with exit code $LASTEXITCODE. Review Chocolatey logs." "ERROR"
                             }
                         } catch {
                             Log "Error during Chocolatey installation of Samsung Magician: $_" "ERROR"
@@ -422,11 +419,9 @@ try {
                             $installedDiskApps += "WesternDigital"
                         } elseif ($LASTEXITCODE -eq 1) {
                             Log "Western Digital Dashboard installation via Chocolatey completed with a known issue. Check Chocolatey logs." "WARN"
-                        } else {
-                            Log "Western Digital Dashboard installation via Chocolatey failed with exit code $LASTEXITCODE. Review Chocolatey logs." "ERROR"
                         }
                     } catch {
-                        Log "Error during Chocolatey installation of Western Digital Dashboard: $_" "ERROR"
+                        Log "Error during Chocolatey installation of Western Digital Dashboard: $_" -Level "ERROR"
                     }
                 } else {
                     Log "Chocolatey installation failed, skipping Western Digital Dashboard." "ERROR"

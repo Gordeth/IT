@@ -45,7 +45,7 @@ When you launch the bootstrapper, you'll be prompted to select a mode and a task
 | `src\WGET.ps1` | Handles the Winget update and cleanup routine. |
 | `src\MSO_UPDATE.ps1` | An optional routine for updating Microsoft Office. |
 | `src\IUS.ps1` | Handles the installation and upgrade of the UniFi Network Server. |
-| `src\WU.ps1` | Handles the Windows Update routine. |
+| `src\WUA.ps1` | Handles the Windows Update routine. |
 
 ---
 
