@@ -16,7 +16,7 @@ $ScriptDir = $PSScriptRoot
 # The logging and script directories are now consistently based on $PSScriptRoot.
 $LogDir = Join-Path $ScriptDir "Log"
 # Define the log file specifically for this orchestrator script.
-$LogFile = Join-Path $LogDir "TASKORCHESTRATOR.txt"
+$LogFile = Join-Path $LogDir "TO.txt"
 
 # --- Set the working location to the script's root ---
 Set-Location -Path $ScriptDir
