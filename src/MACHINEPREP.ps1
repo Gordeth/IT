@@ -30,30 +30,30 @@ param (
 # ==================== Setup Paths and Global Variables ====================
 #
 # This section initializes essential paths and variables used throughout the script,
-# ensuring proper file locations for logging and script execution.
+# ensuring correct file locations for logging and script execution.
 #
-# --- IMPORTANT: Dot-source the Functions.ps1 module to make the Log function available.
-# The path is relative to this script's location (which should be the 'src' folder).
-# This ensures that the Log function is available in this script's scope.
+# --- IMPORTANT: Sourcing the Functions.ps1 module to make the Log function available.
+# The path is relative to the location of this script (which should be the 'src' folder).
+# This ensures that the Log function is available in the scope of this script.
 . "$PSScriptRoot/../modules/Functions.ps1"
 
-# Add a check to ensure a log directory path was provided.
+# Add a check to ensure the log directory path was provided.
 if (-not $LogDir) {
-    Write-Host "ERROR: The LogDir parameter is required and cannot be empty." -ForegroundColor Red
+    Write-Host "ERROR: The LogDir parameter is mandatory and cannot be empty." -ForegroundColor Red
     exit 1
 }
 
 # --- Construct the dedicated log file path for this script ---
-# This script will now create its own file named MACHINEPREP.txt within the provided log directory.
+# This script will now create its own file named MACHINEPREP.txt inside the provided log directory.
 $LogFile = Join-Path $LogDir "MACHINEPREP.txt"
 
-# ==================== Begin Script Execution ====================
+# ==================== Script Execution Start ====================
 Log "Starting MACHINEPREP.ps1 script." "INFO"
 
-# ================== 1. Check if TeamViewer is installed ==================
+# ================== 1. Check if TeamViewer is Installed ==================
 #
-# This section verifies the presence of TeamViewer Host on the system.
-# If not found, it proceeds to install it using `winget`.
+# This section checks for the presence of TeamViewer Host on the system.
+# If not found, it proceeds with its installation using `winget`.
 # TeamViewer Host is a common remote access tool for support.
 #
 try {
@@ -67,12 +67,12 @@ try {
     $tvInstalled = $teamViewerPaths | Where-Object { Test-Path $_ }
 
     if ($tvInstalled) {
-        Log "TeamViewer already installed. Skipping installation."
+        Log "TeamViewer is already installed. Skipping installation."
     } else {
         Log "Installing TeamViewer Host..."
-        # Use winget to silently install TeamViewer Host.
+        # Use winget to install TeamViewer Host silently.
         # `--id`: Specifies the package ID.
-        # `--silent`: Performs a quiet installation without user interaction.
+        # `--silent`: Performs a silent installation without user interaction.
         # `--accept-package-agreements`: Automatically accepts package agreements.
         # `--accept-source-agreements`: Automatically accepts source agreements.
         winget install --id=TeamViewer.TeamViewerHost --silent --accept-package-agreements --accept-source-agreements
@@ -83,7 +83,7 @@ try {
     Log "Error installing TeamViewer: $_" -Level "ERROR"
 }
 
-# ================== 2. Run WUA.ps1 to perform Windows Updates ==================
+# ================== 2. Execute WUA.ps1 to Perform Windows Updates ==================
 #
 # This section executes the `WUA.ps1` script to perform Windows updates.
 # It assumes the WUA.ps1 script is present in the same directory.
@@ -92,17 +92,17 @@ try {
     # Construct the full path to the WUA.ps1 script.
     $WUAPath = Join-Path $PSScriptRoot "WUA.ps1"
     
-    Log "Running WUA.ps1..."
-    # Execute the WUA.ps1 script, passing through verbosity and the log file path.
-    # The LogFile parameter is now removed from WUA.ps1 as per the new logging structure.
+    Log "Executing WUA.ps1..."
+    # Execute the WUA.ps1 script, passing verbosity and the log file path.
+    # The LogFile parameter has now been removed from WUA.ps1 as per the new logging structure.
     & $WUAPath -VerboseMode:$VerboseMode
     Log "WUA.ps1 executed successfully."
 } catch {
-    # Catch and log any errors encountered while running WUA.ps1.
+    # Catch and log any errors encountered while executing WUA.ps1.
     Log "Error with WUA.ps1: $_" -Level "ERROR"
 }
 
-# ================== 3. Run WGET.ps1 to update winget packages ==================
+# ================== 3. Execute WGET.ps1 to Update winget packages ==================
 #
 # This section executes the `WGET.ps1` script to update installed packages.
 # It assumes the WGET.ps1 script is present in the same directory.
@@ -111,9 +111,9 @@ try {
     # Construct the full path to the WGET.ps1 script.
     $WGETPath = Join-Path $PSScriptRoot "WGET.ps1"
 
-    Log "Running WGET.ps1..."
-    # Execute the WGET.ps1 script, passing through verbosity and the log file path.
-    # The LogFile parameter is now removed from WGET.ps1 as per the new logging structure.
+    Log "Executing WGET.ps1..."
+    # Execute the WGET.ps1 script, passing verbosity and the log file path.
+    # The LogFile parameter has now been removed from WGET.ps1 as per the new logging structure.
     & $WGETPath -VerboseMode:$VerboseMode
     Log "WGET.ps1 executed successfully."
 } catch {
@@ -121,11 +121,11 @@ try {
     Log "Error with WGET.ps1: $_" -Level "ERROR"
 }
 
-# ================== 4. Install Default Apps ==================
+# ================== 4. Install Standard Applications ==================
 #
-# This section defines a list of common, essential applications and ensures
-# they are installed on the system using `winget`. It checks for existing
-# installations to avoid unnecessary re-installation.
+# This section defines a list of common and essential applications and ensures
+# they are installed on the system using `winget`.
+# It checks for existing installations to avoid unnecessary re-installations.
 #
 $apps = @(
     @{ Name = "7-Zip"; Id = "7zip.7zip" },
@@ -137,33 +137,33 @@ $apps = @(
 foreach ($app in $apps) {
     try {
         # Check if the application is already installed by listing winget packages by name.
-        # `-e` ensures exact match. `| Where-Object { $_ }` checks if any output exists.
+        # `-e` ensures an exact match. `| Where-Object { $_ }` checks if any output exists.
         $installed = winget list --name $app.Name -e | Where-Object { $_ }
         
         if ($installed) {
-            Log "$($app.Name) already installed. Skipping."
+            Log "$($app.Name) is already installed. Skipping."
         } else {
             Log "Installing $($app.Name)..."
             # Install the application using its winget ID.
-            # `-e`: Ensures exact ID match.
-            # `--silent`: Suppresses installation UI.
-            # `--accept-package-agreements` and `--accept-source-agreements`: Auto-accepts necessary agreements.
+            # `-e`: Ensures exact match of the ID.
+            # `--silent`: Suppresses the installation UI.
+            # `--accept-package-agreements` and `--accept-source-agreements`: Automatically accept necessary agreements.
             winget install --id=$($app.Id) -e --silent --accept-package-agreements --accept-source-agreements
             Log "$($app.Name) installed successfully."
         }
     } catch {
-        # Log any errors encountered during the installation of a specific application.
+        # Log any errors encountered during a specific app's installation.
         Log "Error installing $($app.Name): $_" -Level "ERROR"
     }
 }
 
 # ================== 5. Prompt for OpenVPN Connect ==================
 #
-# This section provides an interactive prompt to the user, asking if they wish
+# This section provides an interactive prompt to the user, asking if they would like
 # to install OpenVPN Connect. If the user confirms, it proceeds with the installation.
 #
 try {
-    # Prompt the user for input and store their response.
+    # Prompt for user input and store their response.
     $openvpnChoice = Read-Host "Do you want to install OpenVPN Connect? (Y/N)"
     
     # Use a regex match to check if the response is 'y' or 'yes' (case-insensitive).
@@ -174,30 +174,30 @@ try {
         winget install --id=OpenVPNTechnologies.OpenVPNConnect -e --scope machine --silent --accept-package-agreements --accept-source-agreements
         Log "OpenVPN Connect installed successfully."
     } else {
-        Log "Skipped OpenVPN Connect installation."
+        Log "OpenVPN Connect installation skipped."
     }
 } catch {
     # Log any errors during the OpenVPN Connect installation process.
     Log "Error installing OpenVPN Connect: $_" -Level "ERROR"
 }
 
-# ================== 6. Install Driver Update App ==================
+# ================== 6. Install Driver Update Application ==================
 #
 # This section automatically detects the computer's manufacturer (e.g., Lenovo, HP, Dell)
 # and installs the corresponding official driver update utility.
-# This helps ensure drivers are kept up-to-date. The script now checks if
-# the app is already installed before attempting to install it.
+# This helps ensure drivers are always up-to-date. The script now checks if the application
+# is already installed before attempting to install it.
 #
 # Note: The 'Install-Chocolatey' function is assumed to be available
 # from an external script or module.
 #
 try {
-    # Retrieve the manufacturer of the computer system using WMI.
-    # Trim any whitespace and convert to lowercase for reliable comparison.
+    # Retrieve the system manufacturer from the computer using WMI.
+    # Remove any whitespace and convert to lowercase for reliable comparison.
     $brand = (Get-WmiObject -Class Win32_ComputerSystem).Manufacturer.Trim().ToLower()
     Write-Host "Detected manufacturer: $brand" -ForegroundColor Cyan
 
-    # Use a switch statement with wildcard matching to identify the brand
+    # Use a wildcard switch statement to identify the brand
     # and install the appropriate driver update application.
     switch -Wildcard ($brand) {
         "*lenovo*" {
@@ -214,7 +214,7 @@ try {
                         $packageId = $package.Id
                         winget install --id=$packageId -e --silent --accept-package-agreements --accept-source-agreements
                         if ($LASTEXITCODE -eq 0) {
-                            Write-Host "Successfully installed Lenovo Vantage." -ForegroundColor Green
+                            Write-Host "Lenovo Vantage installed successfully." -ForegroundColor Green
                         } else {
                             Write-Host "Failed to install Lenovo Vantage. Winget exit code: $LASTEXITCODE." -ForegroundColor Red
                         }
@@ -230,25 +230,25 @@ try {
             Write-Host "Found HP brand. Checking for HP Support Assistant..."
             
             # This is the new, more robust check. We pipe the output to Out-String
-            # to treat it as a single block of text and then search for the
+            # to treat it as a single block of text, then search for the
             # "HP Support Assistant" string, which is always present in the output
             # when the app is installed.
             $wingetOutput = winget list "HP Support Assistant" | Out-String
             if ($wingetOutput -like "*HP Support Assistant*") {
                 Write-Host "HP Support Assistant is already installed. Skipping." -ForegroundColor Yellow
             } else {
-                # Attempt to install Chocolatey (function call from external script)
+                # Attempt to install Chocolatey (function call from an external script)
                 if (Install-Chocolatey) {
                     try {
                         Write-Host "HP Support Assistant not found. Attempting installation via Chocolatey..."
                         choco install hpsupportassistant --force -y
                         if ($LASTEXITCODE -eq 0) {
-                            Write-Host "Successfully installed HP Support Assistant." -ForegroundColor Green
+                            Write-Host "HP Support Assistant installed successfully." -ForegroundColor Green
                         } elseif ($LASTEXITCODE -ne 0) {
-                            Write-Host "HP Support Assistant installation via Chocolatey failed with exit code $LASTEXITCODE. Review Chocolatey logs." -ForegroundColor Red
+                            Write-Host "HP Support Assistant installation via Chocolatey failed with exit code $LASTEXITCODE. Check Chocolatey logs." -ForegroundColor Red
                         }
                     } catch {
-                        Write-Host "Error during Chocolatey installation of HP Support Assistant: $_" -ForegroundColor Red
+                        Write-Host "Error during HP Support Assistant installation via Chocolatey: $_" -ForegroundColor Red
                     }
                 } else {
                     Log "Chocolatey installation failed, skipping HP Support Assistant." -ForegroundColor Red
@@ -259,25 +259,25 @@ try {
             Write-Host "Found Hewlett-Packard brand. Checking for HP Support Assistant..."
             
             # This is the new, more robust check. We pipe the output to Out-String
-            # to treat it as a single block of text and then search for the
+            # to treat it as a single block of text, then search for the
             # "HP Support Assistant" string, which is always present in the output
             # when the app is installed.
             $wingetOutput = winget list "HP Support Assistant" | Out-String
             if ($wingetOutput -like "*HP Support Assistant*") {
                 Write-Host "HP Support Assistant is already installed. Skipping." -ForegroundColor Yellow
             } else {
-                # Attempt to install Chocolatey (function call from external script)
+                # Attempt to install Chocolatey (function call from an external script)
                 if (Install-Chocolatey) {
                     try {
                         Write-Host "HP Support Assistant not found. Attempting installation via Chocolatey..."
                         choco install hpsupportassistant --force -y
                         if ($LASTEXITCODE -eq 0) {
-                            Write-Host "Successfully installed HP Support Assistant." -ForegroundColor Green
+                            Write-Host "HP Support Assistant installed successfully." -ForegroundColor Green
                         } elseif ($LASTEXITCODE -ne 0) {
-                            Write-Host "HP Support Assistant installation via Chocolatey failed with exit code $LASTEXITCODE. Review Chocolatey logs." -ForegroundColor Red
+                            Write-Host "HP Support Assistant installation via Chocolatey failed with exit code $LASTEXITCODE. Check Chocolatey logs." -ForegroundColor Red
                         }
                     } catch {
-                        Write-Host "Error during Chocolatey installation of HP Support Assistant: $_" -ForegroundColor Red
+                        Write-Host "Error during HP Support Assistant installation via Chocolatey: $_" -ForegroundColor Red
                     }
                 } else {
                     Log "Chocolatey installation failed, skipping HP Support Assistant." -ForegroundColor Red
@@ -298,7 +298,7 @@ try {
                         $packageId = $package.Id
                         winget install --id=$packageId -e --silent --accept-package-agreements --accept-source-agreements
                         if ($LASTEXITCODE -eq 0) {
-                            Write-Host "Successfully installed Dell Command Update." -ForegroundColor Green
+                            Write-Host "Dell Command Update installed successfully." -ForegroundColor Green
                         } else {
                             Write-Host "Failed to install Dell Command Update. Winget exit code: $LASTEXITCODE." -ForegroundColor Red
                         }
@@ -311,47 +311,47 @@ try {
             }
         }
         default {
-            Write-Host "No specific driver update app for detected brand '$brand'. Skipping." -ForegroundColor Yellow
+            Write-Host "No brand-specific driver update app detected for '$brand'. Skipping." -ForegroundColor Yellow
         }
     }
 } catch {
-    # Log any errors that occur during the detection or installation of driver update apps.
+    # Log any errors that occur during driver update app detection or installation.
     Write-Host "Error installing driver update app: $_" -Level "ERROR"
 }
 
 
-# ================== 7. Install Disk Management App ==================
+# ================== 7. Install Disk Management Application ==================
 #
 # This section attempts to identify the manufacturer of *all* internal storage disks (SSD/HDD)
-# and install the corresponding manufacturer-specific utility tool (e.g., Samsung Magician).
+# and install the corresponding manufacturer-specific utility (e.g., Samsung Magician).
 # These tools often provide firmware updates, health monitoring, and performance optimization.
 #
 try {
-    Log "Starting disk management app installation..." "INFO"
+    Log "Starting disk management application installation..." "INFO"
 
-    # Use a variable to track which apps have already been installed to prevent duplicates.
+    # Use a variable to track which applications have already been installed to avoid duplicates.
     $installedDiskApps = @()
 
-    # Get all physical disks, but filter out any that are external (e.g., USB drives).
+    # Get all physical disks, but filter out ones that are external (e.g., USB drives).
     # Common internal bus types are SATA, NVMe, SAS, and SCSI.
-    # We will exclude disks with a 'BusType' of 'USB' to ignore external hard drives.
+    # We'll exclude disks with a 'BusType' of 'USB' to ignore external hard drives.
     $internalDisks = Get-PhysicalDisk | Where-Object { $_.BusType -ne 'USB' }
 
     if (-not $internalDisks) {
         Log "No internal physical disks found with recognized bus types (SATA, NVMe, etc.)." "WARN"
     }
     
-    # Loop through each internal disk found on the system.
+    # Iterate through each internal disk found on the system.
     foreach ($disk in $internalDisks) {
-        # Determine the disk brand, prioritizing Manufacturer property.
+        # Determine the disk's brand, prioritizing the Manufacturer property.
         $diskBrand = if ($disk.Manufacturer) {
             $disk.Manufacturer
         } else {
-            # Fallback to Model if Manufacturer is not available.
+            # Fall back to the Model if Manufacturer is not available.
             $disk.Model
         }
 
-        # Clean up the disk brand string by removing special characters for better matching.
+        # Sanitize the disk brand string by removing special characters for better matching.
         $diskBrand = $diskBrand.ToUpper() -replace '[^A-Z0-9]', ''
         Log "Processing disk with normalized brand: $diskBrand"
 
@@ -366,7 +366,7 @@ try {
             default       { $diskBrand = "Other" } # Set to a default string if no match
         }
 
-        # Check if we have already installed an app for this brand.
+        # Check if we've already installed an app for this brand.
         if ($installedDiskApps -contains $diskBrand) {
             Log "Disk management app for '$diskBrand' is already installed. Skipping." "INFO"
             continue # Skip to the next disk in the loop
@@ -376,10 +376,10 @@ try {
         # This part has been updated to use separate cases for clarity, just like the previous fix.
         switch -Wildcard ($diskBrand) {
             "*Samsung*" {
-                Log "Detected Samsung disk model: $($disk.Model). Attempting to install Samsung Magician." "INFO"
+                Log "Samsung disk model detected: $($disk.Model). Attempting to install Samsung Magician." "INFO"
                 # Check for specific unsupported disk model
                 if ($disk.Model -eq "SAMSUNG MZALQ256HAJD-000L2") {
-                    Log "Detected Samsung disk model $($disk.Model) which is not supported by Samsung Magician. Skipping installation." "INFO"
+                    Log "Samsung disk model $($disk.Model) detected which is not supported by Samsung Magician. Skipping installation." "INFO"
                 } else {
                     if (Install-Chocolatey) {
                         try {
@@ -389,10 +389,10 @@ try {
                                 Log "Samsung Magician installed successfully via Chocolatey." "INFO"
                                 $installedDiskApps += "Samsung"
                             } elseif ($LASTEXITCODE -eq 1) {
-                                Log "Samsung Magician installation via Chocolatey completed with a known issue (e.g., already installed, reboot needed). Check Chocolatey logs." "WARN"
+                                Log "Samsung Magician installation via Chocolatey finished with a known issue (e.g., already installed, reboot required). Check Chocolatey logs." "WARN"
                             }
                         } catch {
-                            Log "Error during Chocolatey installation of Samsung Magician: $_" "ERROR"
+                            Log "Error during Samsung Magician installation via Chocolatey: $_" -Level "ERROR"
                         }
                     } else {
                         Log "Chocolatey installation failed, skipping Samsung Magician." "ERROR"
@@ -418,10 +418,10 @@ try {
                             Log "Western Digital Dashboard installed successfully via Chocolatey." "INFO"
                             $installedDiskApps += "WesternDigital"
                         } elseif ($LASTEXITCODE -eq 1) {
-                            Log "Western Digital Dashboard installation via Chocolatey completed with a known issue. Check Chocolatey logs." "WARN"
+                            Log "Western Digital Dashboard installation via Chocolatey finished with a known issue. Check Chocolatey logs." "WARN"
                         }
                     } catch {
-                        Log "Error during Chocolatey installation of Western Digital Dashboard: $_" -Level "ERROR"
+                        Log "Error during Western Digital Dashboard installation via Chocolatey: $_" -Level "ERROR"
                     }
                 } else {
                     Log "Chocolatey installation failed, skipping Western Digital Dashboard." "ERROR"
@@ -446,70 +446,70 @@ try {
 }
 
 
-# ================== 8. Disable OneDrive Auto-Start ==================
+# ================== 8. Disable OneDrive Autostart ==================
 #
 # This section configures OneDrive to prevent it from automatically starting with Windows.
 # This is often desired in corporate or managed environments to reduce resource usage
 # or enforce alternative cloud solutions.
 #
 try {
-    Log "Disabling OneDrive auto-start..."
+    Log "Disabling OneDrive autostart..."
     
-    # Define the name of the scheduled task associated with OneDrive updates/startup.
+    # Define the scheduled task name associated with OneDrive updates/startup.
     $taskName = "OneDrive Standalone Update Task"
-    # Attempt to retrieve the scheduled task. `-ErrorAction SilentlyContinue` prevents breaking if not found.
+    # Attempt to get the scheduled task. `-ErrorAction SilentlyContinue` prevents the script from stopping if it's not found.
     $task = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
     
     if ($task) {
         # If the task exists, disable it.
         Disable-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
-        Log "Disabled OneDrive scheduled task."
+        Log "OneDrive scheduled task disabled."
     } else {
         Log "OneDrive scheduled task not found. It may already be disabled or not present."
     }
 
-    # Define the registry path for OneDrive group policy settings.
+    # Define the registry path for OneDrive Group Policy settings.
     $policyPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\OneDrive"
     # Create the OneDrive policy key if it doesn't exist. `-Force` allows creation of parent keys.
     if (-not (Test-Path $policyPath)) {
         New-Item -Path $policyPath -Force | Out-Null
     }
     # Set the `DisableFileSyncNGSC` DWORD value to 1. This Group Policy setting prevents
-    # OneDrive (Next Generation Sync Client) from starting automatically when a user logs in.
+    # OneDrive (Next Generation Sync Client) from starting automatically when a user logs on.
     New-ItemProperty -Path $policyPath -Name "DisableFileSyncNGSC" -Value 1 -PropertyType DWORD -Force | Out-Null
-    Log "Set Group Policy key to disable OneDrive auto-start."
+    Log "Group Policy key set to disable OneDrive autostart."
 } catch {
-    # Log any errors encountered while attempting to disable OneDrive auto-start.
-    Log "Error disabling OneDrive auto-start: $_" -Level "ERROR"
+    # Log any errors encountered while trying to disable OneDrive autostart.
+    Log "Error disabling OneDrive autostart: $_" -Level "ERROR"
 }
 
-# ================== 9. Set File Explorer to open 'This PC' by default ==================
+# ================== 9. Set File Explorer to Default to 'This PC' ==================
 #
 # This section modifies a registry setting to change the default view in File Explorer.
-# By default, File Explorer often opens to 'Quick Access'. This changes it to 'This PC'.
+# By default, File Explorer often opens to 'Quick access'. This changes it to 'This PC'.
 #
 try {
-    Log "Configuring File Explorer to open 'This PC' by default..."
+    Log "Configuring File Explorer to open to 'This PC' by default..."
     # Define the registry key path for File Explorer advanced settings.
     $explorerKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
     # Set the 'LaunchTo' value to 1, which corresponds to 'This PC'.
-    # A value of 2 corresponds to 'Quick Access'.
+    # A value of 2 corresponds to 'Quick access'.
     Set-ItemProperty -Path $explorerKey -Name 'LaunchTo' -Value 1
-    Log "File Explorer set to open 'This PC' by default successfully."
+    Log "File Explorer successfully set to open to 'This PC' by default."
 } catch {
-    # Log any errors during the File Explorer default view configuration.
-    Log "Failed to set File Explorer default view: $_" -Level "ERROR"
+    # Log any errors during the configuration of the default File Explorer view.
+    Log "Failed to set default File Explorer view: $_" -Level "ERROR"
 }
 
-# ================== 10. Define Desktop Items ==================
+# ================== 10. Set Desktop Icons ==================
 #
 # This section ensures that common system icons (This PC, Network, Control Panel, User's Files)
 # are visible on the desktop. These are often hidden by default in modern Windows versions.
 #
 try {
-    Log "Defining common desktop items (This PC, Network, Control Panel, User's Files)..."
+    Log "Setting common desktop icons (This PC, Network, Control Panel, User's Files)..."
 
-    # Registry path for managing desktop icon visibility.
+    # Registry path to manage desktop icon visibility.
     $hideDesktopIconsPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\NewStartPanel"
 
     # Set the value for each specific desktop icon's GUID to 0 to make it visible.
@@ -522,17 +522,17 @@ try {
     # Enable 'User's Files' (GUID: {59031A47-3F72-44A7-89C5-5595FE6B30EE})
     Set-ItemProperty -Path $hideDesktopIconsPath -Name "{59031A47-3F72-44A7-89C5-5595FE6B30EE}" -Value 0
 
-    Log "Desktop items defined successfully."
+    Log "Desktop icons set successfully."
 } catch {
     # Log any errors that prevent setting desktop icon visibility.
-    Log "Failed to define desktop items: $_" -Level "ERROR"
+    Log "Failed to set desktop icons: $_" -Level "ERROR"
 }
 # ==================== Final Cleanup ====================
 # Uninstall Chocolatey if it was installed by this script and is no longer needed.
 if (Uninstall-Chocolatey) {
     Log "Chocolatey uninstallation completed."
 } else {
-    Log "Chocolatey uninstallation failed or skipped." "WARN"
+    Log "Chocolatey uninstallation failed or was skipped." "WARN"
 }
 # ================== End of script ==================
 #
