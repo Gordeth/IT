@@ -8,8 +8,7 @@
 .NOTES
     Script: TO.ps1
     Version: 1.0.3
-    Execution: This script should be run with Administrator privileges. It provides interactive prompts for mode (Silent/Verbose) and task selection.
-    Dependencies:
+        Dependencies:
         - Internet connectivity for various operations.
         - modules/Functions.ps1 for logging and other utility functions.
         - Child scripts: MACHINEPREP.ps1, WUA.ps1, WGET.ps1, MSO_UPDATE.ps1, IUS.ps1 (located in the same directory or relative paths).
@@ -19,6 +18,7 @@
         Version 1.0.2: Improved logging and error handling.
         Version 1.0.3: Updated script descriptions and metadata.
 #>
+
 param (
     [switch]$VerboseMode = $false # Default to false, can be set to true by user input
 )

@@ -1,20 +1,32 @@
-# ==============================================================================
-# Windows Update Automation Script
-# WUA.ps1
-# Version: 1.0.2
-# This script automates Windows maintenance tasks.
-# ================== Change Log ==================
-#
-# V 1.0.2
-# - Added changelog
-# V 1.0.1
-# - Initial Release
-#
-# ==============================================================================
+<#
+.SYNOPSIS
+    Automates Windows Update tasks.
+.DESCRIPTION
+    This script automates the process of checking for, downloading, and installing Windows updates.
+    It ensures the `PSWindowsUpdate` module is present, creates a system restore point before updates,
+    and handles reboots as necessary.
+.PARAMETER VerboseMode
+    If specified, enables detailed logging output to the console.
+    Otherwise, only ERROR level messages are displayed on the console.
+.PARAMETER LogDir
+    The full path to the log directory where all script actions will be recorded.
+    This parameter is mandatory.
+.NOTES
+    Script: WUA.ps1
+    Version: 1.0.2
+    Dependencies:
+        - PSWindowsUpdate module (will be installed if needed)
+        - Internet connectivity
+    Changelog:
+        v1.0.2
+        - Added changelog.
+        v1.0.1
+        - Initial Release.
+#>
 param (
-  # Parameter passed from the orchestrator script (WUH.ps1) to control console verbosity.
+  # Parameter passed from the orchestrator script (TO.ps1) to control console verbosity.
   [switch]$VerboseMode = $false,
-  # Parameter passed from the orchestrator script (WUH.ps1) for centralized logging.
+  # Parameter passed from the orchestrator script (TO.ps1) for centralized logging.
   [Parameter(Mandatory=$true)]
   [string]$LogDir
 )
@@ -199,7 +211,7 @@ if ($UpdateList) {
         }
 
         if ($rebootPending) {
-            Log "Reboot is required to complete Windows Updates." -Level "WARN"
+            Log "Reboot is required to complete Windows Updates." -Level "WARN" 
             
             if ($VerboseMode) {
                 # In verbose mode, ask for explicit user confirmation before rebooting.

@@ -55,9 +55,9 @@
 #>
 
 param (
-    # Parameter passed from the orchestrator script (WUH.ps1) to control console verbosity.
+    # Parameter passed from the orchestrator script (TO.ps1) to control console verbosity.
   [switch]$VerboseMode = $false,
-  # Parameter passed from the orchestrator script (WUH.ps1) for centralized logging.
+  # Parameter passed from the orchestrator script (TO.ps1) for centralized logging.
   [Parameter(Mandatory=$true)]
   [string]$LogDir
 )
