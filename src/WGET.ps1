@@ -33,35 +33,29 @@ param (
   [string]$LogDir
 )
 
-# ================== CONFIGURATION ==================
-# Using the built-in variable $PSScriptRoot is the most reliable way to get the script's directory.
-# This avoids issues with hardcoded paths that may change.
-$ScriptDir = $PSScriptRoot
-# The logging and script directories are now consistently based on $PSScriptRoot.
-$LogDir = Join-Path $ScriptDir "Log"
-# Define the log file specifically for this orchestrator script.
-$LogFile = Join-Path $LogDir "WGET.txt"
+# ==================== Setup Paths and Global Variables ====================
+# ==================== Preference Variables ====================
+# Set common preference variables for consistent script behavior.
+$ErrorActionPreference = 'Stop' # Stop on any error
+$WarningPreference = 'Continue' # Display warnings but continue
+$VerbosePreference = 'Continue' # Display verbose messages
 
-# --- Set the working location to the script's root ---
-Set-Location -Path $ScriptDir
+# ==================== Module Imports / Dot Sourcing ====================
+# --- IMPORTANT: Sourcing the Functions.ps1 module to make the Log function available.
+# The path is relative to the location of this script (which should be the 'src' folder).
+# This ensures that the Log function is available in the scope of this script.
+. "$PSScriptRoot/../modules/Functions.ps1"
 
-# ================== CREATE DIRECTORIES AND LOG FILE ==================
-# This section ensures the logging environment is set up correctly before any
-# other scripts are called or logging is performed.
-# =====================================================================
-
-# Create the log directory if it doesn't exist.
-if (-not (Test-Path $LogDir)) {
-    Write-Host "Creating log directory: $LogDir"
-    try {
-        New-Item -ItemType Directory -Path $LogDir | Out-Null
-    } catch {
-        Write-Host "ERROR: Failed to create log directory. $_" -ForegroundColor Red
-        # Exit the script if the log directory cannot be created.
-        exit 1
-    }
+# ==================== Global Variable Initialization & Log Setup ====================
+# Add a check to ensure the log directory path was provided.
+if (-not $LogDir) {
+    Write-Host "ERROR: The LogDir parameter is mandatory and cannot be empty." -ForegroundColor Red
+    exit 1
 }
 
+# --- Construct the dedicated log file path for this script ---
+# This script will now create its own file named WGET.txt inside the provided log directory.
+$LogFile = Join-Path $LogDir "WGET.txt"
 
 
 # Create a new log file or append to the existing one.
@@ -69,21 +63,8 @@ if (-not (Test-Path $LogFile)) {
     "Log file created by WGET.ps1." | Out-File $LogFile -Append
 }
 
-
-# ================== LOAD FUNCTIONS MODULE ==================
-# This line makes all the functions in your separate Functions.ps1 script available.
-# The path is relative to this script's location ($PSScriptRoot).
-. "$PSScriptRoot/../modules/Functions.ps1"
-
-# ==================== Begin Script Execution ====================
-#
-# This section marks the main execution flow of the WGET.ps1 script.
-# It uses the `Log` function to track progress and handle package updates via winget.
-#
-
-# Log an informational message indicating the start of the script.
-Log "Starting WGET.ps1 script."
-
+# ==================== Script Execution Start ====================
+Log "Starting WGET.ps1 script." "INFO"
 # Log the action of checking for available package updates with winget.
 Log "Checking for package updates with winget..."
 

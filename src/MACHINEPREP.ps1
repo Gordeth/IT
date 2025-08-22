@@ -62,6 +62,7 @@ param (
   [string]$LogDir
 )
 
+# ==================== Setup Paths and Global Variables ====================
 # ==================== Preference Variables ====================
 # Set common preference variables for consistent script behavior.
 $ErrorActionPreference = 'Stop' # Stop on any error

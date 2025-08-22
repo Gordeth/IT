@@ -27,102 +27,39 @@ param (
   [Parameter(Mandatory=$true)]
   [string]$LogDir
 )
+# ==================== Setup Paths and Global Variables ====================
+# ==================== Preference Variables ====================
+# Set common preference variables for consistent script behavior.
+$ErrorActionPreference = 'Stop' # Stop on any error
+$WarningPreference = 'Continue' # Display warnings but continue
+$VerbosePreference = 'Continue' # Display verbose messages
 
-# ==================== Define Log Function ====================
-#
-# Function: Log
-# Description: A centralized logging utility designed to record script events.
-#              It writes timestamped messages to a designated log file and, conditionally,
-#              to the console, allowing for clear tracking of script execution.
-#              The function supports various log levels for categorization and filtering.
-#
-# Parameters:
-#   -Message (string): The textual content of the message to be logged.
-#   -Level (string): Defines the severity or type of the log entry.
-#                    Valid options are "INFO" (general information), "WARN" (potential issues),
-#                    "ERROR" (critical failures), and "DEBUG" (detailed troubleshooting info).
-#                    Defaults to "INFO" if not specified.
-#
-# Console Output Logic:
-#   - All log entries are always appended to the file specified by the `$LogFile` parameter.
-#   - Messages classified as "ERROR" will always be displayed on the console (in red)
-#     to ensure immediate visibility of critical problems, regardless of `$VerboseMode`.
-#   - Messages with "INFO", "WARN", or "DEBUG" levels are displayed on the console
-#     only if the `$VerboseMode` switch parameter was set to `$true` when the script was launched.
-#
-# Error Handling:
-#   - Includes a `try-catch` block to handle potential issues during the file writing operation
-#     (e.g., file access permissions, file locks). If an error occurs, a fallback message
-#     is printed directly to the console.
-#
-function Log {
-    param (
-        [string]$Message,
-        [ValidateSet("INFO", "WARN", "ERROR", "DEBUG")]
-        [string]$Level = "INFO"
-    )
+# ==================== Module Imports / Dot Sourcing ====================
+# --- IMPORTANT: Sourcing the Functions.ps1 module to make the Log function available.
+# The path is relative to the location of this script (which should be the 'src' folder).
+# This ensures that the Log function is available in the scope of this script.
+. "$PSScriptRoot/../modules/Functions.ps1"
 
-    # Generate a timestamp in "dd-MM-yyyy HH:mm:ss" format for the log entry.
-    $timestamp = Get-Date -Format "dd-MM-yyyy HH:mm:ss"
-    
-    # Construct the complete log entry string by combining the timestamp, log level, and message.
-    $logEntry = "[$timestamp] [$Level] $Message"
-
-    # Attempt to append the `$logEntry` string to the specified `$LogFile`.
-    try {
-        Add-Content -Path $LogFile -Value $logEntry
-    } catch {
-        # If an error occurs during file writing (e.g., permissions issue),
-        # output an error message directly to the console in red.
-        Write-Host "Failed to write to log file: $_" -ForegroundColor Red
-    }
-
-    # Conditional console output based on `$VerboseMode` and log `$Level`.
-    # Display the message if `$VerboseMode` is true OR if the log `$Level` is "ERROR".
-    if ($VerboseMode -or $Level -eq "ERROR") {
-        # Determine the appropriate console foreground color based on the log level.
-        $color = switch ($Level) {
-            "INFO"  { "White" }   # Standard informational messages.
-            "WARN"  { "Yellow" }  # Warnings, indicating potential issues.
-            "ERROR" { "Red" }     # Critical errors.
-            "DEBUG" { "Gray" }    # Debugging information.
-            default { "White" }   # Fallback for any unhandled log level.
-        }
-        # Write the log entry to the console with the selected color.
-        Write-Host $logEntry -ForegroundColor $color
-    }
+# ==================== Global Variable Initialization & Log Setup ====================
+# Add a check to ensure the log directory path was provided.
+if (-not $LogDir) {
+    Write-Host "ERROR: The LogDir parameter is mandatory and cannot be empty." -ForegroundColor Red
+    exit 1
 }
 
-# ==================== Configure PowerShell Preferences (if not Verbose) ====================
-#
-# This section adjusts PowerShell's built-in preference variables.
-# If `$VerboseMode` is NOT enabled (i.e., the user did not specify `-VerboseMode`),
-# these preferences are set to `SilentlyContinue` to suppress most native PowerShell output,
-# ensuring that only messages from the custom `Log` function are shown (and errors if they occur).
-# This provides a cleaner console experience for non-verbose runs.
-#
-if (-not $VerboseMode) {
-    # Suppress verbose stream output from cmdlets.
-    $VerbosePreference = "SilentlyContinue"
-    # Suppress informational stream output.
-    $InformationPreference = "SilentlyContinue"
-    # Suppress progress bar output.
-    $ProgressPreference = "SilentlyContinue"
-    # Suppress warning messages.
-    $WarningPreference = "SilentlyContinue"
-    # Suppress non-terminating errors; errors will still be caught by try-catch.
-    $ErrorActionPreference = "SilentlyContinue"
-    # Suppress debug stream output.
-    $DebugPreference = "SilentlyContinue"
+# --- Construct the dedicated log file path for this script ---
+# This script will now create its own file named IUS.txt inside the provided log directory.
+$LogFile = Join-Path $LogDir "IUS.txt"
+
+
+# Create a new log file or append to the existing one.
+if (-not (Test-Path $LogFile)) {
+    "Log file created by IUS.ps1." | Out-File $LogFile -Append
 }
 
-# ==================== Start Office Update Process ====================
-#
-# This section initiates the update process for Microsoft Office installations that
-# use the Click-to-Run (C2R) technology. It locates the OfficeC2RClient.exe and
-# executes it with specific arguments to force an update.
-#
-Log "Updating Microsoft Office..." "INFO"
+
+# ==================== Script Execution Start ====================
+Log "Starting MSO_UPDATE.ps1 script." "INFO"
 
 try {
     # Define the typical path to the Office Click-to-Run client executable.

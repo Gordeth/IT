@@ -40,21 +40,30 @@ param (
   [string]$LogDir
 )
 
-# ==================== Helper Functions ====================
-
 # ==================== Setup Paths and Global Variables ====================
-#
-# This section initializes essential paths and variables used throughout the script,
-# ensuring proper file locations for logging and script execution.
-#
-# --- IMPORTANT: Dot-source the Functions.ps1 module to make the Log function available.
-# The path is relative to this script's location (which should be the 'src' folder).
-# This ensures that the Log function is available in this script's scope.
+# ==================== Preference Variables ====================
+# Set common preference variables for consistent script behavior.
+$ErrorActionPreference = 'Stop' # Stop on any error
+$WarningPreference = 'Continue' # Display warnings but continue
+$VerbosePreference = 'Continue' # Display verbose messages
+
+# ==================== Module Imports / Dot Sourcing ====================
+# --- IMPORTANT: Sourcing the Functions.ps1 module to make the Log function available.
+# The path is relative to the location of this script (which should be the 'src' folder).
+# This ensures that the Log function is available in the scope of this script.
 . "$PSScriptRoot/../modules/Functions.ps1"
 
+# ==================== Global Variable Initialization & Log Setup ====================
+# Add a check to ensure the log directory path was provided.
+if (-not $LogDir) {
+    Write-Host "ERROR: The LogDir parameter is mandatory and cannot be empty." -ForegroundColor Red
+    exit 1
+}
+
 # --- Construct the dedicated log file path for this script ---
-# This script will now create its own file named INSTALL-UNIFI-SERVER.txt within the provided log directory.
-$LogFile = Join-Path $LogDir "INSTALL-UNIFI-SERVER.txt"
+# This script will now create its own file named IUS.txt inside the provided log directory.
+$LogFile = Join-Path $LogDir "IUS.txt"
+
 
 # Create a new log file or append to the existing one.
 if (-not (Test-Path $LogFile)) {
@@ -63,7 +72,7 @@ if (-not (Test-Path $LogFile)) {
 
 # ==================== Begin Script Execution ====================
 
-Log "Running INSTALL-UNIFI-SERVER script Version: 2.10.3" "INFO"
+Log "Running IUS script Version: 2.10.3" "INFO"
 Log "Starting UniFi Network Server installation process..." "INFO"
 
 # --- Step 1: Define Variables and Check for Existing Installation ---
