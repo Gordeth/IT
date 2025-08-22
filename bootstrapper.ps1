@@ -1,19 +1,33 @@
-# ==================================================
-# Bootstrapper.ps1
-# V 1.2.0
-# Downloads the src and modules folders for the IT maintenance project
-# using the GitHub API to ensure all files are fetched, then cleans up.
-# ==================================================
-#
-# ================== Change Log ==================
-#
-# V 1.2.0
-# - Updated dot-sourcing to be relative
-# - Reverted to Invoke-WebRequest for file downloads
-# V 1.1.0
-# - Initial Release
-#
-# ==================================================
+<#
+.SYNOPSIS
+    Automates initial setup and preparation of a Windows machine.
+.DESCRIPTION
+    This script automates the initial setup and preparation of a Windows machine.
+    It includes tasks such as installing essential software (TeamViewer, common apps),
+    ensuring related scripts (WUA.ps1, WGET.ps1) are present and executed,
+    configuring system settings (OneDrive, File Explorer, desktop icons),
+    and installing brand-specific utilities (driver update tools, disk management apps).
+.PARAMETER VerboseMode
+    If specified, enables detailed logging output to the console.
+    Otherwise, only ERROR level messages are displayed on the console.
+.NOTES
+    Script: Bootstrapper.ps1
+    Version: 1.0.6
+    Execution: This script should be run with Administrator privileges.
+    Dependencies:
+        - winget (Windows Package Manager) must be installed and configured.
+        - Internet connectivity for downloading files and installing packages.
+        - Optional: Chocolatey (will be installed by this script if needed)
+    Changelog:
+        v1.0.6
+        - Added changelog.
+        - Updated TeamViewer installation to use --accept-package-agreements and --accept-source-agreements.
+        - Updated winget install commands to include --accept-package-agreements and --accept-source-agreements.
+        - Improved HP Support Assistant installation logic to check for existing installation more robustly.
+        - Added more robust checks for existing installations of Lenovo Vantage and Dell Command Update.
+        - Refined disk management application installation to avoid duplicates and handle unsupported Samsung models.
+        - Added Chocolatey uninstallation at the end of the script.
+#>
 
 # Define your GitHub repository details
 $repoName = "Gordeth/IT"
