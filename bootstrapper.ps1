@@ -42,6 +42,11 @@ $dirsToDownload = @(
     "modules"
 )
 
+# ==================== Begin Script Execution ====================
+
+Write-Host "Welcome to IT Automation Project" "INFO"
+Write-Host "Starting Bootstrapper script v1.0.6..." "INFO"
+
 # ==================================================
 # Core Download and Execution Logic
 # ==================================================
