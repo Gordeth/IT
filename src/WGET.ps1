@@ -1,6 +1,20 @@
 # WGET.ps1
 # Version: 1.0
 
+# Description: This script automates the update of all installed packages using the winget package manager.
+#              It provides options for verbose logging and specifies a log file for detailed activity tracking.
+#              The script ensures the logging environment is set up correctly before execution and handles
+#              the winget upgrade process with error handling.
+#
+# Changelog:
+# ---------------------------------------------------------------------------------------------------
+# Version 1.0 - 2025-08-22
+#   - Initial release.
+#   - Implemented winget upgrade --all with verbose and logging options.
+#   - Added log directory and file creation.
+#   - Integrated with Functions.ps1 for logging.
+# ---------------------------------------------------------------------------------------------------
+
 param (
     # Parameter: VerboseMode
     # Type: Switch (boolean)
