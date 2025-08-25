@@ -1,11 +1,13 @@
 # ================================================== 
 # Functions.ps1
-# Version: 1.0.10
+# Version: 1.0.11
 # Contains reusable functions for the IT maintenance project.
 # ================================================== 
 #
 # ================== Change Log ================== 
 #
+# V 1.0.11
+# - Updated logging and module installation.
 # V 1.0.10
 # - Reverted debug logging from Log function.
 # V 1.0.9
@@ -64,7 +66,8 @@ function Install-NuGetProvider {
 
     # Attempt to get the NuGet provider and store the result.
     # The -ErrorAction SilentlyContinue is crucial here.
-    $provider = Get-PackageProvider -Name 'NuGet' -ErrorAction SilentlyContinue
+    # $provider = Get-PackageProvider -Name 'NuGet' -ErrorAction SilentlyContinue
+    $provider = (Get-ItemProperty -Path "HKLM:\Software\Microsoft\PowerShell\3\PackagingProviders").NuGetProviderInstalled
 
     # Check if a provider was found. If not, proceed with installation.
     if (-not $provider) {
