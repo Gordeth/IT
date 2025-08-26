@@ -1,26 +1,27 @@
-<#
-.SYNOPSIS
-    A collection of reusable helper functions for the IT Automation Project.
-.DESCRIPTION
-    This script contains shared helper functions used by other scripts in the project, such as logging, package manager setup (NuGet, Chocolatey), and file downloads.
-    It is not meant to be run directly but dot-sourced by other scripts.
-.NOTES
-    Script: Functions.ps1
-    Version: 1.0.11
-    Changelog:
-        v1.0.11
-        - Updated logging and module installation.
-        v1.0.10
-        - Reverted debug logging from Log function.
-        v1.0.9
-        - Added debug logging to Log function for troubleshooting.
-        v1.0.8
-        - Improved logging and module installation robustness.
-        v1.0.7
-        - Updated Save-File to show download speed
-        v1.0.6
-        - Initial Release
-#>
+# ================================================== 
+# Functions.ps1
+# Version: 1.0.12
+# Contains reusable functions for the IT maintenance project.
+# ================================================== 
+#
+# ================== Change Log ================== 
+#
+# V 1.0.12
+# - Refactored `Uninstall-Chocolatey` to remove duplicate code and fixed syntax errors.
+# V 1.0.11
+# - Updated logging and module installation.
+# V 1.0.10
+# - Reverted debug logging from Log function.
+# V 1.0.9
+# - Added debug logging to Log function for troubleshooting.
+# V 1.0.8
+# - Improved logging and module installation robustness.
+# V 1.0.7
+# - Updated Save-File to show download speed
+# V 1.0.6
+# - Initial Release
+#
+# ================================================== 
 
 # ================== DEFINE LOG FUNCTION ================== 
 # A custom logging function to write messages to the console (if verbose mode is on)
@@ -68,7 +69,7 @@ function Install-NuGetProvider {
     # Attempt to get the NuGet provider and store the result.
     # The -ErrorAction SilentlyContinue is crucial here.
     # $provider = Get-PackageProvider -Name 'NuGet' -ErrorAction SilentlyContinue
-    $provider = (Get-ItemProperty -Path "HKLM:\Software\Microsoft\PowerShell\3\PackagingProviders" -ErrorAction SilentlyContinue).NuGetProviderInstalled
+    $provider = (Get-ItemProperty -Path "HKLM:\Software\Microsoft\PowerShell\3\PackagingProviders").NuGetProviderInstalled
 
     # Check if a provider was found. If not, proceed with installation.
     if (-not $provider) {
@@ -85,7 +86,7 @@ function Install-NuGetProvider {
         }
     } else {
         # This branch will execute if the provider was successfully found.
-        Log "NuGet provider is already installed. Continuing."
+        Log "NuGet provider version $($provider.Version) is already installed. Continuing."
     }
 }
 
@@ -175,19 +176,8 @@ function Uninstall-Chocolatey {
             
             # Attempt to uninstall Chocolatey package
             choco uninstall chocolatey -y
-            
-
-            # Final verification if choco.exe is gone
-            if (-not (Get-Command choco.exe -ErrorAction SilentlyContinue)) {
-                Log "Chocolatey uninstalled and directories cleaned successfully." "INFO"
-
-            } else {
-                Log "Chocolatey uninstallation completed, but choco.exe still present despite cleanup attempts. Check logs." "WARN"
-
-            }
         } catch {
-            Log "Failed during Chocolatey uninstallation or cleanup: $_" "ERROR"
-
+            Log "Failed during Chocolatey uninstallation: $_" "ERROR"
         }
     } else {
         Log "Chocolatey is not installed. No uninstallation needed for the package." "INFO"
@@ -208,47 +198,24 @@ function Uninstall-Chocolatey {
 
         # Delete ChocolateyToolsRoot if it exists and unset its environment variable
         if ($env:ChocolateyToolsRoot -ne '' -and $null -ne $env:ChocolateyToolsRoot -and (Test-Path "$env:ChocolateyToolsRoot")) {
-            Log "Deleting lingering ChocolateyToolsRoot: $($env:ChocolateyToolsRoot)" "INFO"
-            Remove-Item -Recurse -Force "$env:ChocolateyToolsRoot" -ErrorAction SilentlyContinue
-            [System.Environment]::SetEnvironmentVariable("ChocolateyToolsRoot", $null, 'Machine')
-            [System.Environment]::SetEnvironmentVariable("ChocolateyToolsRoot", $null, 'User')
-        }
-
-        # Delete main Chocolatey install path if it exists
-        if (Test-Path $chocoInstallPath) {
-            Log "Lingering Chocolatey installation folder exists: $chocoInstallPath. Deleting it." "INFO"
-            try {
-                Remove-Item -Path $chocoInstallPath -Recurse -Force -ErrorAction Stop
-                Log "Chocolatey installation folder deleted successfully." "INFO"
-            } catch {
-                Log "Failed to delete lingering Chocolatey installation folder: $_" "ERROR"
-                return $false
-            }
-        } else {
-            Log "Chocolatey installation folder not found. No deletion needed." "INFO"
-        }
-        
-        # === NEW: Delete the temporary Chocolatey folder ===
-        if (Test-Path $chocoTempPath) {
-            Log "Deleting temporary Chocolatey folder: $chocoTempPath." "INFO"
             Log "Deleting ChocolateyToolsRoot: $($env:ChocolateyToolsRoot)" "INFO"
-        }
+            Remove-Item -Recurse -Force "$env:ChocolateyToolsRoot" -ErrorAction SilentlyContinue
             [System.Environment]::SetEnvironmentVariable("ChocolateyToolsRoot", $null, 'Machine') # Unset machine-wide
             [System.Environment]::SetEnvironmentVariable("ChocolateyToolsRoot", $null, 'User')    # Unset user-specific
-    }
-}
-        # Check and delete the main Chocolatey installation folder if it still exists
+        }
 
+        # Check and delete the main Chocolatey installation folder if it still exists
+        if (Test-Path $chocoInstallPath) {
             Log "Main Chocolatey installation folder still exists: $chocoInstallPath. Deleting it." "INFO"
             Remove-Item -Path $chocoInstallPath -Recurse -Force -ErrorAction SilentlyContinue
-#   - $true if the file is downloaded successfully.
-#   - $false if the download fails.
+        }
+        
         # Delete the temporary Chocolatey folder
-function Save-File {
-    param (
-        [Parameter(Mandatory=$true)]
-        [string]$Url,
-        [Parameter(Mandatory=$true)]
+        if (Test-Path $chocoTempPath) {
+            Log "Deleting temporary Chocolatey folder: $chocoTempPath." "INFO"
+            Remove-Item -Path $chocoTempPath -Recurse -Force -ErrorAction SilentlyContinue
+        }
+
         # Final verification if choco.exe is gone
         if (-not (Get-Command choco.exe -ErrorAction SilentlyContinue)) {
             Log "Chocolatey cleanup completed successfully." "INFO"
@@ -260,6 +227,29 @@ function Save-File {
     } catch {
         Log "An error occurred during Chocolatey cleanup: $_" "ERROR"
         return $false
+    }
+}
+
+
+# ==================== Helper Function: Save-File ====================
+#
+# Function: Save-File
+# Description: Downloads a file from a URL and saves it to a specified path.
+#
+# Parameters:
+#   - Url (string): The URL of the file to download.
+#   - OutputPath (string): The path to save the file to.
+#
+# Returns:
+#   - $true if the file is downloaded successfully.
+#   - $false if the download fails.
+#
+function Save-File {
+    param (
+        [Parameter(Mandatory=$true)]
+        [string]$Url,
+        [Parameter(Mandatory=$true)]
+        [string]$OutputPath
     )
     Log "Downloading $Url to $OutputPath..." "INFO"
     try {
