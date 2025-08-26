@@ -1,25 +1,26 @@
-# ================================================== 
-# Functions.ps1
-# Version: 1.0.11
-# Contains reusable functions for the IT maintenance project.
-# ================================================== 
-#
-# ================== Change Log ================== 
-#
-# V 1.0.11
-# - Updated logging and module installation.
-# V 1.0.10
-# - Reverted debug logging from Log function.
-# V 1.0.9
-# - Added debug logging to Log function for troubleshooting.
-# V 1.0.8
-# - Improved logging and module installation robustness.
-# V 1.0.7
-# - Updated Save-File to show download speed
-# V 1.0.6
-# - Initial Release
-#
-# ================================================== 
+<#
+.SYNOPSIS
+    A collection of reusable helper functions for the IT Automation Project.
+.DESCRIPTION
+    This script contains shared helper functions used by other scripts in the project, such as logging, package manager setup (NuGet, Chocolatey), and file downloads.
+    It is not meant to be run directly but dot-sourced by other scripts.
+.NOTES
+    Script: Functions.ps1
+    Version: 1.0.11
+    Changelog:
+        v1.0.11
+        - Updated logging and module installation.
+        v1.0.10
+        - Reverted debug logging from Log function.
+        v1.0.9
+        - Added debug logging to Log function for troubleshooting.
+        v1.0.8
+        - Improved logging and module installation robustness.
+        v1.0.7
+        - Updated Save-File to show download speed
+        v1.0.6
+        - Initial Release
+#>
 
 # ================== DEFINE LOG FUNCTION ================== 
 # A custom logging function to write messages to the console (if verbose mode is on)
