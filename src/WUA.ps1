@@ -13,11 +13,15 @@
     This parameter is mandatory.
 .NOTES
     Script: WUA.ps1
-    Version: 1.0.5
+    Version: 1.0.7
     Dependencies:
         - PSWindowsUpdate module (will be installed if needed)
         - Internet connectivity
     Changelog:
+        v1.0.7
+        - Suppressed verbose output from Get-Module to clean up logs.
+        v1.0.6
+        - Fixed post-reboot script failure by passing the LogDir parameter to the startup shortcut.
         v1.0.5
         - Fixed a bug in restore point creation where the system drive was not correctly identified.
         v1.0.4
@@ -80,7 +84,7 @@ $StartupShortcut = "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\Start
 
 
 # Log the initial message indicating the script has started, using the Log function.
-Log "Starting Windows Update Automation script v1.0.5..." "INFO"
+Log "Starting Windows Update Automation script v1.0.7..." "INFO"
 
 # ==================== Ensure PSWindowsUpdate Module ====================
 #
@@ -88,7 +92,17 @@ Log "Starting Windows Update Automation script v1.0.5..." "INFO"
 # for interacting with Windows Update services. If it's missing, the script attempts to install it.
 #
 Log "Checking for PSWindowsUpdate module..."
-if (-not (Get-Module -ListAvailable -Name PSWindowsUpdate)) {
+$moduleExists = $false
+$originalGetModuleVerbosePreference = $VerbosePreference
+try {
+    $VerbosePreference = 'SilentlyContinue'
+    if (Get-Module -ListAvailable -Name PSWindowsUpdate) {
+        $moduleExists = $true
+    }
+} finally {
+    $VerbosePreference = $originalGetModuleVerbosePreference
+}
+if (-not $moduleExists) {
     Log "PSWindowsUpdate module not found. Installing..."
     try {
         Install-Module -Name PSWindowsUpdate -Force -SkipPublisherCheck
@@ -228,7 +242,9 @@ if ($UpdateList) {
                     # To ensure the script runs with administrator privileges after reboot,
                     # we create a command that re-launches the script elevated.
                     # This command is then Base64-encoded to avoid quoting issues.
-                    $command = "Start-Process PowerShell.exe -ArgumentList '-ExecutionPolicy Bypass -File \""$ScriptPath\""' -Verb RunAs"
+                    # We must pass the LogDir parameter so the script can find its log file after reboot.
+                    $argumentList = "-ExecutionPolicy Bypass -File \""$ScriptPath\"" -LogDir \""$LogDir\"""
+                    $command = "Start-Process PowerShell.exe -ArgumentList '$argumentList' -Verb RunAs"
                     $bytes = [System.Text.Encoding]::Unicode.GetBytes($command)
                     $encodedCommand = [Convert]::ToBase64String($bytes)
                     $Shortcut.Arguments = "-NoProfile -EncodedCommand $encodedCommand"
