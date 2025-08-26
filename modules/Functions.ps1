@@ -26,21 +26,6 @@
 # A custom logging function to write messages to the console (if verbose mode is on)
 # and to a persistent log file.
 function Log {
-<#
-.SYNOPSIS
-    Writes a formatted log message to a file and optionally to the console.
-.DESCRIPTION
-    A custom logging function that writes a timestamped and leveled message to a log file defined by the global $LogFile variable.
-    If the global $VerboseMode switch is enabled or the level is 'ERROR', the message is also written to the console with appropriate coloring.
-.PARAMETER Message
-    The message string to be logged.
-.PARAMETER Level
-    The severity level of the message. Valid options are "INFO", "WARN", "ERROR", "DEBUG". Defaults to "INFO".
-.EXAMPLE
-    Log "Starting process..."
-.EXAMPLE
-    Log "Could not find file." -Level "WARN"
-#>
     param (
         [string]$Message,                                     # The message to be logged
         [ValidateSet("INFO", "WARN", "ERROR", "DEBUG")] # Validation for log level
@@ -78,17 +63,6 @@ function Log {
 # registers it using a robust, non-interactive method.
 # =================================================================================
 function Install-NuGetProvider {
-<#
-.SYNOPSIS
-    Installs the NuGet package provider if it is not already installed.
-.DESCRIPTION
-    Checks if the NuGet package provider is available for PowerShell. If not, it installs it non-interactively for all users.
-    This is a prerequisite for installing modules from the PowerShell Gallery. The script will exit with an error if the installation fails.
-.NOTES
-    Requires administrator privileges to install the provider for AllUsers.
-.EXAMPLE
-    Install-NuGetProvider
-#>
     Log "Checking for existing NuGet provider..."
 
     # Attempt to get the NuGet provider and store the result.
@@ -116,21 +90,22 @@ function Install-NuGetProvider {
 }
 
 
+# ==================== Helper Function: Install Chocolatey ====================
+#
+# Function: Install-Chocolatey
+# Description: Checks if Chocolatey is installed and, if not, installs it.
+#              This function is critical for installing software packages not
+#              available via Winget.
+#
+# Prerequisites:
+#   - Internet connectivity.
+#   - PowerShell Execution Policy set to Bypass (handled by WUH.ps1 or temporarily here).
+#
+# Returns:
+#   - $true if Chocolatey is successfully installed or already present.
+#   - $false if Chocolatey installation fails.
+#
 function Install-Chocolatey {
-<#
-.SYNOPSIS
-    Installs the Chocolatey package manager if it is not already installed.
-.DESCRIPTION
-    Checks for the presence of 'choco.exe'. If not found, it downloads and executes the official Chocolatey installation script.
-    It temporarily sets the process execution policy to Bypass to allow the script to run.
-.NOTES
-    Requires an active internet connection.
-.RETURNS
-    Returns $true if Chocolatey is successfully installed or was already present.
-    Returns $false if the installation fails.
-.EXAMPLE
-    if (Install-Chocolatey) { Log "Ready to use Chocolatey." }
-#>
     Log "Checking for Chocolatey installation..." "INFO"
     if (-not (Get-Command choco.exe -ErrorAction SilentlyContinue)) {
         Log "Chocolatey not found. Attempting to install Chocolatey..." "INFO"
@@ -168,19 +143,17 @@ function Install-Chocolatey {
     }
 }
 
+# ==================== Helper Function: Uninstall Chocolatey ====================
+#
+# Function: Uninstall-Chocolatey
+# Description: Uninstalls Chocolatey from the system. This is intended for cleanup
+#              if Chocolatey was only needed temporarily for machine preparation.
+#
+# Returns:
+#   - $true if Chocolatey is successfully uninstalled or not found.
+#   - $false if Chocolatey uninstallation fails.
+#
 function Uninstall-Chocolatey {
-<#
-.SYNOPSIS
-    Uninstalls Chocolatey and performs a thorough cleanup.
-.DESCRIPTION
-    This function completely removes Chocolatey from the system. It stops running choco processes, runs the official uninstaller,
-    and then manually removes leftover directories and environment variables to ensure a clean state.
-.RETURNS
-    Returns $true if Chocolatey is successfully uninstalled or was not present.
-    Returns $false if the uninstallation or cleanup fails.
-.EXAMPLE
-    Uninstall-Chocolatey
-#>
     Log "Checking for Chocolatey to uninstall..." "INFO"
     $chocoInstallPath = "$env:ProgramData\chocolatey" # Default Chocolatey installation path
     $chocoTempPath = "$env:TEMP\chocolatey"           # Temporary Chocolatey folder
@@ -203,112 +176,81 @@ function Uninstall-Chocolatey {
             # Attempt to uninstall Chocolatey package
             choco uninstall chocolatey -y
             
-            # Perform additional cleanup for Chocolatey-related directories and environment variables
-            Log "Performing additional cleanup for Chocolatey directories and environment variables." "INFO"
-
-            # Delete ChocolateyBinRoot if it exists and unset its environment variable
-            if ($env:ChocolateyBinRoot -ne '' -and $null -ne $env:ChocolateyBinRoot -and (Test-Path "$env:ChocolateyBinRoot")) {
-                Log "Deleting ChocolateyBinRoot: $($env:ChocolateyBinRoot)" "INFO"
-                Remove-Item -Recurse -Force "$env:ChocolateyBinRoot" -ErrorAction SilentlyContinue
-                [System.Environment]::SetEnvironmentVariable("ChocolateyBinRoot", $null, 'Machine') # Unset machine-wide
-                [System.Environment]::SetEnvironmentVariable("ChocolateyBinRoot", $null, 'User')    # Unset user-specific
-            }
-
-            # Delete ChocolateyToolsRoot if it exists and unset its environment variable
-            if ($env:ChocolateyToolsRoot -ne '' -and $null -ne $env:ChocolateyToolsRoot -and (Test-Path "$env:ChocolateyToolsRoot")) {
-                Log "Deleting ChocolateyToolsRoot: $($env:ChocolateyToolsRoot)" "INFO"
-                Remove-Item -Recurse -Force "$env:ChocolateyToolsRoot" -ErrorAction SilentlyContinue
-                [System.Environment]::SetEnvironmentVariable("ChocolateyToolsRoot", $null, 'Machine') # Unset machine-wide
-                [System.Environment]::SetEnvironmentVariable("ChocolateyToolsRoot", $null, 'User')    # Unset user-specific
-            }
-
-            # Check and delete the main Chocolatey installation folder if it still exists
-            if (Test-Path $chocoInstallPath) {
-                Log "Main Chocolatey installation folder still exists: $chocoInstallPath. Deleting it." "INFO"
-                Remove-Item -Path $chocoInstallPath -Recurse -Force -ErrorAction SilentlyContinue
-            }
-            
-            # === NEW: Delete the temporary Chocolatey folder ===
-            if (Test-Path $chocoTempPath) {
-                Log "Deleting temporary Chocolatey folder: $chocoTempPath." "INFO"
-                Remove-Item -Path $chocoTempPath -Recurse -Force -ErrorAction SilentlyContinue
-            }
-
             # Final verification if choco.exe is gone
             if (-not (Get-Command choco.exe -ErrorAction SilentlyContinue)) {
                 Log "Chocolatey uninstalled and directories cleaned successfully." "INFO"
-                return $true
             } else {
                 Log "Chocolatey uninstallation completed, but choco.exe still present despite cleanup attempts. Check logs." "WARN"
-                return $false
             }
         } catch {
             Log "Failed during Chocolatey uninstallation or cleanup: $_" "ERROR"
-            return $false
         }
     } else {
         Log "Chocolatey is not installed. No uninstallation needed for the package." "INFO"
-        # If choco.exe is not found, perform cleanup for lingering folders/environment variables.
-        Log "Chocolatey executable not found, performing cleanup for lingering folders and environment variables." "INFO"
+    }
 
+    # Perform additional cleanup for Chocolatey-related directories and environment variables
+    # This block runs regardless of whether choco.exe was found, to clean up any lingering files.
+    Log "Performing cleanup for Chocolatey directories and environment variables." "INFO"
+
+    try {
         # Delete ChocolateyBinRoot if it exists and unset its environment variable
         if ($env:ChocolateyBinRoot -ne '' -and $null -ne $env:ChocolateyBinRoot -and (Test-Path "$env:ChocolateyBinRoot")) {
-            Log "Deleting lingering ChocolateyBinRoot: $($env:ChocolateyBinRoot)" "INFO"
+            Log "Deleting ChocolateyBinRoot: $($env:ChocolateyBinRoot)" "INFO"
             Remove-Item -Recurse -Force "$env:ChocolateyBinRoot" -ErrorAction SilentlyContinue
-            [System.Environment]::SetEnvironmentVariable("ChocolateyBinRoot", $null, 'Machine')
-            [System.Environment]::SetEnvironmentVariable("ChocolateyBinRoot", $null, 'User')
+            [System.Environment]::SetEnvironmentVariable("ChocolateyBinRoot", $null, 'Machine') # Unset machine-wide
+            [System.Environment]::SetEnvironmentVariable("ChocolateyBinRoot", $null, 'User')    # Unset user-specific
         }
 
         # Delete ChocolateyToolsRoot if it exists and unset its environment variable
         if ($env:ChocolateyToolsRoot -ne '' -and $null -ne $env:ChocolateyToolsRoot -and (Test-Path "$env:ChocolateyToolsRoot")) {
-            Log "Deleting lingering ChocolateyToolsRoot: $($env:ChocolateyToolsRoot)" "INFO"
+            Log "Deleting ChocolateyToolsRoot: $($env:ChocolateyToolsRoot)" "INFO"
             Remove-Item -Recurse -Force "$env:ChocolateyToolsRoot" -ErrorAction SilentlyContinue
-            [System.Environment]::SetEnvironmentVariable("ChocolateyToolsRoot", $null, 'Machine')
-            [System.Environment]::SetEnvironmentVariable("ChocolateyToolsRoot", $null, 'User')
+            [System.Environment]::SetEnvironmentVariable("ChocolateyToolsRoot", $null, 'Machine') # Unset machine-wide
+            [System.Environment]::SetEnvironmentVariable("ChocolateyToolsRoot", $null, 'User')    # Unset user-specific
         }
 
-        # Delete main Chocolatey install path if it exists
+        # Check and delete the main Chocolatey installation folder if it still exists
         if (Test-Path $chocoInstallPath) {
-            Log "Lingering Chocolatey installation folder exists: $chocoInstallPath. Deleting it." "INFO"
-            try {
-                Remove-Item -Path $chocoInstallPath -Recurse -Force -ErrorAction Stop
-                Log "Chocolatey installation folder deleted successfully." "INFO"
-            } catch {
-                Log "Failed to delete lingering Chocolatey installation folder: $_" "ERROR"
-                return $false
-            }
-        } else {
-            Log "Chocolatey installation folder not found. No deletion needed." "INFO"
+            Log "Main Chocolatey installation folder still exists: $chocoInstallPath. Deleting it." "INFO"
+            Remove-Item -Path $chocoInstallPath -Recurse -Force -ErrorAction SilentlyContinue
         }
         
-        # === NEW: Delete the temporary Chocolatey folder ===
+        # Delete the temporary Chocolatey folder
         if (Test-Path $chocoTempPath) {
             Log "Deleting temporary Chocolatey folder: $chocoTempPath." "INFO"
             Remove-Item -Path $chocoTempPath -Recurse -Force -ErrorAction SilentlyContinue
         }
 
-        return $true
+        # Final verification if choco.exe is gone
+        if (-not (Get-Command choco.exe -ErrorAction SilentlyContinue)) {
+            Log "Chocolatey cleanup completed successfully." "INFO"
+            return $true
+        } else {
+            Log "Chocolatey cleanup completed, but choco.exe still present. Manual check may be required." "WARN"
+            return $false
+        }
+    } catch {
+        Log "An error occurred during Chocolatey cleanup: $_" "ERROR"
+        return $false
     }
 }
 
 
+# ==================== Helper Function: Save-File ====================
+#
+# Function: Save-File
+# Description: Downloads a file from a URL and saves it to a specified path.
+#
+# Parameters:
+#   - Url (string): The URL of the file to download.
+#   - OutputPath (string): The path to save the file to.
+#
+# Returns:
+#   - $true if the file is downloaded successfully.
+#   - $false if the download fails.
+#
 function Save-File {
-<#
-.SYNOPSIS
-    Downloads a file from a URL and saves it to a specified path.
-.DESCRIPTION
-    Uses the native Windows curl.exe to download a file, providing progress and speed information in the console output.
-.PARAMETER Url
-    The URL of the file to download.
-.PARAMETER OutputPath
-    The local file path where the downloaded file will be saved.
-.RETURNS
-    Returns $true on successful download, $false on failure.
-.NOTES
-    This function has a hardcoded dependency on 'C:\Windows\System32\curl.exe'.
-.EXAMPLE
-    Save-File -Url "https://example.com/installer.exe" -OutputPath "$env:TEMP\installer.exe"
-#>
     param (
         [Parameter(Mandatory=$true)]
         [string]$Url,
