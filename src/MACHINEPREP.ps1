@@ -15,12 +15,14 @@
     This parameter is mandatory.
 .NOTES
     Script: MACHINEPREP.ps1
-    Version: 1.0.6
+    Version: 1.0.7
     Dependencies:
         - winget (Windows Package Manager) must be installed and configured.
         - Internet connectivity for downloading files and installing packages.
         - Optional: Chocolatey (will be installed by this script if needed)
     Changelog:
+        v1.0.7
+        - Fixed an issue where the LogDir parameter was not being passed to child scripts (WUA.ps1, WGET.ps1).
         v1.0.6
         - Added changelog.
         - Updated TeamViewer installation to use --accept-package-agreements and --accept-source-agreements.
@@ -89,7 +91,7 @@ $LogFile = Join-Path $LogDir "MACHINEPREP.txt"
 
 # Create a new log file or append to the existing one.
 if (-not (Test-Path $LogFile)) {
-    "Log file created by MACHINEPREP.ps1." | Out-File $LogFile -Append
+    "Log file created by MACHINEPREP.ps1. v.1.0.7" | Out-File $LogFile -Append
 }
 
 
@@ -141,7 +143,7 @@ try {
     Log "Executing WUA.ps1..."
     # Execute the WUA.ps1 script, passing verbosity and the log file path.
     # The LogFile parameter has now been removed from WUA.ps1 as per the new logging structure.
-    & $WUAPath -VerboseMode:$VerboseMode
+    & $WUAPath -VerboseMode:$VerboseMode -LogDir $LogDir
     Log "WUA.ps1 executed successfully."
 } catch {
     # Catch and log any errors encountered while executing WUA.ps1.
@@ -160,7 +162,7 @@ try {
     Log "Executing WGET.ps1..."
     # Execute the WGET.ps1 script, passing verbosity and the log file path.
     # The LogFile parameter has now been removed from WGET.ps1 as per the new logging structure.
-    & $WGETPath -VerboseMode:$VerboseMode
+    & $WGETPath -VerboseMode:$VerboseMode -LogDir $LogDir
     Log "WGET.ps1 executed successfully."
 } catch {
     # Catch and log any errors related to WGET.ps1.
