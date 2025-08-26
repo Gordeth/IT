@@ -1,11 +1,13 @@
 # ================================================== 
 # Functions.ps1
-# Version: 1.0.12
+# Version: 1.0.13
 # Contains reusable functions for the IT maintenance project.
 # ================================================== 
 #
 # ================== Change Log ================== 
 #
+# V 1.0.13
+# - Fixed error in `Install-NuGetProvider` when registry key is missing.
 # V 1.0.12
 # - Refactored `Uninstall-Chocolatey` to remove duplicate code and fixed syntax errors.
 # V 1.0.11
@@ -69,7 +71,7 @@ function Install-NuGetProvider {
     # Attempt to get the NuGet provider and store the result.
     # The -ErrorAction SilentlyContinue is crucial here.
     # $provider = Get-PackageProvider -Name 'NuGet' -ErrorAction SilentlyContinue
-    $provider = (Get-ItemProperty -Path "HKLM:\Software\Microsoft\PowerShell\3\PackagingProviders").NuGetProviderInstalled
+    $provider = (Get-ItemProperty -Path "HKLM:\Software\Microsoft\PowerShell\3\PackagingProviders" -ErrorAction SilentlyContinue).NuGetProviderInstalled
 
     # Check if a provider was found. If not, proceed with installation.
     if (-not $provider) {
@@ -86,7 +88,7 @@ function Install-NuGetProvider {
         }
     } else {
         # This branch will execute if the provider was successfully found.
-        Log "NuGet provider version $($provider.Version) is already installed. Continuing."
+        Log "NuGet provider is already installed. Continuing."
     }
 }
 
