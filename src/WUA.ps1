@@ -13,11 +13,16 @@
     This parameter is mandatory.
 .NOTES
     Script: WUA.ps1
-    Version: 1.0.2
+    Version: 1.0.3
     Dependencies:
         - PSWindowsUpdate module (will be installed if needed)
         - Internet connectivity
     Changelog:
+        v1.0.3
+        - Refactored reboot logic to be more robust and avoid double prompts.
+        - Moved startup shortcut creation to only occur when a reboot is required.
+        - Ensured the post-reboot script runs with administrator privileges.
+        - Made the post-reboot script window visible for better monitoring.
         v1.0.2
         - Added changelog.
         v1.0.1
@@ -71,7 +76,7 @@ $StartupShortcut = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\W
 
 
 # Log the initial message indicating the script has started, using the Log function.
-Log "Starting Windows Update Automation script v1.0.2..." "INFO"
+Log "Starting Windows Update Automation script v1.0.3..." "INFO"
 
 # ==================== Ensure PSWindowsUpdate Module ====================
 #
@@ -155,35 +160,6 @@ if ($UpdateList) {
         Log "Failed to create restore point: $_" -Level "ERROR"
     }
 
-    # --- Add to Startup if not already present ---
-    # If updates are found, a shortcut is added to the Startup folder. This ensures
-# the script runs again automatically after any reboots triggered by updates,
-# allowing it to complete the update process (e.g., post-reboot installations)
-# or clean up.
-    if (-not (Test-Path $StartupShortcut)) {
-        try {
-            Log "Adding script shortcut to Startup folder."
-            # Create a COM object for Windows Script Host Shell to manage shortcuts.
-            $WScriptShell = New-Object -ComObject WScript.Shell
-            # Create a new shortcut object at the defined startup path.
-            $Shortcut = $WScriptShell.CreateShortcut($StartupShortcut)
-            
-            # Point the shortcut to `powershell.exe`.
-            $Shortcut.TargetPath = "powershell.exe"
-            # Define arguments for PowerShell: bypass execution policy, hide window,
-            # and run the script file. Quotes around `$ScriptPath` handle spaces.
-            $Shortcut.Arguments = "-ExecutionPolicy Bypass -File `"$ScriptPath`""
-            # Set the working directory for the shortcut.
-            $Shortcut.WorkingDirectory = Split-Path -Path $ScriptPath
-            # Save the shortcut file to disk.
-            $Shortcut.Save()
-            Log "Shortcut added successfully."
-        } catch {
-            # Log any errors during the creation of the startup shortcut.
-            Log "Failed to add Startup shortcut: $_" -Level "ERROR"
-        }
-    }
-
     # --- Install updates ---
     # Proceed with the actual installation of the detected Windows updates.
     try {
@@ -194,14 +170,13 @@ if ($UpdateList) {
             $InstallationResult = $null # Initialize variable to hold results
             # Conditionally apply -Verbose and capture the output of Install-WindowsUpdate
             if ($VerboseMode) {
-                # Removed -AutoReboot to handle reboots explicitly
-                $InstallationResult = Install-WindowsUpdate -MicrosoftUpdate -AcceptAll -Verbose
+                # -IgnoreReboot prevents the module from prompting, allowing our custom logic below to handle it.
+                $InstallationResult = Install-WindowsUpdate -MicrosoftUpdate -AcceptAll -Verbose -IgnoreReboot
             } else {
                 # Temporarily set $VerbosePreference to suppress verbose output
                 $VerbosePreference = 'SilentlyContinue'
-                # Execute the installation and capture its output.
-                # Removed -AutoReboot to handle reboots explicitly
-                $InstallationResult = Install-WindowsUpdate -MicrosoftUpdate -AcceptAll
+                # -IgnoreReboot prevents the module from prompting, allowing our custom logic below to handle it.
+                $InstallationResult = Install-WindowsUpdate -MicrosoftUpdate -AcceptAll -IgnoreReboot
             }
         } finally {
             # Always restore the original $VerbosePreference
@@ -223,52 +198,91 @@ if ($UpdateList) {
         if ($rebootPending) {
             Log "Reboot is required to complete Windows Updates." -Level "WARN" 
             
-            if ($VerboseMode) {
+            # --- Add to Startup if not already present ---
+            # A reboot is needed, so a shortcut is added to the Startup folder. This ensures
+            # the script runs again automatically after the reboot, allowing it to complete
+            # any post-reboot tasks and perform cleanup.
+            if (-not (Test-Path $StartupShortcut)) {
+                try {
+                    Log "Adding script shortcut to Startup folder to continue after reboot."
+                    # Create a COM object for Windows Script Host Shell to manage shortcuts.
+                    $WScriptShell = New-Object -ComObject WScript.Shell
+                    # Create a new shortcut object at the defined startup path.
+                    $Shortcut = $WScriptShell.CreateShortcut($StartupShortcut)
+                    
+                    # Point the shortcut to `powershell.exe`.
+                    $Shortcut.TargetPath = "powershell.exe"
+
+                    # To ensure the script runs with administrator privileges after reboot,
+                    # we create a command that re-launches the script elevated.
+                    # This command is then Base64-encoded to avoid quoting issues.
+                    $command = "Start-Process PowerShell.exe -ArgumentList '-ExecutionPolicy Bypass -File \""$ScriptPath\""' -Verb RunAs"
+                    $bytes = [System.Text.Encoding]::Unicode.GetBytes($command)
+                    $encodedCommand = [Convert]::ToBase64String($bytes)
+                    $Shortcut.Arguments = "-NoProfile -EncodedCommand $encodedCommand"
+
+                    # Set the working directory for the shortcut.
+                    $Shortcut.WorkingDirectory = Split-Path -Path $ScriptPath
+                    # Save the shortcut file to disk.
+                    $Shortcut.Save()
+                    Log "Shortcut added successfully."
+                } catch {
+                    # Log any errors during the creation of the startup shortcut.
+                    Log "Failed to add Startup shortcut: $_" -Level "ERROR"
+                }
+            }
+
+            # Determine if a reboot should proceed. In silent mode, it's automatic.
+            # In verbose mode, it requires user confirmation.
+            $proceedWithReboot = $false
+            if (-not $VerboseMode) {
+                $proceedWithReboot = $true # Silent mode, always reboot.
+            } else {
                 # In verbose mode, ask for explicit user confirmation before rebooting.
                 $confirmReboot = Read-Host "A reboot is required to complete updates. Reboot now? (Y/N)"
                 if ($confirmReboot.ToUpper() -eq 'Y') {
-                    Log "User confirmed reboot. Initiating restart..."
-                    Restart-Computer -Force
-                    exit # Exit the script after initiating the reboot
-                } else {
-                    # User denied reboot. The script will continue to the next block.
-                    Log "User denied reboot. Script will continue without restarting."
+                    $proceedWithReboot = $true
                 }
-            } else {
-                # In silent mode, proceed with the reboot without user confirmation.
-                Log "Initiating silent reboot..."
+            }
+
+            if ($proceedWithReboot) {
+                Log "User confirmed reboot (or silent mode active). The startup shortcut is in place to continue after restart."
+                Log "Initiating restart..."
                 Restart-Computer -Force
                 exit # Exit the script after initiating the reboot
+            } else {
+                # This block is reached if in verbose mode and user answers 'N'
+                Log "User denied reboot. The script will exit. Please reboot the machine later to complete updates."
+                exit # Exit to preserve the startup shortcut for the next manual reboot.
             }
-        } else {
-            Log "No reboot required. Script execution will continue."
         }
+        
+        Log "No reboot required. Script execution will continue to cleanup."
+
     } catch {
         # Log any errors that occur during the update installation process.
         Log "Error during update installation: $_" -Level "ERROR"
     }
-    
-    # --- Clean up: remove startup shortcut if it exists ---
-    # If no updates were found, or if the script has run post-reboot and completed
-    # the update process, the startup shortcut is no longer needed and should be removed
-    # to prevent unnecessary future executions.
-    if (Test-Path $StartupShortcut) {
-        try {
-            Log "Removing script shortcut from Startup folder."
-            Remove-Item $StartupShortcut -Force # Force removal without prompt.
-            Log "Shortcut removed successfully."
-        } catch {
-            # Log any errors encountered while trying to remove the shortcut.
-            Log "Failed to remove Startup shortcut: $_" -Level "ERROR"
-        }
-    }
+} else {
+    Log "No pending updates found."
 }
 
 # ==================== Script Completion and Cleanup ====================
 #
-# This final section performs necessary cleanup, like restoring the execution policy,
-# and logs the script's completion.
+# This final section is reached only if no updates were found, or if updates
+# were installed and no reboot was required. It removes the startup shortcut
+# as it is no longer needed.
 #
+if (Test-Path $StartupShortcut) {
+    try {
+        Log "Update process complete. Removing script shortcut from Startup folder."
+        Remove-Item $StartupShortcut -Force # Force removal without prompt.
+        Log "Shortcut removed successfully."
+    } catch {
+        # Log any errors encountered while trying to remove the shortcut.
+        Log "Failed to remove Startup shortcut: $_" -Level "ERROR"
+    }
+}
 
 # Log a final message indicating the script has finished its execution.
 Log "Script execution completed."
