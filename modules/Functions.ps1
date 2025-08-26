@@ -26,6 +26,21 @@
 # A custom logging function to write messages to the console (if verbose mode is on)
 # and to a persistent log file.
 function Log {
+<#
+.SYNOPSIS
+    Writes a formatted log message to a file and optionally to the console.
+.DESCRIPTION
+    A custom logging function that writes a timestamped and leveled message to a log file defined by the global $LogFile variable.
+    If the global $VerboseMode switch is enabled or the level is 'ERROR', the message is also written to the console with appropriate coloring.
+.PARAMETER Message
+    The message string to be logged.
+.PARAMETER Level
+    The severity level of the message. Valid options are "INFO", "WARN", "ERROR", "DEBUG". Defaults to "INFO".
+.EXAMPLE
+    Log "Starting process..."
+.EXAMPLE
+    Log "Could not find file." -Level "WARN"
+#>
     param (
         [string]$Message,                                     # The message to be logged
         [ValidateSet("INFO", "WARN", "ERROR", "DEBUG")] # Validation for log level
@@ -63,6 +78,17 @@ function Log {
 # registers it using a robust, non-interactive method.
 # =================================================================================
 function Install-NuGetProvider {
+<#
+.SYNOPSIS
+    Installs the NuGet package provider if it is not already installed.
+.DESCRIPTION
+    Checks if the NuGet package provider is available for PowerShell. If not, it installs it non-interactively for all users.
+    This is a prerequisite for installing modules from the PowerShell Gallery. The script will exit with an error if the installation fails.
+.NOTES
+    Requires administrator privileges to install the provider for AllUsers.
+.EXAMPLE
+    Install-NuGetProvider
+#>
     Log "Checking for existing NuGet provider..."
 
     # Attempt to get the NuGet provider and store the result.
@@ -90,22 +116,21 @@ function Install-NuGetProvider {
 }
 
 
-# ==================== Helper Function: Install Chocolatey ====================
-#
-# Function: Install-Chocolatey
-# Description: Checks if Chocolatey is installed and, if not, installs it.
-#              This function is critical for installing software packages not
-#              available via Winget.
-#
-# Prerequisites:
-#   - Internet connectivity.
-#   - PowerShell Execution Policy set to Bypass (handled by WUH.ps1 or temporarily here).
-#
-# Returns:
-#   - $true if Chocolatey is successfully installed or already present.
-#   - $false if Chocolatey installation fails.
-#
 function Install-Chocolatey {
+<#
+.SYNOPSIS
+    Installs the Chocolatey package manager if it is not already installed.
+.DESCRIPTION
+    Checks for the presence of 'choco.exe'. If not found, it downloads and executes the official Chocolatey installation script.
+    It temporarily sets the process execution policy to Bypass to allow the script to run.
+.NOTES
+    Requires an active internet connection.
+.RETURNS
+    Returns $true if Chocolatey is successfully installed or was already present.
+    Returns $false if the installation fails.
+.EXAMPLE
+    if (Install-Chocolatey) { Log "Ready to use Chocolatey." }
+#>
     Log "Checking for Chocolatey installation..." "INFO"
     if (-not (Get-Command choco.exe -ErrorAction SilentlyContinue)) {
         Log "Chocolatey not found. Attempting to install Chocolatey..." "INFO"
@@ -143,17 +168,19 @@ function Install-Chocolatey {
     }
 }
 
-# ==================== Helper Function: Uninstall Chocolatey ====================
-#
-# Function: Uninstall-Chocolatey
-# Description: Uninstalls Chocolatey from the system. This is intended for cleanup
-#              if Chocolatey was only needed temporarily for machine preparation.
-#
-# Returns:
-#   - $true if Chocolatey is successfully uninstalled or not found.
-#   - $false if Chocolatey uninstallation fails.
-#
 function Uninstall-Chocolatey {
+<#
+.SYNOPSIS
+    Uninstalls Chocolatey and performs a thorough cleanup.
+.DESCRIPTION
+    This function completely removes Chocolatey from the system. It stops running choco processes, runs the official uninstaller,
+    and then manually removes leftover directories and environment variables to ensure a clean state.
+.RETURNS
+    Returns $true if Chocolatey is successfully uninstalled or was not present.
+    Returns $false if the uninstallation or cleanup fails.
+.EXAMPLE
+    Uninstall-Chocolatey
+#>
     Log "Checking for Chocolatey to uninstall..." "INFO"
     $chocoInstallPath = "$env:ProgramData\chocolatey" # Default Chocolatey installation path
     $chocoTempPath = "$env:TEMP\chocolatey"           # Temporary Chocolatey folder
@@ -265,20 +292,23 @@ function Uninstall-Chocolatey {
 }
 
 
-# ==================== Helper Function: Save-File ====================
-#
-# Function: Save-File
-# Description: Downloads a file from a URL and saves it to a specified path.
-#
-# Parameters:
-#   - Url (string): The URL of the file to download.
-#   - OutputPath (string): The path to save the file to.
-#
-# Returns:
-#   - $true if the file is downloaded successfully.
-#   - $false if the download fails.
-#
 function Save-File {
+<#
+.SYNOPSIS
+    Downloads a file from a URL and saves it to a specified path.
+.DESCRIPTION
+    Uses the native Windows curl.exe to download a file, providing progress and speed information in the console output.
+.PARAMETER Url
+    The URL of the file to download.
+.PARAMETER OutputPath
+    The local file path where the downloaded file will be saved.
+.RETURNS
+    Returns $true on successful download, $false on failure.
+.NOTES
+    This function has a hardcoded dependency on 'C:\Windows\System32\curl.exe'.
+.EXAMPLE
+    Save-File -Url "https://example.com/installer.exe" -OutputPath "$env:TEMP\installer.exe"
+#>
     param (
         [Parameter(Mandatory=$true)]
         [string]$Url,
