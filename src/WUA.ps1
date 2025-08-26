@@ -13,11 +13,13 @@
     This parameter is mandatory.
 .NOTES
     Script: WUA.ps1
-    Version: 1.0.4
+    Version: 1.0.5
     Dependencies:
         - PSWindowsUpdate module (will be installed if needed)
         - Internet connectivity
     Changelog:
+        v1.0.5
+        - Fixed a bug in restore point creation where the system drive was not correctly identified.
         v1.0.4
         - Changed startup shortcut path to the system-wide 'All Users' folder for multi-user reliability.
         v1.0.3
@@ -78,7 +80,7 @@ $StartupShortcut = "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\Start
 
 
 # Log the initial message indicating the script has started, using the Log function.
-Log "Starting Windows Update Automation script v1.0.4..." "INFO"
+Log "Starting Windows Update Automation script v1.0.5..." "INFO"
 
 # ==================== Ensure PSWindowsUpdate Module ====================
 #
@@ -101,8 +103,16 @@ if (-not (Get-Module -ListAvailable -Name PSWindowsUpdate)) {
 }
 
 # Import the PSWindowsUpdate module into the current session, making its cmdlets available.
-# `-Force` ensures it's imported even if already present or if there are version conflicts.
-Import-Module PSWindowsUpdate -Force
+# We temporarily set VerbosePreference to 'SilentlyContinue' to prevent the module's own
+# verbose loading messages from cluttering the console, regardless of the script's -VerboseMode setting.
+$originalImportVerbosePreference = $VerbosePreference
+try {
+    $VerbosePreference = 'SilentlyContinue'
+    # `-Force` ensures it's imported even if already present or if there are version conflicts.
+    Import-Module PSWindowsUpdate -Force
+} finally {
+    $VerbosePreference = $originalImportVerbosePreference
+}
 Log "PSWindowsUpdate module imported."
 
 # ==================== Check for Updates ====================
@@ -149,8 +159,8 @@ if ($UpdateList) {
         Start-Service -Name 'VSS' -ErrorAction SilentlyContinue
         
         # Enable system restore on the system drive.
-        $SystemDrive = (Get-PSDrive -PSProvider FileSystem | Where-Object {$_.Root -eq "$env:SystemDrive\"}).Name
-        Enable-ComputerRestore -Drive "$SystemDrive\"
+        # Ensure the system drive (e.g., "C:\") is enabled for system restore.
+        Enable-ComputerRestore -Drive "$($env:SystemDrive)\"
         Log "Enabled VSS and System Restore."
         
         # Create the actual restore point with a descriptive name.
