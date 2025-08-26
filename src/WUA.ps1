@@ -13,11 +13,13 @@
     This parameter is mandatory.
 .NOTES
     Script: WUA.ps1
-    Version: 1.0.3
+    Version: 1.0.4
     Dependencies:
         - PSWindowsUpdate module (will be installed if needed)
         - Internet connectivity
     Changelog:
+        v1.0.4
+        - Changed startup shortcut path to the system-wide 'All Users' folder for multi-user reliability.
         v1.0.3
         - Refactored reboot logic to be more robust and avoid double prompts.
         - Moved startup shortcut creation to only occur when a reboot is required.
@@ -71,12 +73,12 @@ $ScriptPath = $MyInvocation.MyCommand.Path
 
 # Define the target path for the startup shortcut. This shortcut ensures the script
 # can re-run automatically after a system reboot if updates require it.
-$StartupShortcut = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\WUA.lnk"
+$StartupShortcut = "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\Startup\WUA.lnk"
 
 
 
 # Log the initial message indicating the script has started, using the Log function.
-Log "Starting Windows Update Automation script v1.0.3..." "INFO"
+Log "Starting Windows Update Automation script v1.0.4..." "INFO"
 
 # ==================== Ensure PSWindowsUpdate Module ====================
 #
