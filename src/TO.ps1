@@ -448,54 +448,6 @@ try {
     Log "Failed to reset PSGallery InstallationPolicy: $_" -Level "WARN"
 }
 
-# ================== RESET POWER PLAN TO BALANCED ==================
-# Restore the system's power plan to the default 'Balanced' scheme.
-# This reverts changes made earlier for temporary performance boost.
-Log "Resetting power plan to Balanced..."
-try {
-    powercfg -restoredefaultschemes # Restores default power schemes, effectively recreating Balanced.
-    Log "Power plan schemes restored to default."
-    powercfg -setactive SCHEME_BALANCED # Activates the Balanced power plan.
-    Log "Power plan reset to Balanced."
-} catch {
-    Log "Failed to reset power plan to Balanced: $_" -Level "ERROR"
-}
-# ================== REMOVE TEMPORARY MAX PERFORMANCE POWER PLAN ==================
-Log "Attempting to remove temporary Maximum Performance power plan..."
-try {
-    # Find the GUID of the temporary power plan by its name.
-    # We use regex::Escape to ensure special characters in $PowerPlanName are treated literally.
-    $tempPlanGuid = (powercfg -list | Where-Object { $_ -match [regex]::Escape($PowerPlanName) } | ForEach-Object { ($_ -split '\s+')[3] })
-    
-    if ($tempPlanGuid) {
-        Log "Found temporary power plan '$PowerPlanName' with GUID: $tempPlanGuid. Deleting it."
-        powercfg -delete $tempPlanGuid -Force # Use -Force to suppress any confirmation prompts
-        Log "Temporary Maximum Performance power plan removed."
-    } else {
-        Log "Temporary Maximum Performance power plan '$PowerPlanName' not found, no deletion needed." -Level "INFO"
-    }
-} catch {
-    Log "Failed to remove temporary power plan: $_" -Level "ERROR"
-}
-# ================== RESTORE PSGALLERY TRUST POLICY ==================
-# This block attempts to reset the PSGallery InstallationPolicy back to Untrusted.
-# It ensures the system's security posture is restored after the script's operations,
-# regardless of whether PSGallery was initially registered by this script or existed.
-Log "Restoring PSGallery InstallationPolicy to Untrusted if it exists..."
-try {
-    # Check if PSGallery exists before attempting to set its policy.
-    # SilentlyContinue prevents an error if the repository is not found, allowing the 'if' condition to handle it.
-    if (Get-PSRepository -Name PSGallery -ErrorAction SilentlyContinue) {
-        # Set the InstallationPolicy back to Untrusted. SilentlyContinue prevents prompt if already untrusted.
-        Set-PSRepository -Name PSGallery -InstallationPolicy Untrusted -ErrorAction SilentlyContinue
-        Log "PSGallery InstallationPolicy reset to Untrusted."
-    } else {
-        Log "PSGallery repository not found, skipping InstallationPolicy reset." -Level "WARN"
-    }
-} catch {
-    # Log a warning if resetting the policy fails but do not exit, as it might be a minor issue.
-    Log "Failed to reset PSGallery InstallationPolicy: $_" -Level "WARN"
-}
 # ================== RESTORE EXECUTION POLICY ==================
 # Revert the PowerShell execution policy for the current process to its original state.
 # This is a critical security measure to return the system to its pre-script security level.
