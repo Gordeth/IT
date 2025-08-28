@@ -428,25 +428,7 @@ try {
 } catch {
     Log "Failed to remove temporary power plan: $_" -Level "ERROR"
 }
-# ================== RESTORE PSGALLERY TRUST POLICY ==================
-# This block attempts to reset the PSGallery InstallationPolicy back to Untrusted.
-# It ensures the system's security posture is restored after the script's operations,
-# regardless of whether PSGallery was initially registered by this script or existed.
-Log "Restoring PSGallery InstallationPolicy to Untrusted if it exists..."
-try {
-    # Check if PSGallery exists before attempting to set its policy.
-    # SilentlyContinue prevents an error if the repository is not found, allowing the 'if' condition to handle it.
-    if (Get-PSRepository -Name PSGallery -ErrorAction SilentlyContinue) {
-        # Set the InstallationPolicy back to Untrusted. SilentlyContinue prevents prompt if already untrusted.
-        Set-PSRepository -Name PSGallery -InstallationPolicy Untrusted -ErrorAction SilentlyContinue
-        Log "PSGallery InstallationPolicy reset to Untrusted."
-    } else {
-        Log "PSGallery repository not found, skipping InstallationPolicy reset." -Level "WARN"
-    }
-} catch {
-    # Log a warning if resetting the policy fails but do not exit, as it might be a minor issue.
-    Log "Failed to reset PSGallery InstallationPolicy: $_" -Level "WARN"
-}
+
 
 # ================== RESTORE EXECUTION POLICY ==================
 # Revert the PowerShell execution policy for the current process to its original state.
