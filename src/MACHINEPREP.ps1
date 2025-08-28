@@ -30,7 +30,8 @@
         - Improved HP Support Assistant installation logic to check for existing installation more robustly.
         - Added more robust checks for existing installations of Lenovo Vantage and Dell Command Update.
         - Refined disk management application installation to avoid duplicates and handle unsupported Samsung models.
-        - Added Chocolatey uninstallation at the end of the script.        v1.0.5
+        - Added Chocolatey uninstallation at the end of the script.        
+        v1.0.5
         - Added Chocolatey installation and uninstallation logic.
         - Improved driver update application installation for HP (using Chocolatey) and Dell/Lenovo (using winget).
         - Enhanced disk management application installation to support more brands (Kingston, Crucial, WD, Intel, SanDisk) and avoid re-installation.

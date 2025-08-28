@@ -1,11 +1,13 @@
 # ================================================== 
 # Functions.ps1
-# Version: 1.0.13
+# Version: 1.0.14
 # Contains reusable functions for the IT maintenance project.
 # ================================================== 
 #
 # ================== Change Log ================== 
 #
+# V 1.0.14
+# - Updated `Install-NuGetProvider` to use a non-interactive check for the provider.
 # V 1.0.13
 # - Fixed error in `Install-NuGetProvider` when registry key is missing.
 # V 1.0.12
@@ -68,10 +70,10 @@ function Log {
 function Install-NuGetProvider {
     Log "Checking for existing NuGet provider..."
 
-    # Attempt to get the NuGet provider and store the result.
-    # The -ErrorAction SilentlyContinue is crucial here.
-    # $provider = Get-PackageProvider -Name 'NuGet' -ErrorAction SilentlyContinue
-    $provider = (Get-ItemProperty -Path "HKLM:\Software\Microsoft\PowerShell\3\PackagingProviders" -ErrorAction SilentlyContinue).NuGetProviderInstalled
+    # List all available package providers and filter for 'NuGet'.
+    # This is a non-interactive way to check if the provider is installed,
+    # avoiding any potential automatic installation prompts.
+    $provider = Get-PackageProvider -ListAvailable | Where-Object { $_.Name -eq 'NuGet' }
 
     # Check if a provider was found. If not, proceed with installation.
     if (-not $provider) {
