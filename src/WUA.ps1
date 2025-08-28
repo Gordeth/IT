@@ -13,11 +13,13 @@
     This parameter is mandatory.
 .NOTES
     Script: WUA.ps1
-    Version: 1.0.7
+    Version: 1.0.8
     Dependencies:
         - PSWindowsUpdate module (will be installed if needed)
         - Internet connectivity
     Changelog:
+        v1.0.8
+        - Added explicit output of found updates when running in verbose mode.
         v1.0.7
         - Suppressed verbose output from Get-Module to clean up logs.
         v1.0.6
@@ -84,7 +86,7 @@ $StartupShortcut = "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\Start
 
 
 # Log the initial message indicating the script has started, using the Log function.
-Log "Starting Windows Update Automation script v1.0.7..." "INFO"
+Log "Starting Windows Update Automation script v1.0.8..." "INFO"
 
 # ==================== Ensure PSWindowsUpdate Module ====================
 #
@@ -141,6 +143,8 @@ try {
     # Conditionally apply -Verbose and suppress console output when not in VerboseMode.
     if ($VerboseMode) {
         $UpdateList = Get-WindowsUpdate -MicrosoftUpdate -Verbose
+        # In VerboseMode, explicitly display the found updates on the console for better visibility.
+        $UpdateList | Out-Host
     } else {
         # Temporarily set $VerbosePreference to suppress verbose output
         $VerbosePreference = 'SilentlyContinue'
