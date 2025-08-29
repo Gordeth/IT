@@ -97,7 +97,7 @@ $LogFile = Join-Path $LogDir "MACHINEPREP.txt"
 if (-not (Test-Path $LogFile)) {
     "Log file created by MACHINEPREP.ps1. v.1.0.8" | Out-File $LogFile -Append
     "Log file created by MACHINEPREP.ps1. v.1.0.7" | Out-File $LogFile -Append
-
+}
 
 # ==================== Script Execution Start ====================
 Log "Starting MACHINEPREP.ps1 script." "INFO"
