@@ -15,12 +15,15 @@
     This parameter is mandatory.
 .NOTES
     Script: MACHINEPREP.ps1
-    Version: 1.0.7
+    Version: 1.0.8
     Dependencies:
         - winget (Windows Package Manager) must be installed and configured.
         - Internet connectivity for downloading files and installing packages.
         - Optional: Chocolatey (will be installed by this script if needed)
     Changelog:
+        v1.0.8
+        - Fixed silent installation for Samsung Magician.
+        - Added an additional unsupported Samsung disk model to the exclusion list.
         v1.0.7
         - Fixed an issue where the LogDir parameter was not being passed to child scripts (WUA.ps1, WGET.ps1).
         v1.0.6
@@ -92,8 +95,8 @@ $LogFile = Join-Path $LogDir "MACHINEPREP.txt"
 
 # Create a new log file or append to the existing one.
 if (-not (Test-Path $LogFile)) {
+    "Log file created by MACHINEPREP.ps1. v.1.0.8" | Out-File $LogFile -Append
     "Log file created by MACHINEPREP.ps1. v.1.0.7" | Out-File $LogFile -Append
-}
 
 
 # ==================== Script Execution Start ====================
@@ -426,14 +429,14 @@ try {
         switch -Wildcard ($diskBrand) {
             "*Samsung*" {
                 Log "Samsung disk model detected: $($disk.Model). Attempting to install Samsung Magician." "INFO"
-                # Check for specific unsupported disk model
-                if ($disk.Model -eq "SAMSUNG MZALQ256HAJD-000L2") {
+                # Check for specific unsupported disk models
+                if (($disk.Model -eq "SAMSUNG MZALQ256HAJD-000L2") -or ($disk.Model -eq "SAMSUNG MZAL4512HBLU-00BL2")) {
                     Log "Samsung disk model $($disk.Model) detected which is not supported by Samsung Magician. Skipping installation." "INFO"
                 } else {
                     if (Install-Chocolatey) {
                         try {
                             Log "Installing Samsung Magician via Chocolatey..." "INFO"
-                            choco install samsung-magician --force -y
+                            choco install samsung-magician --force -y --params "'/S'"
                             if ($LASTEXITCODE -eq 0) {
                                 Log "Samsung Magician installed successfully via Chocolatey." "INFO"
                                 $installedDiskApps += "Samsung"
