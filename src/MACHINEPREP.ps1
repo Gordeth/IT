@@ -96,11 +96,10 @@ $LogFile = Join-Path $LogDir "MACHINEPREP.txt"
 # Create a new log file or append to the existing one.
 if (-not (Test-Path $LogFile)) {
     "Log file created by MACHINEPREP.ps1. v.1.0.8" | Out-File $LogFile -Append
-    "Log file created by MACHINEPREP.ps1. v.1.0.7" | Out-File $LogFile -Append
 }
 
 # ==================== Script Execution Start ====================
-Log "Starting MACHINEPREP.ps1 script." "INFO"
+Log "Starting MACHINEPREP.ps1 script v.1.0.8" "INFO"
 
 # ================== 1. Check if TeamViewer is Installed ==================
 #
