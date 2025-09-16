@@ -13,11 +13,13 @@
     This parameter is mandatory.
 .NOTES
     Script: WUA.ps1
-    Version: 1.0.8
+    Version: 1.0.9
     Dependencies:
         - PSWindowsUpdate module (will be installed if needed)
         - Internet connectivity
     Changelog:
+        v1.0.9
+        - Refactored System Restore Point creation to be more robust by temporarily bypassing the creation frequency limit.
         v1.0.8
         - Added explicit output of found updates when running in verbose mode.
         v1.0.7
@@ -86,7 +88,7 @@ $StartupShortcut = "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\Start
 
 
 # Log the initial message indicating the script has started, using the Log function.
-Log "Starting Windows Update Automation script v1.0.8..." "INFO"
+Log "Starting Windows Update Automation script v1.0.9..." "INFO"
 
 # ==================== Ensure PSWindowsUpdate Module ====================
 #
@@ -165,34 +167,41 @@ if ($UpdateList) {
     # If `$UpdateList` contains objects, it means updates were found.
     Log "Updates found: $($UpdateList.Count)."
 
-    # --- Create Restore Point ---
-    # It's good practice to create a system restore point before applying major system changes
-    # like updates, providing a rollback option in case of issues.
+    # --- Create Restore Point and Install Updates ---
+    $restorePointRegistryPath = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SystemRestore"
+    $restorePointFrequencyValueName = "SystemRestorePointCreationFrequency"
+    $originalFrequencyValue = $null
+    $frequencyValueExisted = $false
+
     try {
+        # Step 1: Temporarily bypass the default system restore point creation frequency.
+        Log "Temporarily adjusting system restore point frequency..."
+        if (Test-Path $restorePointRegistryPath) {
+            $property = Get-ItemProperty -Path $restorePointRegistryPath -Name $restorePointFrequencyValueName -ErrorAction SilentlyContinue
+            if ($null -ne $property) {
+                $frequencyValueExisted = $true
+                $originalFrequencyValue = $property.$restorePointFrequencyValueName
+                Log "Original restore point frequency value found: $originalFrequencyValue"
+            } else {
+                Log "System restore point frequency value not set. Will restore to default."
+            }
+        } else {
+            New-Item -Path $restorePointRegistryPath -Force | Out-Null
+            Log "SystemRestore registry key did not exist. It has been created."
+        }
+        
+        Set-ItemProperty -Path $restorePointRegistryPath -Name $restorePointFrequencyValueName -Value 0 -Type DWord -Force
+        Log "System restore point frequency set to 0 to allow immediate creation."
+
+        # Step 2: Force the creation of a system restore point before the update.
         Log "Creating system restore point..."
-        # Ensure the Volume Shadow Copy (VSS) service is enabled and started, as it's
-        # a prerequisite for creating restore points. `-ErrorAction SilentlyContinue`
-        # prevents script termination if the service is already running or cannot be changed.
         Set-Service -Name 'VSS' -StartupType Manual -ErrorAction SilentlyContinue
         Start-Service -Name 'VSS' -ErrorAction SilentlyContinue
-        
-        # Enable system restore on the system drive.
-        # Ensure the system drive (e.g., "C:\") is enabled for system restore.
         Enable-ComputerRestore -Drive "$($env:SystemDrive)\"
-        Log "Enabled VSS and System Restore."
-        
-        # Create the actual restore point with a descriptive name.
-        # `RestorePointType "MODIFY_SETTINGS"` is appropriate for system changes.
         Checkpoint-Computer -Description "Pre-WUA_Script" -RestorePointType "MODIFY_SETTINGS"
         Log "Restore point created successfully."
-    } catch {
-        # Log any errors encountered during restore point creation.
-        Log "Failed to create restore point: $_" -Level "ERROR"
-    }
 
-    # --- Install updates ---
-    # Proceed with the actual installation of the detected Windows updates.
-    try {
+        # Step 3: Install the updates.
         Log "Installing updates..."
         # Save the current $VerbosePreference to restore it later
         $originalVerbosePreference = $VerbosePreference
@@ -217,60 +226,33 @@ if ($UpdateList) {
         Log "Update installation completed. Checking if a reboot is needed based on installation results..."
         
         $rebootPending = $false
-        # Iterate through the results to see if any installed update requires a reboot
-        foreach ($result in $InstallationResult) {
-            if ($result.RebootRequired -eq $true) {
-                $rebootPending = $true
-                break # Found one, no need to check further
-            }
+        # Check if any of the installation results require a reboot.
+        if ($InstallationResult.RebootRequired -contains $true) {
+            $rebootPending = $true
         }
 
         if ($rebootPending) {
             Log "Reboot is required to complete Windows Updates." -Level "WARN" 
             
-            # --- Add to Startup if not already present ---
-            # A reboot is needed, so a shortcut is added to the Startup folder. This ensures
-            # the script runs again automatically after the reboot, allowing it to complete
-            # any post-reboot tasks and perform cleanup.
             if (-not (Test-Path $StartupShortcut)) {
-                try {
-                    Log "Adding script shortcut to Startup folder to continue after reboot."
-                    # Create a COM object for Windows Script Host Shell to manage shortcuts.
-                    $WScriptShell = New-Object -ComObject WScript.Shell
-                    # Create a new shortcut object at the defined startup path.
-                    $Shortcut = $WScriptShell.CreateShortcut($StartupShortcut)
-                    
-                    # Point the shortcut to `powershell.exe`.
-                    $Shortcut.TargetPath = "powershell.exe"
-
-                    # To ensure the script runs with administrator privileges after reboot,
-                    # we create a command that re-launches the script elevated.
-                    # This command is then Base64-encoded to avoid quoting issues.
-                    # We must pass the LogDir parameter so the script can find its log file after reboot.
-                    $argumentList = "-ExecutionPolicy Bypass -File \""$ScriptPath\"" -LogDir \""$LogDir\"""
-                    $command = "Start-Process PowerShell.exe -ArgumentList '$argumentList' -Verb RunAs"
-                    $bytes = [System.Text.Encoding]::Unicode.GetBytes($command)
-                    $encodedCommand = [Convert]::ToBase64String($bytes)
-                    $Shortcut.Arguments = "-NoProfile -EncodedCommand $encodedCommand"
-
-                    # Set the working directory for the shortcut.
-                    $Shortcut.WorkingDirectory = Split-Path -Path $ScriptPath
-                    # Save the shortcut file to disk.
-                    $Shortcut.Save()
-                    Log "Shortcut added successfully."
-                } catch {
-                    # Log any errors during the creation of the startup shortcut.
-                    Log "Failed to add Startup shortcut: $_" -Level "ERROR"
-                }
+                Log "Adding script shortcut to Startup folder to continue after reboot."
+                $WScriptShell = New-Object -ComObject WScript.Shell
+                $Shortcut = $WScriptShell.CreateShortcut($StartupShortcut)
+                $Shortcut.TargetPath = "powershell.exe"
+                $argumentList = "-ExecutionPolicy Bypass -File \""$ScriptPath\"" -LogDir \""$LogDir\"""
+                $command = "Start-Process PowerShell.exe -ArgumentList '$argumentList' -Verb RunAs"
+                $bytes = [System.Text.Encoding]::Unicode.GetBytes($command)
+                $encodedCommand = [Convert]::ToBase64String($bytes)
+                $Shortcut.Arguments = "-NoProfile -EncodedCommand $encodedCommand"
+                $Shortcut.WorkingDirectory = Split-Path -Path $ScriptPath
+                $Shortcut.Save()
+                Log "Shortcut added successfully."
             }
 
-            # Determine if a reboot should proceed. In silent mode, it's automatic.
-            # In verbose mode, it requires user confirmation.
             $proceedWithReboot = $false
             if (-not $VerboseMode) {
                 $proceedWithReboot = $true # Silent mode, always reboot.
             } else {
-                # In verbose mode, ask for explicit user confirmation before rebooting.
                 $confirmReboot = Read-Host "A reboot is required to complete updates. Reboot now? (Y/N)"
                 if ($confirmReboot.ToUpper() -eq 'Y') {
                     $proceedWithReboot = $true
@@ -278,22 +260,30 @@ if ($UpdateList) {
             }
 
             if ($proceedWithReboot) {
-                Log "User confirmed reboot (or silent mode active). The startup shortcut is in place to continue after restart."
                 Log "Initiating restart..."
                 Restart-Computer -Force
                 exit # Exit the script after initiating the reboot
             } else {
-                # This block is reached if in verbose mode and user answers 'N'
                 Log "User denied reboot. The script will exit. Please reboot the machine later to complete updates."
                 exit # Exit to preserve the startup shortcut for the next manual reboot.
             }
         }
         
         Log "No reboot required. Script execution will continue to cleanup."
-
     } catch {
-        # Log any errors that occur during the update installation process.
-        Log "Error during update installation: $_" -Level "ERROR"
+        Log "An error occurred during the update process: $_" -Level "ERROR"
+    } finally {
+        # Step 4: Restore the default system restore point creation frequency.
+        Log "Restoring original system restore point frequency setting..."
+        if ($frequencyValueExisted) {
+            Set-ItemProperty -Path $restorePointRegistryPath -Name $restorePointFrequencyValueName -Value $originalFrequencyValue -Type DWord -Force
+            Log "Restored system restore point frequency to its original value: $originalFrequencyValue"
+        } else {
+            if (Get-ItemProperty -Path $restorePointRegistryPath -Name $restorePointFrequencyValueName -ErrorAction SilentlyContinue) {
+                Remove-ItemProperty -Path $restorePointRegistryPath -Name $restorePointFrequencyValueName -Force -ErrorAction SilentlyContinue
+                Log "Removed temporary system restore point frequency value to restore default behavior."
+            }
+        }
     }
 } else {
     Log "No pending updates found."
