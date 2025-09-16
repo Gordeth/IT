@@ -13,11 +13,13 @@
     This parameter is mandatory.
 .NOTES
     Script: WUA.ps1
-    Version: 1.0.9
+    Version: 1.1.0
     Dependencies:
         - PSWindowsUpdate module (will be installed if needed)
         - Internet connectivity
     Changelog:
+        v1.1.0
+        - Implemented conditional System Restore Point creation, skipping it for minor security/definition updates.
         v1.0.9
         - Refactored System Restore Point creation to be more robust by temporarily bypassing the creation frequency limit.
         v1.0.8
@@ -88,7 +90,7 @@ $StartupShortcut = "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\Start
 
 
 # Log the initial message indicating the script has started, using the Log function.
-Log "Starting Windows Update Automation script v1.0.9..." "INFO"
+Log "Starting Windows Update Automation script v1.1.0..." "INFO"
 
 # ==================== Ensure PSWindowsUpdate Module ====================
 #
@@ -172,34 +174,48 @@ if ($UpdateList) {
     $restorePointFrequencyValueName = "SystemRestorePointCreationFrequency"
     $originalFrequencyValue = $null
     $frequencyValueExisted = $false
+    $registryWasAdjusted = $false # Flag to track if we touched the registry
 
     try {
-        # Step 1: Temporarily bypass the default system restore point creation frequency.
-        Log "Temporarily adjusting system restore point frequency..."
-        if (Test-Path $restorePointRegistryPath) {
-            $property = Get-ItemProperty -Path $restorePointRegistryPath -Name $restorePointFrequencyValueName -ErrorAction SilentlyContinue
-            if ($null -ne $property) {
-                $frequencyValueExisted = $true
-                $originalFrequencyValue = $property.$restorePointFrequencyValueName
-                Log "Original restore point frequency value found: $originalFrequencyValue"
-            } else {
-                Log "System restore point frequency value not set. Will restore to default."
-            }
-        } else {
-            New-Item -Path $restorePointRegistryPath -Force | Out-Null
-            Log "SystemRestore registry key did not exist. It has been created."
-        }
-        
-        Set-ItemProperty -Path $restorePointRegistryPath -Name $restorePointFrequencyValueName -Value 0 -Type DWord -Force
-        Log "System restore point frequency set to 0 to allow immediate creation."
+        # Check if a restore point is needed by looking for non-security/definition updates
+        Log "Checking if updates include major changes requiring a restore point..."
+        $majorUpdate = $UpdateList | Where-Object {
+            $_.Categories | Where-Object { $_ -ne 'Security Updates' -and $_ -ne 'Definition Updates' }
+        } | Select-Object -First 1
 
-        # Step 2: Force the creation of a system restore point before the update.
-        Log "Creating system restore point..."
-        Set-Service -Name 'VSS' -StartupType Manual -ErrorAction SilentlyContinue
-        Start-Service -Name 'VSS' -ErrorAction SilentlyContinue
-        Enable-ComputerRestore -Drive "$($env:SystemDrive)\"
-        Checkpoint-Computer -Description "Pre-WUA_Script" -RestorePointType "MODIFY_SETTINGS"
-        Log "Restore point created successfully."
+        if ($majorUpdate) {
+            Log "Major update found ('$($majorUpdate.Title)'). A system restore point will be created."
+
+            # Step 1: Temporarily bypass the default system restore point creation frequency.
+            Log "Temporarily adjusting system restore point frequency..."
+            if (Test-Path $restorePointRegistryPath) {
+                $property = Get-ItemProperty -Path $restorePointRegistryPath -Name $restorePointFrequencyValueName -ErrorAction SilentlyContinue
+                if ($null -ne $property) {
+                    $frequencyValueExisted = $true
+                    $originalFrequencyValue = $property.$restorePointFrequencyValueName
+                    Log "Original restore point frequency value found: $originalFrequencyValue"
+                } else {
+                    Log "System restore point frequency value not set. Will restore to default."
+                }
+            } else {
+                New-Item -Path $restorePointRegistryPath -Force | Out-Null
+                Log "SystemRestore registry key did not exist. It has been created."
+            }
+            
+            Set-ItemProperty -Path $restorePointRegistryPath -Name $restorePointFrequencyValueName -Value 0 -Type DWord -Force
+            $registryWasAdjusted = $true # Set the flag
+            Log "System restore point frequency set to 0 to allow immediate creation."
+
+            # Step 2: Force the creation of a system restore point before the update.
+            Log "Creating system restore point..."
+            Set-Service -Name 'VSS' -StartupType Manual -ErrorAction SilentlyContinue
+            Start-Service -Name 'VSS' -ErrorAction SilentlyContinue
+            Enable-ComputerRestore -Drive "$($env:SystemDrive)\"
+            Checkpoint-Computer -Description "Pre-WUA_Script" -RestorePointType "MODIFY_SETTINGS"
+            Log "Restore point created successfully."
+        } else {
+            Log "Only security or definition updates found. Skipping system restore point creation."
+        }
 
         # Step 3: Install the updates.
         Log "Installing updates..."
@@ -274,14 +290,16 @@ if ($UpdateList) {
         Log "An error occurred during the update process: $_" -Level "ERROR"
     } finally {
         # Step 4: Restore the default system restore point creation frequency.
-        Log "Restoring original system restore point frequency setting..."
-        if ($frequencyValueExisted) {
-            Set-ItemProperty -Path $restorePointRegistryPath -Name $restorePointFrequencyValueName -Value $originalFrequencyValue -Type DWord -Force
-            Log "Restored system restore point frequency to its original value: $originalFrequencyValue"
-        } else {
-            if (Get-ItemProperty -Path $restorePointRegistryPath -Name $restorePointFrequencyValueName -ErrorAction SilentlyContinue) {
-                Remove-ItemProperty -Path $restorePointRegistryPath -Name $restorePointFrequencyValueName -Force -ErrorAction SilentlyContinue
-                Log "Removed temporary system restore point frequency value to restore default behavior."
+        if ($registryWasAdjusted) {
+            Log "Restoring original system restore point frequency setting..."
+            if ($frequencyValueExisted) {
+                Set-ItemProperty -Path $restorePointRegistryPath -Name $restorePointFrequencyValueName -Value $originalFrequencyValue -Type DWord -Force
+                Log "Restored system restore point frequency to its original value: $originalFrequencyValue"
+            } else {
+                if (Get-ItemProperty -Path $restorePointRegistryPath -Name $restorePointFrequencyValueName -ErrorAction SilentlyContinue) {
+                    Remove-ItemProperty -Path $restorePointRegistryPath -Name $restorePointFrequencyValueName -Force -ErrorAction SilentlyContinue
+                    Log "Removed temporary system restore point frequency value to restore default behavior."
+                }
             }
         }
     }
