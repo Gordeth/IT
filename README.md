@@ -1,18 +1,19 @@
 # IT Automation Project
 
-This is a **PowerShell project** designed to automate common system maintenance and preparation tasks for Windows environments. It is intended for IT automation, device preparation, and routine maintenance, all from a single entry point.
+This is a **PowerShell project** designed to automate common system maintenance and preparation tasks for Windows environments. It is built with a focus on robustness, modularity, and maintainability, making it a reliable tool for IT professionals.
 
 ⚠️ **Important:** Do not run the included scripts individually. Always launch the project via the bootstrapper, which ensures correct setup and execution.
 
 ### ✨ Features
 
-* **🪟 Windows Updates:** Automates the Windows Update process, including the intelligent creation of a System Restore Point only when major (non-security) updates are found.
-* **📦 Software Management:** Installs baseline software (TeamViewer, Chrome, etc.) and updates all existing applications using Winget. Manages Chocolatey for packages not available on Winget.
-* **⚙️ Driver & Firmware:** Auto-detects the machine's brand (Dell, HP, Lenovo) and installs the corresponding driver update utility. It also detects internal disk brands (Samsung, Crucial, WD, etc.) and installs their management software for firmware updates and optimization.
-* **�️ System Health:** Runs System File Checker (SFC) to ensure system integrity.
-* **⚡ Performance:** Creates and activates a temporary "Maximum Performance" power plan during execution to speed up tasks, then safely removes it and restores the original plan.
-* **🌐 UniFi Server Management:** Installs or upgrades the UniFi Network Server and its Java dependency.
-* **📝 Ephemeral Logging:** Creates detailed, task-specific log files during execution inside a temporary folder (`%TEMP%\IAP\src\Log`). **Note:** This folder is automatically deleted by the bootstrapper upon script completion.
+*   **⚙️ Robust & Modular Design:** Built with a focus on clean, maintainable code. Features a central orchestrator, shared functions, consistent logging, and error handling to ensure reliable execution.
+*   **🪟 Windows Updates:** Automates the Windows Update process, including the intelligent creation of a System Restore Point only when major (non-security) updates are found.
+*   **📦 Software Management:** Installs baseline software (TeamViewer, Chrome, etc.) and updates all existing applications using Winget. Manages Chocolatey for packages not available on Winget.
+*   **🔩 Driver & Firmware:** Auto-detects the machine's brand (Dell, HP, Lenovo) and installs the corresponding driver update utility. It also detects internal disk brands (Samsung, Crucial, WD, etc.) and installs their management software for firmware updates and optimization.
+*   **⚕️ System Health:** Runs System File Checker (SFC) to ensure system integrity.
+*   **⚡ Performance Optimization:** Creates and activates a temporary "Maximum Performance" power plan during execution to speed up tasks, then safely removes it and restores the original plan.
+*   **🌐 UniFi Server Management:** Installs or upgrades the UniFi Network Server and its Java dependency.
+*   **📝 Ephemeral Logging:** Creates detailed, task-specific log files during execution inside a temporary folder (`%TEMP%\IAP\src\Log`). **Note:** This folder is automatically deleted by the bootstrapper upon script completion.
 
 ---
 
@@ -40,8 +41,8 @@ When you launch the bootstrapper, you'll be prompted to select a mode and a task
 | File | Purpose |
 |---|---|
 | `bootstrapper.ps1` | Main Entry Point. Downloads and runs the core scripts. **Use this one!** |
-| `TO.ps1` | The core script that orchestrates all maintenance tasks. |
-| `modules\Functions.ps1` | Contains shared helper functions for logging, package management (NuGet, Chocolatey), and file downloads. |
+| `src\TO.ps1` | The core script that orchestrates all maintenance tasks. |
+| `modules\Functions.ps1` | Contains shared, reusable helper functions for logging, package management (NuGet, Chocolatey), power plan management, and file downloads, promoting a modular and DRY (Don't Repeat Yourself) design. |
 | `src\MACHINEPREP.ps1` | Contains tasks specifically for the "Machine Preparation" option. |
 | `src/WUA.ps1` | Handles the Windows Update routine, including conditional System Restore Point creation. |
 | `src\WGET.ps1` | Handles the Winget update and cleanup routine. |
