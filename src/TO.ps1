@@ -99,67 +99,123 @@ function Confirm-OfficeInstalled {
     }
     return $false # Return false if no Office paths are found
 }
-# ================== FUNCTION: REPAIR SYSTEM FILES (SFC) ==================
-# Runs SFC (System File Checker) to verify and optionally repair Windows system files.
-# Uses 'verifyonly' first, and if corruption is found, runs 'scannow'.
-# This version analyzes CBS.log for results.
+# ================== FUNCTION: REPAIR SYSTEM FILES (SFC & DISM) ==================
+# Runs DISM and SFC to check for and repair Windows system file corruption.
+# 1. Runs DISM to ensure the component store is healthy.
+# 2. Runs SFC in verify-only mode.
+# 3. If corruption is found, runs SFC in scan-and-repair mode.
+# The function analyzes the CBS.log to provide a detailed result of the scans.
 function Repair-SystemFiles {
-    try {
-        Log "Starting System File Checker (SFC) scan. This may take some time..." "INFO"
+    Log "Starting system file integrity check and repair process..." "INFO"
 
-        $sfcArgs = "/scannow"
-        
-        if ($VerboseMode) { # Check the main script's $VerboseMode
-            Log "Displaying SFC console progress." "INFO"
-            # Execute sfc.exe normally; its output will stream live to the console
-            sfc.exe $sfcArgs
-            $sfcExitCode = $LASTEXITCODE
-            Log "SFC scan finished with exit code: $sfcExitCode" "INFO"
-        } else {
-            Log "Running SFC scan silently in a hidden window..." "INFO"
-            
-            # Define the PowerShell command to execute sfc.exe
-            # We use a script block to ensure sfc.exe's exit code is captured.
-            $command = "& sfc.exe /scannow; exit `$LASTEXITCODE"
-            
-            # Set up process information to start a new, hidden PowerShell window
-            $processInfo = New-Object System.Diagnostics.ProcessStartInfo
-            $processInfo.FileName = "powershell.exe"
-            # Pass arguments to PowerShell: no profile, bypass execution policy, hidden window, execute command
-            $processInfo.Arguments = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command `"$command`""
-            $processInfo.UseShellExecute = $false # Crucial for redirecting output
-            $processInfo.RedirectStandardOutput = $true # Attempt to redirect stdout
-            $processInfo.RedirectStandardError = $true # Attempt to redirect stderr
+    # Internal helper to run external commands, respecting the VerboseMode switch.
+    function Invoke-ElevatedCommand {
+        param(
+            [string]$FilePath,
+            [string]$Arguments,
+            [string]$LogName
+        )
 
-            # Create and start the process
-            $process = New-Object System.Diagnostics.Process
-            $process.StartInfo = $processInfo
-            $process.Start() | Out-Null # Start the process and suppress its immediate output to console
-            
-            $process.WaitForExit() # Wait for the hidden PowerShell process to complete
-            $sfcExitCode = $process.ExitCode
-            
-            # Read and log any captured output from stdout/stderr of the hidden process.
-            # While sfc.exe's live progress often bypasses these, final summaries or errors might be here.
-            $sfcOutput = $process.StandardOutput.ReadToEnd()
-            $sfcError = $process.StandardError.ReadToEnd()
-            
-            if (-not [string]::IsNullOrWhiteSpace($sfcOutput)) {
-                Log "SFC Standard Output (from hidden process): `n$sfcOutput" -Level "DEBUG"
-            }
-            if (-not [string]::IsNullOrWhiteSpace($sfcError)) {
-                Log "SFC Standard Error (from hidden process): `n$sfcError" -Level "ERROR"
-            }
+        Log "Executing: $FilePath $Arguments" "INFO"
+        $process = Start-Process -FilePath $FilePath -ArgumentList $Arguments -Wait -PassThru -WindowStyle (if ($VerboseMode) { 'Normal' } else { 'Hidden' })
+        $exitCode = $process.ExitCode
+        Log "$LogName process finished with exit code: $exitCode" "INFO"
+        return $exitCode
+    }
 
-            Log "SFC scan finished silently with exit code: $sfcExitCode" "INFO"
+    # Internal helper to get the result from the last SFC session in CBS.log
+    function Get-SfcLastSessionResult {
+        param (
+            [string]$CbsLogPath
+        )
+        if (-not (Test-Path $CbsLogPath)) {
+            Log "CBS.log not found at '$CbsLogPath'." "WARN"
+            return "LogNotFound"
         }
+
+        # Find the line number of the last session start marker.
+        $sessionStart = Select-String -Path $CbsLogPath -Pattern '\[SR\] Beginning Verify and Repair transaction' | Select-Object -Last 1
         
+        if (-not $sessionStart) {
+            Log "Could not find any SFC session start in CBS.log." "WARN"
+            return "NoSessionFound"
+        }
+
+        # Get content from that line number to the end of the file.
+        $lastSessionContent = Get-Content $CbsLogPath | Select-Object -Skip ($sessionStart.LineNumber - 1)
+
+        # Check for key phrases in the log output in order of severity.
+        if ($lastSessionContent -match "Cannot repair member file") {
+            return "CannotRepair"
+        } elseif ($lastSessionContent -match "Repairing and verifying") {
+            return "Repaired"
+        } elseif ($lastSessionContent -match "found integrity violations") {
+            return "CorruptionFound"
+        } elseif ($lastSessionContent -match "found no integrity violations") {
+            return "NoViolations"
+        } else {
+            return "Unknown"
+        }
+    }
+
+    # --- Step 1: Run DISM to ensure the component store is healthy ---
+    try {
+        Log "Running DISM to check and repair the Windows Component Store. This may take a long time..." "INFO"
+        $dismExitCode = Invoke-ElevatedCommand -FilePath "dism.exe" -Arguments "/Online /Cleanup-Image /RestoreHealth" -LogName "DISM"
+
+        if ($dismExitCode -eq 0) {
+            Log "DISM completed successfully. The component store is healthy." "INFO"
+        } else {
+            Log "DISM finished with a non-zero exit code ($dismExitCode). The component store may have issues. See DISM logs for details." "WARN"
+        }
     } catch {
-        # Catch any unexpected errors during the function's execution
-        Log "An unexpected error occurred during SFC /scannow operation: $($_.Exception.Message)" -Level "ERROR"
+        Log "An unexpected error occurred while running DISM: $($_.Exception.Message)" "ERROR"
+        Log "Proceeding to SFC despite DISM error." "WARN"
+    }
+
+    # --- Step 2: Run SFC in verification mode ---
+    try {
+        Log "Running System File Checker (SFC) in verification-only mode..." "INFO"
+        Invoke-ElevatedCommand -FilePath "sfc.exe" -Arguments "/verifyonly" -LogName "SFC Verify"
+        
+        $cbsLogPath = "$env:windir\Logs\CBS\CBS.log"
+        $verificationResult = Get-SfcLastSessionResult -CbsLogPath $cbsLogPath
+
+        switch ($verificationResult) {
+            "NoViolations" {
+                Log "SFC verification found no integrity violations. System files are healthy." "INFO"
+                return # Exit the function as no repair is needed.
+            }
+            "CorruptionFound" {
+                Log "SFC verification found integrity violations. Proceeding with repair." "WARN"
+            }
+            default {
+                Log "SFC verification result was inconclusive ('$verificationResult'). Proceeding with repair as a precaution." "WARN"
+            }
+        }
+    } catch {
+        Log "An unexpected error occurred during SFC /verifyonly operation: $($_.Exception.Message)" "ERROR"
+        Log "Attempting to run full repair scan despite verification error." "WARN"
+    }
+
+    # --- Step 3: Run SFC in repair mode (if needed) ---
+    try {
+        Log "Running System File Checker (SFC) in repair mode (scannow)..." "INFO"
+        Invoke-ElevatedCommand -FilePath "sfc.exe" -Arguments "/scannow" -LogName "SFC Scan"
+
+        $cbsLogPath = "$env:windir\Logs\CBS\CBS.log"
+        $repairResult = Get-SfcLastSessionResult -CbsLogPath $cbsLogPath
+
+        switch ($repairResult) {
+            "Repaired" { Log "SFC Result: Found and successfully repaired system file corruption." "INFO" }
+            "CannotRepair" { Log "SFC Result: Found corrupt files but was unable to fix some of them. Manual intervention may be required." "ERROR" }
+            "NoViolations" { Log "SFC Result: Repair scan completed and found no integrity violations (possibly fixed by DISM)." "INFO" }
+            default { Log "SFC repair scan completed, but the result could not be definitively determined from the log ('$repairResult')." "WARN" }
+        }
+    } catch {
+        Log "An unexpected error occurred during SFC /scannow operation: $($_.Exception.Message)" "ERROR"
     }
 }
-
 # Log the initial message indicating the script has started, using the Log function.
 Log "Starting Task Orchestrator script v1.0.4..." "INFO"
 # ================== SAVE ORIGINAL EXECUTION POLICY ==================
