@@ -7,12 +7,13 @@
     It can perform tasks such as system file repair, power plan optimization, and execution of child scripts like MACHINEPREP.ps1, WUA.ps1, WGET.ps1, MSO_UPDATE.ps1, and IUS.ps1.
 .NOTES
     Script: TO.ps1
-    Version: 1.0.3
+    Version: 1.0.4
         Dependencies:
         - Internet connectivity for various operations.
         - modules/Functions.ps1 for logging and other utility functions.
         - Child scripts: MACHINEPREP.ps1, WUA.ps1, WGET.ps1, MSO_UPDATE.ps1, IUS.ps1 (located in the same directory or relative paths).
     Change Log:
+        Version 1.0.4: Refactored power plan management to use functions from Functions.ps1.
         Version 1.0.0: Initial release.
         Version 1.0.1: Added support for new child scripts.
         Version 1.0.2: Improved logging and error handling.
@@ -160,7 +161,7 @@ function Repair-SystemFiles {
 }
 
 # Log the initial message indicating the script has started, using the Log function.
-Log "Starting Task Orchestrator script v1.0.3..." "INFO"
+Log "Starting Task Orchestrator script v1.0.4..." "INFO"
 # ================== SAVE ORIGINAL EXECUTION POLICY ==================
 # Store the current PowerShell execution policy to restore it later.
 # This is crucial for maintaining system security posture after script execution.
@@ -246,131 +247,9 @@ Install-NuGetProvider
 # Verify if NuGet is installed before proceeding
 
 # ================== CREATE TEMPORARY MAX PERFORMANCE POWER PLAN ==================
-# Create and activate a temporary "Maximum Performance" power plan.
-# This ensures optimal performance during script execution, particularly for lengthy tasks.
-
-# --- Store the currently active power plan to restore it later ---
-$originalActivePlanGuid = $null
-try {
-    # The output is like "Power Scheme GUID: xxxxx... (Balanced)". We split by space and take the 4th element (index 3).
-    $originalActivePlanGuid = (powercfg -getactivescheme).Split(' ')[3]
-    Log "Original active power plan GUID captured: $originalActivePlanGuid" "INFO"
-} catch {
-    Log "Could not capture the original active power plan. Will default to 'Balanced' on exit." "WARN"
-}
-
-
-Log "Creating temporary Maximum Performance power plan..."
-try {
-    # Well-known GUID for the "High performance" power plan.
-    $highPerformanceGuid = "8c5e7fd1-ce92-466d-be55-c3230502e679"
-    $baseSchemeExists = (powercfg -list | Select-String -Pattern $highPerformanceGuid -Quiet)
-    $tempPlanGuid = $null # Initialize to null
-    $PowerPlanName = "TempMaxPerformance" # Assuming this is defined elsewhere, or define it here if it's a script-level variable.
-
-    # First, try to find if our custom plan already exists (from a previous run)
-    # Using -match for GUID in case of trailing spaces, and split for name.
-    $existingTempPlanLine = (powercfg -list | Where-Object { $_ -match "$highPerformanceGuid" -and $_ -match [regex]::Escape($PowerPlanName) } | Select-Object -First 1)
-    if ($existingTempPlanLine) {
-        $tempPlanGuid = ($existingTempPlanLine -split '\s+')[3] # Extract GUID from line
-        Log "Found an existing temporary power plan named '$PowerPlanName' with GUID: $tempPlanGuid. Will attempt to activate it." -Level "INFO"
-    }
-    
-    # If a temporary plan wasn't found, proceed to create/duplicate
-    if (-not $tempPlanGuid) {
-        if ($baseSchemeExists) {
-            # Option 1: Duplicate the standard "High performance" plan if it exists
-            Log "High Performance power plan (GUID: $highPerformanceGuid) found. Duplicating it." -Level "INFO"
-            $newGuidOutput = (powercfg -duplicatescheme $highPerformanceGuid 2>&1).Trim()
-            if ($LASTEXITCODE -eq 0 -and $newGuidOutput -match '([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})') {
-                $tempPlanGuid = $Matches[1]
-                Log "Duplicated High Performance plan to new GUID: $tempPlanGuid." -Level "INFO"
-            } else {
-                Log "Failed to duplicate High Performance plan. Output: '$newGuidOutput', Exit Code: $LASTEXITCODE. Trying to find existing temporary plan, or creating from Balanced." -Level "WARN"
-            }
-        } 
-        
-        # Fallback if High Performance didn't exist or duplication failed
-        if (-not $tempPlanGuid) {
-            Log "Creating a new 'High Performance-like' custom plan from 'Balanced'." -Level "WARN"
-            
-            # Using 'Balanced' GUID as a fallback to duplicate
-            $balancedGuid = "381b4222-f694-41f0-9685-ff5bb260df2e"
-            $newGuidOutput = (powercfg -duplicatescheme $balancedGuid 2>&1).Trim() # Duplicate Balanced, capture errors
-            if ($LASTEXITCODE -eq 0 -and $newGuidOutput -match '([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})') {
-                $tempPlanGuid = $Matches[1]
-                Log "Duplicated 'Balanced' plan as a base for a new custom plan, GUID: $tempPlanGuid." -Level "INFO"
-
-                # --- Configure Key Settings for Max Performance ---
-                # Define a helper function/script block for setting power options and logging results
-                $SetPowerSetting = {
-                    param($planGuid, $subgroupGuid, $settingGuid, $value, $description)
-                    
-                    $acResult = (powercfg -setacvalueindex $planGuid $subgroupGuid $settingGuid $value 2>&1)
-                    $acExitCode = $LASTEXITCODE
-
-                    $dcResult = (powercfg -setdcvalueindex $planGuid $subgroupGuid $settingGuid $value 2>&1)
-                    $dcExitCode = $LASTEXITCODE
-
-                    # The error message is: "The power scheme, subgroup or setting specified does not exist."
-                    $commonErrorPattern = "The power scheme, subgroup or setting specified does not exist"
-                    
-                    $acAppliedSuccessfully = ($acExitCode -eq 0 -and -not ($acResult -match $commonErrorPattern))
-                    $dcAppliedSuccessfully = ($dcExitCode -eq 0 -and -not ($dcResult -match $commonErrorPattern))
-
-                    if ($acAppliedSuccessfully -and $dcAppliedSuccessfully) {
-                        Log "$description (AC & DC) set successfully." -Level "INFO"
-                    } elseif ($acAppliedSuccessfully -and -not $dcAppliedSuccessfully) {
-                        Log "$description (AC) set successfully, but (DC) failed. Output: '$dcResult', Exit Code: $dcExitCode" -Level "WARN"
-                    } elseif (-not $acAppliedSuccessfully -and $dcAppliedSuccessfully) {
-                        Log "$description (DC) set successfully, but (AC) failed. Output: '$acResult', Exit Code: $acExitCode" -Level "WARN"
-                    } else {
-                        Log "$description (AC & DC) failed. AC Output: '$acResult', AC Exit Code: $acExitCode. DC Output: '$dcResult', DC Exit Code: $dcExitCode." -Level "WARN"
-                    }
-                }
-
-                # Apply settings using the helper, allowing individual failures without stopping
-                # Updated Setting GUIDs based on your powercfg -q output
-                & $SetPowerSetting $tempPlanGuid "0012ee47-9041-4b5d-9b77-535fba8b1442" "6738e2c4-e8a5-4a42-b16a-e040e769756e" 0 "Hard disk never turns off" # Updated Setting GUID
-                & $SetPowerSetting $tempPlanGuid "54533251-82be-4824-96c1-47b60b740d00" "893dee8e-2bef-41e0-89c6-b55d0929964c" 100 "Minimum processor state set to 100%" # Updated Subgroup and Setting GUID
-                & $SetPowerSetting $tempPlanGuid "54533251-82be-4824-96c1-47b60b740d00" "bc5038f7-23e0-4960-96da-33abaf5935ec" 100 "Maximum processor state set to 100%" # Updated Subgroup and Setting GUID
-                & $SetPowerSetting $tempPlanGuid "238c9fa8-0aad-41ed-83f4-97be242c8f20" "29f6c1db-86da-48c5-9fdb-f2b67b1f44da" 0 "System will not sleep automatically" # Updated Setting GUID
-                & $SetPowerSetting $tempPlanGuid "7516b95f-f776-4464-8c53-06167f40cc99" "3c0bc021-c8a8-4e07-a973-6b14cbcb2b7e" 0 "Display will not turn off automatically" # Updated Setting GUID
-                & $SetPowerSetting $tempPlanGuid "2a737441-1930-4402-8d77-b2bebba308a3" "48e6b7a6-50f5-4782-a5d4-53bb8f07e226" 0 "USB selective suspend disabled" # Updated Setting GUID
-
-            } else {
-                Log "Failed to duplicate 'Balanced' plan to create a custom plan. Output: '$newGuidOutput', Exit Code: $LASTEXITCODE. Aborting power plan changes." -Level "ERROR"
-                return # Exit this try block
-            }
-        }
-    }
-
-    if ($tempPlanGuid) {
-        # Rename the plan to the specified temporary name.
-        Log "Renaming power plan (GUID: $tempPlanGuid) to '$PowerPlanName'..." -Level "INFO"
-        $renameResult = (powercfg -changename $tempPlanGuid $PowerPlanName "Temporary Maximum Performance (Custom)" 2>&1)
-        if ($LASTEXITCODE -eq 0) {
-            Log "Power plan renamed successfully." -Level "INFO"
-        } else {
-            Log "Failed to rename power plan (GUID: $tempPlanGuid) to '$PowerPlanName'. Output: '$renameResult', Exit Code: $LASTEXITCODE." -Level "WARN"
-        }
-        
-        # Set the newly created plan as the active power scheme.
-        Log "Activating '$PowerPlanName' power plan with GUID: $tempPlanGuid..." -Level "INFO"
-        $activateResult = (powercfg -setactive $tempPlanGuid 2>&1)
-        if ($LASTEXITCODE -eq 0) {
-            Log "Temporary Maximum Performance power plan activated successfully." -Level "INFO"
-        } else {
-            Log "Failed to activate '$PowerPlanName' power plan (GUID: $tempPlanGuid). Output: '$activateResult', Exit Code: $LASTEXITCODE." -Level "ERROR"
-        }
-    } else {
-        Log "Could not create or find a suitable power plan for activation. Power plan changes skipped." -Level "ERROR"
-    }
-
-} catch {
-    # Log any unexpected errors during power plan operations.
-    Log "An unexpected error occurred during power plan creation or setting: $($_.Exception.Message)" -Level "ERROR"
-}
+# This is now handled by a function from Functions.ps1.
+# It creates and activates the plan, and returns the original and temporary plan info.
+$powerPlanInfo = Set-TemporaryMaxPerformancePlan
 # ================== TASK SELECTION ==================
 switch ($task) {
     "MachinePrep" {
@@ -409,39 +288,10 @@ switch ($task) {
     }
 }
 
-# ================== RESTORE ORIGINAL POWER PLAN ==================
-# Restore the system's power plan to what it was before the script ran.
-Log "Restoring original power plan..."
-try {
-    if ($originalActivePlanGuid) {
-        powercfg -setactive $originalActivePlanGuid
-        Log "Successfully restored original power plan (GUID: $originalActivePlanGuid)."
-    } else {
-        Log "Original power plan GUID not available. Setting to 'Balanced' as a fallback." "WARN"
-        powercfg -setactive SCHEME_BALANCED # Activates the Balanced power plan as a safe default.
-        Log "Power plan reset to Balanced."
-    }
-} catch {
-    Log "Failed to restore the original power plan. Error: $_" -Level "ERROR"
-}
-# ================== REMOVE TEMPORARY MAX PERFORMANCE POWER PLAN ==================
-Log "Attempting to remove temporary Maximum Performance power plan..."
-try {
-    # Find the GUID of the temporary power plan by its name.
-    # We use regex::Escape to ensure special characters in $PowerPlanName are treated literally.
-    $tempPlanGuid = (powercfg -list | Where-Object { $_ -match [regex]::Escape($PowerPlanName) } | ForEach-Object { ($_ -split '\s+')[3] })
-    
-    if ($tempPlanGuid) {
-        Log "Found temporary power plan '$PowerPlanName' with GUID: $tempPlanGuid. Deleting it."
-        powercfg -delete $tempPlanGuid -Force # Use -Force to suppress any confirmation prompts
-        Log "Temporary Maximum Performance power plan removed."
-    } else {
-        Log "Temporary Maximum Performance power plan '$PowerPlanName' not found, no deletion needed." -Level "INFO"
-    }
-} catch {
-    Log "Failed to remove temporary power plan: $_" -Level "ERROR"
-}
-
+# ================== RESTORE AND CLEANUP POWER PLAN ==================
+# This is now handled by a function from Functions.ps1.
+# It restores the original plan and deletes the temporary one.
+Restore-PowerPlan -PowerPlanInfo $powerPlanInfo
 
 # ================== RESTORE EXECUTION POLICY ==================
 # Revert the PowerShell execution policy for the current process to its original state.
