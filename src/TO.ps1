@@ -383,7 +383,6 @@ switch ($task) {
         } else {
             Log "Microsoft Office not detected. Skipping Office update script."
         }
-        Log "Running System File Checker (SFC) to verify system integrity..."
         
     }
     "WindowsMaintenance" {
@@ -397,7 +396,6 @@ switch ($task) {
         } else {
             Log "Microsoft Office not detected. Skipping Office update."
         }
-        Log "Running System File Checker (SFC) to verify system integrity..."
         
     }
     "InstallUpgradeUniFiServer" {
