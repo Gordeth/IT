@@ -9,13 +9,15 @@
     and installing brand-specific utilities (driver update tools, disk management apps).
 .NOTES
     Script: Bootstrapper.ps1
-    Version: 1.0.6
+    Version: 1.0.7
     Execution: This script should be run with Administrator privileges.
     Dependencies:
         - winget (Windows Package Manager) must be installed and configured.
         - Internet connectivity for downloading files and installing packages.
         - Optional: Chocolatey (will be installed by this script if needed)
     Changelog:
+        v1.0.7:
+        - Switched from downloading individual files to downloading the entire repository as a zip for improved performance.
         v1.0.6:
         - Added changelog
         - Improved error handling and logging.        
@@ -30,23 +32,17 @@
 
 # ================== CONFIGURATION ==================
 # Define your GitHub repository details
-$repoName = "Gordeth/IT"
-# Base URL for the GitHub API to list directory contents
-$apiUrl = "https://api.github.com/repos/$repoName/contents"
+$repoOwner = "Gordeth"
+$repoName = "IT"
+$branchName = "main" # The branch to download from
 
 # Define the local directory to download the project to
 $projectDir = "$env:TEMP\IAP"
 
-# Define the directories to download
-$dirsToDownload = @(
-    "src",
-    "modules"
-)
-
 # ==================== Begin Script Execution ====================
 
 Write-Host "Welcome to IT Automation Project" "INFO"
-Write-Host "Starting Bootstrapper script v1.0.6..." "INFO"
+Write-Host "Starting Bootstrapper script v1.0.7..." "INFO"
 
 # ==================================================
 # Core Download and Execution Logic
@@ -69,42 +65,38 @@ try {
     Write-Host "Creating new project directory: $projectDir"
     New-Item -ItemType Directory -Path $projectDir | Out-Null
 
-    # Download each required directory individually using the GitHub API
-    foreach ($dir in $dirsToDownload) {
-        Write-Host "Downloading contents of '$dir' folder from GitHub..."
-        $dirApiUrl = "$apiUrl/$dir"
-        $destinationDir = Join-Path $projectDir $dir
-        
-        try {
-            # Fetch the list of files from the API
-            $files = Invoke-RestMethod -Uri $dirApiUrl
-            
-            # Create the local directory
-            New-Item -ItemType Directory -Path $destinationDir | Out-Null
-            
-            # Download each file individually
-            foreach ($file in $files) {
-                # Only download files, not sub-directories
-                if ($file.type -eq "file") {
-                    $sourceUrl = $file.download_url
-                    $destinationFile = Join-Path $destinationDir $file.name
-                                        
-                    try {
-                        Invoke-WebRequest -Uri $sourceUrl -OutFile $destinationFile -ErrorAction Stop
-                    } catch {
-                        Write-Host "ERROR: Failed to download $($file.name). Error: $_" -ForegroundColor Red
-                        Exit 1
-                    }
-                }
-            }
-        } catch {
-            Write-Host "Failed to access the GitHub API for '$dir'. Error: $_" -ForegroundColor Red
-            Exit 1
-        }
+    # --- Download and Extract Repository ---
+    $zipUrl = "https://github.com/$repoOwner/$repoName/archive/refs/heads/$branchName.zip"
+    $zipPath = Join-Path $projectDir "repo.zip"
+
+    Write-Host "Downloading repository from $zipUrl..."
+    try {
+        Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath -ErrorAction Stop
+        Write-Host "Repository downloaded successfully."
+    } catch {
+        Write-Host "ERROR: Failed to download repository zip file. Error: $_" -ForegroundColor Red
+        Exit 1
     }
 
+    Write-Host "Extracting repository contents..."
+    try {
+        Expand-Archive -Path $zipPath -DestinationPath $projectDir -Force
+        Write-Host "Repository extracted successfully."
+    } catch {
+        Write-Host "ERROR: Failed to extract repository zip file. Error: $_" -ForegroundColor Red
+        Exit 1
+    }
+
+    # Identify the extracted folder path (e.g., "IT-main")
+    $extractedRepoDir = Get-ChildItem -Path $projectDir -Directory | Where-Object { $_.Name -like "$repoName-*" } | Select-Object -First 1
+    if (-not $extractedRepoDir) {
+        Write-Host "ERROR: Could not find the extracted repository folder." -ForegroundColor Red
+        Exit 1
+    }
+    $projectRoot = $extractedRepoDir.FullName
+
     # --- Execute Logic ---
-    $orchestratorScriptPath = "$projectDir\src\TO.ps1"
+    $orchestratorScriptPath = Join-Path $projectRoot "src\TO.ps1"
 
     if (Test-Path $orchestratorScriptPath) {
         Write-Host "Running the main orchestrator script..."
