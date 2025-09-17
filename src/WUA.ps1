@@ -13,11 +13,13 @@
     This parameter is mandatory.
 .NOTES
     Script: WUA.ps1
-    Version: 1.1.0
+    Version: 1.1.1
     Dependencies:
         - PSWindowsUpdate module (will be installed if needed)
         - Internet connectivity
     Changelog:
+        v1.1.1
+        - Fixed major update detection to be language-independent by using CategoryIDs.
         v1.1.0
         - Implemented conditional System Restore Point creation, skipping it for minor security/definition updates.
         v1.0.9
@@ -90,7 +92,7 @@ $StartupShortcut = "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\Start
 
 
 # Log the initial message indicating the script has started, using the Log function.
-Log "Starting Windows Update Automation script v1.1.0..." "INFO"
+Log "Starting Windows Update Automation script v1.1.1..." "INFO"
 
 # ==================== Ensure PSWindowsUpdate Module ====================
 #
@@ -177,10 +179,19 @@ if ($UpdateList) {
     $registryWasAdjusted = $false # Flag to track if we touched the registry
 
     try {
-        # Check if a restore point is needed by looking for non-security/definition updates
+        # Define GUIDs for minor update categories that do not require a restore point.
+        # This is language-independent and more robust than checking category names.
+        $minorUpdateCategoryIDs = @(
+            '0fa1201d-4330-4fa8-8ae9-b877473b6441', # Security Updates
+            'e0789628-ce08-4437-be74-2495b842f43b'  # Definition Updates
+        )
+
+        # Check if a restore point is needed. An update is considered "major" if it has at least one category
+        # that is NOT in our list of minor categories.
         Log "Checking if updates include major changes requiring a restore point..."
         $majorUpdate = $UpdateList | Where-Object {
-            $_.Categories | Where-Object { $_ -ne 'Security Updates' -and $_ -ne 'Definition Updates' }
+            # Get all category IDs for the current update and check if any of them are NOT in our minor list.
+            ($_.Categories.CategoryID | Where-Object { $minorUpdateCategoryIDs -notcontains $_ })
         } | Select-Object -First 1
 
         if ($majorUpdate) {
