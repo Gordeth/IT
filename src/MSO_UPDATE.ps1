@@ -48,13 +48,13 @@ if (-not $LogDir) {
 }
 
 # --- Construct the dedicated log file path for this script ---
-# This script will now create its own file named IUS.txt inside the provided log directory.
-$LogFile = Join-Path $LogDir "IUS.txt"
+# This script will now create its own file named MSO_UPDATE.txt inside the provided log directory.
+$LogFile = Join-Path $LogDir "MSO_UPDATE.txt"
 
 
 # Create a new log file or append to the existing one.
 if (-not (Test-Path $LogFile)) {
-    "Log file created by IUS.ps1." | Out-File $LogFile -Append
+    "Log file created by MSO_UPDATE.ps1." | Out-File $LogFile -Append
 }
 
 
