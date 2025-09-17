@@ -248,6 +248,18 @@ Install-NuGetProvider
 # ================== CREATE TEMPORARY MAX PERFORMANCE POWER PLAN ==================
 # Create and activate a temporary "Maximum Performance" power plan.
 # This ensures optimal performance during script execution, particularly for lengthy tasks.
+
+# --- Store the currently active power plan to restore it later ---
+$originalActivePlanGuid = $null
+try {
+    # The output is like "Power Scheme GUID: xxxxx... (Balanced)". We split by space and take the 4th element (index 3).
+    $originalActivePlanGuid = (powercfg -getactivescheme).Split(' ')[3]
+    Log "Original active power plan GUID captured: $originalActivePlanGuid" "INFO"
+} catch {
+    Log "Could not capture the original active power plan. Will default to 'Balanced' on exit." "WARN"
+}
+
+
 Log "Creating temporary Maximum Performance power plan..."
 try {
     # Well-known GUID for the "High performance" power plan.
@@ -399,17 +411,20 @@ switch ($task) {
     }
 }
 
-# ================== RESET POWER PLAN TO BALANCED ==================
-# Restore the system's power plan to the default 'Balanced' scheme.
-# This reverts changes made earlier for temporary performance boost.
-Log "Resetting power plan to Balanced..."
+# ================== RESTORE ORIGINAL POWER PLAN ==================
+# Restore the system's power plan to what it was before the script ran.
+Log "Restoring original power plan..."
 try {
-    powercfg -restoredefaultschemes # Restores default power schemes, effectively recreating Balanced.
-    Log "Power plan schemes restored to default."
-    powercfg -setactive SCHEME_BALANCED # Activates the Balanced power plan.
-    Log "Power plan reset to Balanced."
+    if ($originalActivePlanGuid) {
+        powercfg -setactive $originalActivePlanGuid
+        Log "Successfully restored original power plan (GUID: $originalActivePlanGuid)."
+    } else {
+        Log "Original power plan GUID not available. Setting to 'Balanced' as a fallback." "WARN"
+        powercfg -setactive SCHEME_BALANCED # Activates the Balanced power plan as a safe default.
+        Log "Power plan reset to Balanced."
+    }
 } catch {
-    Log "Failed to reset power plan to Balanced: $_" -Level "ERROR"
+    Log "Failed to restore the original power plan. Error: $_" -Level "ERROR"
 }
 # ================== REMOVE TEMPORARY MAX PERFORMANCE POWER PLAN ==================
 Log "Attempting to remove temporary Maximum Performance power plan..."
