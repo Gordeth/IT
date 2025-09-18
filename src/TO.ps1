@@ -117,37 +117,18 @@ function Repair-SystemFiles {
         )
 
         Log "Executing: $FilePath $Arguments" "INFO"
-        
-        # Create a temporary file to capture the command's output.
-        $tempOutputFile = New-TemporaryFile
+        Log "The output of this command will be displayed directly in the console for real-time progress." "INFO"
 
-        try {
-            # Execute the command.
-            # Pipe its output (both standard and error streams) to Tee-Object.
-            # Tee-Object will do two things:
-            # 1. Write the output to the temporary file.
-            # 2. Pass the output down the pipeline to Out-Host, which displays it in real-time.
-            # This combination ensures we see live progress AND capture the full output for logging.
-            & $FilePath $Arguments 2>&1 | Tee-Object -FilePath $tempOutputFile.FullName -Append | Out-Host
-            $exitCode = $LASTEXITCODE
+        # Execute the command directly in the current console.
+        # This provides real-time progress for console applications like SFC and DISM.
+        # We lose the ability to capture the stdout/stderr stream for logging here,
+        # but the exit code is captured, and for these specific tools, dedicated log files
+        # (like CBS.log) are more important.
+        & $FilePath $Arguments
+        $exitCode = $LASTEXITCODE
 
-            # Read the entire content of the temporary file as a single raw string for logging.
-            $outputString = Get-Content -Path $tempOutputFile.FullName -Raw
-            
-            # Log the captured output. It has already been displayed on the console by Out-Host.
-            if ($outputString.Trim()) {
-                Log "Full output from ${LogName}:`n$outputString" "INFO"
-            }
-
-            Log "$LogName process finished with exit code: $exitCode" "INFO"
-            return $exitCode
-        }
-        finally {
-            # Ensure the temporary file is always removed, even if errors occur.
-            if (Test-Path $tempOutputFile.FullName) {
-                Remove-Item $tempOutputFile.FullName -Force
-            }
-        }
+        Log "$LogName process finished with exit code: $exitCode" "INFO"
+        return $exitCode
     }
 
     # Internal helper to get the result from the last SFC session in CBS.log
