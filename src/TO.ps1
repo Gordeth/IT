@@ -117,7 +117,8 @@ function Repair-SystemFiles {
         )
 
         Log "Executing: $FilePath $Arguments" "INFO"
-        $process = Start-Process -FilePath $FilePath -ArgumentList $Arguments -Wait -PassThru -WindowStyle $(if ($VerboseMode) { 'Normal' } else { 'Hidden' })
+        # Always show the window for these long-running commands so the user can see progress.
+        $process = Start-Process -FilePath $FilePath -ArgumentList $Arguments -Wait -PassThru -WindowStyle Normal
         $exitCode = $process.ExitCode
         Log "$LogName process finished with exit code: $exitCode" "INFO"
         return $exitCode
@@ -162,19 +163,7 @@ function Repair-SystemFiles {
     # --- Step 1: Run SFC in verification mode ---
     try {
         Log "Running System File Checker (SFC) in verification-only mode..." "INFO"
-        
-        # For debug purposes, capture and log the output of sfc /verifyonly.
-        # This runs the command in the current console and captures its text output.
-        Log "Executing: sfc.exe /verifyonly" "INFO"
-        $sfcOutput = & sfc.exe /verifyonly 2>&1 | Out-String
-        $sfcExitCode = $LASTEXITCODE
-        if ($sfcOutput.Trim()) {
-            Log "Output from sfc /verifyonly:`n$sfcOutput" "INFO"
-        }
-        Log "SFC Verify process finished with exit code: $sfcExitCode" "INFO"
-
-        # For sfc /verifyonly, an exit code of 0 means no integrity violations were found.
-        # This is more reliable than parsing the log file immediately, which can have delays.
+        $sfcExitCode = Invoke-ElevatedCommand -FilePath "sfc.exe" -Arguments "/verifyonly" -LogName "SFC Verify"
         if ($sfcExitCode -eq 0) {
             Log "SFC verification completed with exit code 0. No integrity violations found. System files are healthy." "INFO"
             return # Exit the function as no repair is needed.
