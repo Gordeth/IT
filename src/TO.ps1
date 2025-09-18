@@ -7,17 +7,21 @@
     It can perform tasks such as system file repair, power plan optimization, and execution of child scripts like MACHINEPREP.ps1, WUA.ps1, WGET.ps1, MSO_UPDATE.ps1, and IUS.ps1.
 .NOTES
     Script: TO.ps1
-    Version: 1.0.4
+    Version: 1.0.5
         Dependencies:
         - Internet connectivity for various operations.
         - modules/Functions.ps1 for logging and other utility functions.
         - Child scripts: MACHINEPREP.ps1, WUA.ps1, WGET.ps1, MSO_UPDATE.ps1, IUS.ps1 (located in the same directory or relative paths).
     Change Log:
+        Version 1.0.5:
+        - Modified `Invoke-ElevatedCommand` to use `Start-Process -NoNewWindow` to ensure real-time progress of console applications like SFC and DISM is always visible.
+        - Fixed a syntax error in the `Invoke-Script` catch block.
+        - Fixed a variable syntax error in `Confirm-OfficeInstalled`.
         Version 1.0.4: Refactored power plan management to use functions from Functions.ps1.
-        Version 1.0.0: Initial release.
-        Version 1.0.1: Added support for new child scripts.
-        Version 1.0.2: Improved logging and error handling.
         Version 1.0.3: Updated script descriptions and metadata.
+        Version 1.0.2: Improved logging and error handling.
+        Version 1.0.1: Added support for new child scripts.
+        Version 1.0.0: Initial release.
 #>
 
 param (
@@ -221,7 +225,7 @@ function Repair-SystemFiles {
     }
 }
 # Log the initial message indicating the script has started, using the Log function.
-Log "Starting Task Orchestrator script v1.0.4..." "INFO"
+Log "Starting Task Orchestrator script v1.0.5..." "INFO"
 # ================== SAVE ORIGINAL EXECUTION POLICY ==================
 # Store the current PowerShell execution policy to restore it later.
 # This is crucial for maintaining system security posture after script execution.

@@ -1,11 +1,13 @@
 # ================================================== 
 # Functions.ps1
-# Version: 1.0.15
+# Version: 1.0.16
 # Contains reusable functions for the IT maintenance project.
 # ================================================== 
 #
 # ================== Change Log ================== 
 #
+# V 1.0.16
+# - Cleaned up and fixed logic in `Restore-PowerPlan` to prevent errors when the original plan is the same as the temporary plan.
 # V 1.0.15
 # - Refactored power plan logic into `Set-TemporaryMaxPerformancePlan` and `Restore-PowerPlan` functions.
 # - Fixed bug in `Restore-PowerPlan` that caused an error message when deleting the temporary plan.
@@ -406,12 +408,15 @@ function Restore-PowerPlan {
     # --- Restore Original Power Plan ---
     Log "Restoring original power plan..."
     try {
-        if ($PowerPlanInfo.OriginalPlanGuid) {
+        # If the original plan is valid and different from the temp plan, restore it.
+        if ($PowerPlanInfo.OriginalPlanGuid -and ($PowerPlanInfo.OriginalPlanGuid -ne $PowerPlanInfo.TempPlanGuid)) {
             powercfg -setactive $PowerPlanInfo.OriginalPlanGuid
             Log "Successfully restored original power plan (GUID: $($PowerPlanInfo.OriginalPlanGuid))."
         } else {
-            Log "Original power plan GUID not available. Setting to 'Balanced' as a fallback." "WARN"
-            powercfg -setactive SCHEME_BALANCED
+            # Otherwise, switch to the 'Balanced' plan. This ensures we are not on the temporary plan
+            # before attempting to delete it, preventing the "cannot delete active scheme" error.
+            Log "Original plan not available or is the same as the temp plan. Setting to 'Balanced' before cleanup." "WARN"
+            powercfg -setactive "381b4222-f694-41f0-9685-ff5bb260df2e" # SCHEME_BALANCED
             Log "Power plan reset to Balanced."
         }
     } catch {
