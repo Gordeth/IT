@@ -124,7 +124,8 @@ function Repair-SystemFiles {
         # We lose the ability to capture the stdout/stderr stream for logging here,
         # but the exit code is captured, and for these specific tools, dedicated log files
         # (like CBS.log) are more important.
-        & $FilePath $Arguments
+        # Piping to Out-Host ensures the output is displayed immediately, bypassing any stream redirection that might occur in silent mode.
+        & $FilePath $Arguments | Out-Host
         $exitCode = $LASTEXITCODE
 
         Log "$LogName process finished with exit code: $exitCode" "INFO"
