@@ -124,9 +124,12 @@ function Repair-SystemFiles {
         # We lose the ability to capture the stdout/stderr stream for logging here,
         # but the exit code is captured, and for these specific tools, dedicated log files
         # (like CBS.log) are more important.
-        # Piping to Out-Host ensures the output is displayed immediately, bypassing any stream redirection that might occur in silent mode.
-        & $FilePath $Arguments | Out-Host
-        $exitCode = $LASTEXITCODE
+        # Using Start-Process with -NoNewWindow and -Wait is the most reliable way to run a console
+        # application in the current window and see its real-time output, especially in silent mode
+        # where PowerShell's own output streams are suppressed. This bypasses PowerShell's stream
+        # handling for the external process.
+        $process = Start-Process -FilePath $FilePath -ArgumentList $Arguments -Wait -PassThru -NoNewWindow
+        $exitCode = $process.ExitCode
 
         Log "$LogName process finished with exit code: $exitCode" "INFO"
         return $exitCode
