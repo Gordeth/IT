@@ -117,7 +117,7 @@ function Repair-SystemFiles {
         )
 
         Log "Executing: $FilePath $Arguments" "INFO"
-        $process = Start-Process -FilePath $FilePath -ArgumentList $Arguments -Wait -PassThru -WindowStyle (if ($VerboseMode) { 'Normal' } else { 'Hidden' })
+        $process = Start-Process -FilePath $FilePath -ArgumentList $Arguments -Wait -PassThru -WindowStyle $(if ($VerboseMode) { 'Normal' } else { 'Hidden' })
         $exitCode = $process.ExitCode
         Log "$LogName process finished with exit code: $exitCode" "INFO"
         return $exitCode
