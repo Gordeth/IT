@@ -162,8 +162,16 @@ function Repair-SystemFiles {
     # --- Step 1: Run SFC in verification mode ---
     try {
         Log "Running System File Checker (SFC) in verification-only mode..." "INFO"
-        # Capture the exit code to prevent it from being written to the pipeline and to use it for logic.
-        $sfcExitCode = Invoke-ElevatedCommand -FilePath "sfc.exe" -Arguments "/verifyonly" -LogName "SFC Verify"
+        
+        # For debug purposes, capture and log the output of sfc /verifyonly.
+        # This runs the command in the current console and captures its text output.
+        Log "Executing: sfc.exe /verifyonly" "INFO"
+        $sfcOutput = & sfc.exe /verifyonly 2>&1 | Out-String
+        $sfcExitCode = $LASTEXITCODE
+        if ($sfcOutput.Trim()) {
+            Log "Output from sfc /verifyonly:`n$sfcOutput" "INFO"
+        }
+        Log "SFC Verify process finished with exit code: $sfcExitCode" "INFO"
 
         # For sfc /verifyonly, an exit code of 0 means no integrity violations were found.
         # This is more reliable than parsing the log file immediately, which can have delays.
