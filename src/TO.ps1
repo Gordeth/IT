@@ -117,23 +117,37 @@ function Repair-SystemFiles {
         )
 
         Log "Executing: $FilePath $Arguments" "INFO"
-        # Execute the command in the current console window. This allows the user to see real-time progress.
-        # The output is piped to Tee-Object, which displays it on the host and also passes it down the pipeline
-        # where it's captured by Out-String. We redirect the error stream (2) to the success stream (1) to capture everything.
-        $output = & $FilePath $Arguments 2>&1 | Tee-Object -Variable capturedOutput | Out-String
-        $exitCode = $LASTEXITCODE
+        
+        # Create a temporary file to capture the command's output.
+        $tempOutputFile = New-TemporaryFile
 
-        # The output is already displayed in real-time on the console via Tee-Object.
-        # Logging it ensures it's captured in the log file with a timestamp.
-        # In verbose mode, this will result in the output being displayed on the console twice,
-        # which is acceptable as it makes the console log a complete record.
-        $outputString = $output.Trim()
-        if ($outputString) {
-            Log "Full output from ${LogName}:`n$outputString" "INFO"
+        try {
+            # Execute the command.
+            # Pipe its output (both standard and error streams) to Tee-Object.
+            # Tee-Object will do two things:
+            # 1. Write the output to the temporary file.
+            # 2. Pass the output down the pipeline to Out-Host, which displays it in real-time.
+            # This combination ensures we see live progress AND capture the full output for logging.
+            & $FilePath $Arguments 2>&1 | Tee-Object -FilePath $tempOutputFile.FullName -Append | Out-Host
+            $exitCode = $LASTEXITCODE
+
+            # Read the entire content of the temporary file as a single raw string for logging.
+            $outputString = Get-Content -Path $tempOutputFile.FullName -Raw
+            
+            # Log the captured output. It has already been displayed on the console by Out-Host.
+            if ($outputString.Trim()) {
+                Log "Full output from ${LogName}:`n$outputString" "INFO"
+            }
+
+            Log "$LogName process finished with exit code: $exitCode" "INFO"
+            return $exitCode
         }
-
-        Log "$LogName process finished with exit code: $exitCode" "INFO"
-        return $exitCode
+        finally {
+            # Ensure the temporary file is always removed, even if errors occur.
+            if (Test-Path $tempOutputFile.FullName) {
+                Remove-Item $tempOutputFile.FullName -Force
+            }
+        }
     }
 
     # Internal helper to get the result from the last SFC session in CBS.log
