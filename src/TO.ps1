@@ -100,10 +100,10 @@ function Confirm-OfficeInstalled {
     return $false # Return false if no Office paths are found
 }
 # ================== FUNCTION: REPAIR SYSTEM FILES (SFC & DISM) ==================
-# Runs DISM and SFC to check for and repair Windows system file corruption.
-# 1. Runs DISM to ensure the component store is healthy.
-# 2. Runs SFC in verify-only mode.
-# 3. If corruption is found, runs SFC in scan-and-repair mode.
+# Runs SFC and DISM to check for and repair Windows system file corruption.
+# 1. Runs SFC in verify-only mode first.
+# 2. If corruption is found, runs DISM to ensure the component store is healthy.
+# 3. Runs SFC in scan-and-repair mode to fix the files.
 # The function analyzes the CBS.log to provide a detailed result of the scans.
 function Repair-SystemFiles {
     Log "Starting system file integrity check and repair process..." "INFO"
@@ -125,13 +125,14 @@ function Repair-SystemFiles {
 
     # Internal helper to get the result from the last SFC session in CBS.log
     function Get-SfcLastSessionResult {
-        param (
-            [string]$CbsLogPath
-        )
+        param ([string]$CbsLogPath)
         if (-not (Test-Path $CbsLogPath)) {
             Log "CBS.log not found at '$CbsLogPath'." "WARN"
             return "LogNotFound"
         }
+
+        # Add a small delay to ensure the log file is flushed before reading.
+        Start-Sleep -Seconds 5
 
         # Find the line number of the last session start marker.
         $sessionStart = Select-String -Path $CbsLogPath -Pattern '\[SR\] Beginning Verify and Repair transaction' | Select-Object -Last 1
@@ -151,14 +152,34 @@ function Repair-SystemFiles {
             return "Repaired"
         } elseif ($lastSessionContent -match "found integrity violations") {
             return "CorruptionFound"
-        } elseif ($lastSessionContent -match "found no integrity violations") {
+        } elseif ($lastSessionContent -match "did not find any integrity violations" -or $lastSessionContent -match "found no integrity violations") {
             return "NoViolations"
         } else {
             return "Unknown"
         }
     }
 
-    # --- Step 1: Run DISM to ensure the component store is healthy ---
+    # --- Step 1: Run SFC in verification mode ---
+    try {
+        Log "Running System File Checker (SFC) in verification-only mode..." "INFO"
+        # Capture the exit code to prevent it from being written to the pipeline and to use it for logic.
+        $sfcExitCode = Invoke-ElevatedCommand -FilePath "sfc.exe" -Arguments "/verifyonly" -LogName "SFC Verify"
+
+        # For sfc /verifyonly, an exit code of 0 means no integrity violations were found.
+        # This is more reliable than parsing the log file immediately, which can have delays.
+        if ($sfcExitCode -eq 0) {
+            Log "SFC verification completed with exit code 0. No integrity violations found. System files are healthy." "INFO"
+            return # Exit the function as no repair is needed.
+        } else {
+            # A non-zero exit code indicates that integrity violations were found.
+            Log "SFC verification found integrity violations (Exit Code: $sfcExitCode). Proceeding with repair." "WARN"
+        }
+    } catch {
+        Log "An unexpected error occurred during SFC /verifyonly operation: $($_.Exception.Message)" "ERROR"
+        Log "Attempting to run full repair scan despite verification error." "WARN"
+    }
+
+    # --- Step 2: Run DISM to ensure the component store is healthy ---
     try {
         Log "Running DISM to check and repair the Windows Component Store. This may take a long time..." "INFO"
         $dismExitCode = Invoke-ElevatedCommand -FilePath "dism.exe" -Arguments "/Online /Cleanup-Image /RestoreHealth" -LogName "DISM"
@@ -171,31 +192,6 @@ function Repair-SystemFiles {
     } catch {
         Log "An unexpected error occurred while running DISM: $($_.Exception.Message)" "ERROR"
         Log "Proceeding to SFC despite DISM error." "WARN"
-    }
-
-    # --- Step 2: Run SFC in verification mode ---
-    try {
-        Log "Running System File Checker (SFC) in verification-only mode..." "INFO"
-        Invoke-ElevatedCommand -FilePath "sfc.exe" -Arguments "/verifyonly" -LogName "SFC Verify"
-        
-        $cbsLogPath = "$env:windir\Logs\CBS\CBS.log"
-        $verificationResult = Get-SfcLastSessionResult -CbsLogPath $cbsLogPath
-
-        switch ($verificationResult) {
-            "NoViolations" {
-                Log "SFC verification found no integrity violations. System files are healthy." "INFO"
-                return # Exit the function as no repair is needed.
-            }
-            "CorruptionFound" {
-                Log "SFC verification found integrity violations. Proceeding with repair." "WARN"
-            }
-            default {
-                Log "SFC verification result was inconclusive ('$verificationResult'). Proceeding with repair as a precaution." "WARN"
-            }
-        }
-    } catch {
-        Log "An unexpected error occurred during SFC /verifyonly operation: $($_.Exception.Message)" "ERROR"
-        Log "Attempting to run full repair scan despite verification error." "WARN"
     }
 
     # --- Step 3: Run SFC in repair mode (if needed) ---
