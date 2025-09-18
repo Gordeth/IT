@@ -78,14 +78,14 @@ function Invoke-Script {
         & $scriptPath -VerboseMode:$VerboseMode -LogDir:$LogDir -ErrorAction Stop
         Log "$ScriptName executed successfully."
     } catch {
-        Log "Error during execution of ${ScriptName}: $_"
+        Log "Error during execution of '$ScriptName': $($_.Exception.Message)" -Level "ERROR"
     }
 }
 # ================== FUNCTION: CHECK IF OFFICE IS INSTALLED ==================
 # Helper function to confirm if Microsoft Office is installed on the system.
 # This is used to conditionally download/run Office-related update scripts.
 function Confirm-OfficeInstalled {
-    # Define common installation paths for Microsoft Office (32-bit and 64-bit).
+    # Define common installation paths for Microsoft Office (32-bit and 64-bit). Use braces for variable names with special characters.
     $officePaths = @(
         "${env:ProgramFiles(x86)}\Microsoft Office", # Common 32-bit path on 64-bit OS
         "${env:ProgramFiles}\Microsoft Office",# Common 64-bit path
@@ -117,9 +117,21 @@ function Repair-SystemFiles {
         )
 
         Log "Executing: $FilePath $Arguments" "INFO"
-        # Always show the window for these long-running commands so the user can see progress.
-        $process = Start-Process -FilePath $FilePath -ArgumentList $Arguments -Wait -PassThru -WindowStyle Normal
-        $exitCode = $process.ExitCode
+        # Execute the command in the current console window. This allows the user to see real-time progress.
+        # The output is piped to Tee-Object, which displays it on the host and also passes it down the pipeline
+        # where it's captured by Out-String. We redirect the error stream (2) to the success stream (1) to capture everything.
+        $output = & $FilePath $Arguments 2>&1 | Tee-Object -Variable capturedOutput | Out-String
+        $exitCode = $LASTEXITCODE
+
+        # The output is already displayed in real-time on the console via Tee-Object.
+        # Logging it ensures it's captured in the log file with a timestamp.
+        # In verbose mode, this will result in the output being displayed on the console twice,
+        # which is acceptable as it makes the console log a complete record.
+        $outputString = $output.Trim()
+        if ($outputString) {
+            Log "Full output from ${LogName}:`n$outputString" "INFO"
+        }
+
         Log "$LogName process finished with exit code: $exitCode" "INFO"
         return $exitCode
     }
