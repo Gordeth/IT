@@ -182,19 +182,19 @@ Install-NuGetProvider
             :SubMenu while ($true) {
                 Write-Host ""
                 Write-Host "--- Individual Tasks Menu ---"
-                Write-Host "[4.1] Run Windows Updates"
-                Write-Host "[4.2] Update Applications (Winget)"
-                Write-Host "[4.3] Update Microsoft Office"
-                Write-Host "[4.4] Repair System Files (SFC & DISM)"
-                Write-Host "[4.5] Install Chocolatey"
-                Write-Host "[4.6] Uninstall Chocolatey"
-                Write-Host "[B]   Back to Main Menu"
+                Write-Host "[A] Run Windows Updates"
+                Write-Host "[B] Update Applications (Winget)"
+                Write-Host "[C] Update Microsoft Office"
+                Write-Host "[D] Repair System Files (SFC & DISM)"
+                Write-Host "[E] Install Chocolatey"
+                Write-Host "[F] Uninstall Chocolatey"
+                Write-Host "[M] Back to Main Menu"
                 Write-Host ""
 
-                $subChoice = Read-Host "Choose an individual task [4.1-4.6, B]"
+                $subChoice = Read-Host "Choose an individual task [A-F, M]"
 
                 switch ($subChoice.ToUpper()) {
-                    '4.1' {
+                    'A' {
                         Log "Individual Task: Run Windows Updates"
                         $powerPlanInfo = Set-TemporaryMaxPerformancePlan
                         try {
@@ -203,7 +203,7 @@ Install-NuGetProvider
                             Restore-PowerPlan -PowerPlanInfo $powerPlanInfo
                         }
                     }
-                    '4.2' {
+                    'B' {
                         Log "Individual Task: Update Applications (Winget)"
                         $powerPlanInfo = Set-TemporaryMaxPerformancePlan
                         try {
@@ -212,7 +212,7 @@ Install-NuGetProvider
                             Restore-PowerPlan -PowerPlanInfo $powerPlanInfo
                         }
                     }
-                    '4.3' {
+                    'C' {
                         Log "Individual Task: Update Microsoft Office"
                         $powerPlanInfo = Set-TemporaryMaxPerformancePlan
                         try {
@@ -222,7 +222,7 @@ Install-NuGetProvider
                             Restore-PowerPlan -PowerPlanInfo $powerPlanInfo
                         }
                     }
-                    '4.4' {
+                    'D' {
                         Log "Individual Task: Repair System Files"
                         $powerPlanInfo = Set-TemporaryMaxPerformancePlan
                         try {
@@ -231,7 +231,7 @@ Install-NuGetProvider
                             Restore-PowerPlan -PowerPlanInfo $powerPlanInfo
                         }
                     }
-                    '4.5' {
+                    'E' {
                         Log "Individual Task: Install Chocolatey"
                         $powerPlanInfo = Set-TemporaryMaxPerformancePlan
                         try {
@@ -240,7 +240,7 @@ Install-NuGetProvider
                             Restore-PowerPlan -PowerPlanInfo $powerPlanInfo
                         }
                     }
-                    '4.6' {
+                    'F' {
                         Log "Individual Task: Uninstall Chocolatey"
                         $powerPlanInfo = Set-TemporaryMaxPerformancePlan
                         try {
@@ -249,7 +249,7 @@ Install-NuGetProvider
                             Restore-PowerPlan -PowerPlanInfo $powerPlanInfo
                         }
                     }
-                    'B' { Log "Returning to Main Menu..."; break SubMenu }
+                    'M' { Log "Returning to Main Menu..."; break SubMenu }
                     default { Write-Host "Invalid input. Please choose a valid option." -ForegroundColor Red }
                 }
             }
