@@ -182,28 +182,73 @@ Install-NuGetProvider
             :SubMenu while ($true) {
                 Write-Host ""
                 Write-Host "--- Individual Tasks Menu ---"
-                Write-Host "[1] Run Windows Updates"
-                Write-Host "[2] Update Applications (Winget)"
-                Write-Host "[3] Update Microsoft Office"
-                Write-Host "[4] Repair System Files (SFC & DISM)"
-                Write-Host "[5] Install Chocolatey"
-                Write-Host "[6] Uninstall Chocolatey"
-                Write-Host "[B] Back to Main Menu"
+                Write-Host "[4.1] Run Windows Updates"
+                Write-Host "[4.2] Update Applications (Winget)"
+                Write-Host "[4.3] Update Microsoft Office"
+                Write-Host "[4.4] Repair System Files (SFC & DISM)"
+                Write-Host "[4.5] Install Chocolatey"
+                Write-Host "[4.6] Uninstall Chocolatey"
+                Write-Host "[B]   Back to Main Menu"
                 Write-Host ""
 
-                $subChoice = Read-Host "Choose an individual task"
+                $subChoice = Read-Host "Choose an individual task [4.1-4.6, B]"
 
                 switch ($subChoice.ToUpper()) {
-                    '1' { Log "Individual Task: Run Windows Updates"; Invoke-Script -ScriptName "WUA.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode }
-                    '2' { Log "Individual Task: Update Applications (Winget)"; Invoke-Script -ScriptName "WGET.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode }
-                    '3' {
-                        Log "Individual Task: Update Microsoft Office"
-                        if (Confirm-OfficeInstalled) { Invoke-Script -ScriptName "MSO_UPDATE.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode }
-                        else { Log "Microsoft Office not detected. Skipping." }
+                    '4.1' {
+                        Log "Individual Task: Run Windows Updates"
+                        $powerPlanInfo = Set-TemporaryMaxPerformancePlan
+                        try {
+                            Invoke-Script -ScriptName "WUA.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode
+                        } finally {
+                            Restore-PowerPlan -PowerPlanInfo $powerPlanInfo
+                        }
                     }
-                    '4' { Log "Individual Task: Repair System Files"; Repair-SystemFiles }
-                    '5' { Log "Individual Task: Install Chocolatey"; Install-Chocolatey }
-                    '6' { Log "Individual Task: Uninstall Chocolatey"; Uninstall-Chocolatey }
+                    '4.2' {
+                        Log "Individual Task: Update Applications (Winget)"
+                        $powerPlanInfo = Set-TemporaryMaxPerformancePlan
+                        try {
+                            Invoke-Script -ScriptName "WGET.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode
+                        } finally {
+                            Restore-PowerPlan -PowerPlanInfo $powerPlanInfo
+                        }
+                    }
+                    '4.3' {
+                        Log "Individual Task: Update Microsoft Office"
+                        $powerPlanInfo = Set-TemporaryMaxPerformancePlan
+                        try {
+                            if (Confirm-OfficeInstalled) { Invoke-Script -ScriptName "MSO_UPDATE.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode }
+                            else { Log "Microsoft Office not detected. Skipping." }
+                        } finally {
+                            Restore-PowerPlan -PowerPlanInfo $powerPlanInfo
+                        }
+                    }
+                    '4.4' {
+                        Log "Individual Task: Repair System Files"
+                        $powerPlanInfo = Set-TemporaryMaxPerformancePlan
+                        try {
+                            Repair-SystemFiles
+                        } finally {
+                            Restore-PowerPlan -PowerPlanInfo $powerPlanInfo
+                        }
+                    }
+                    '4.5' {
+                        Log "Individual Task: Install Chocolatey"
+                        $powerPlanInfo = Set-TemporaryMaxPerformancePlan
+                        try {
+                            Install-Chocolatey
+                        } finally {
+                            Restore-PowerPlan -PowerPlanInfo $powerPlanInfo
+                        }
+                    }
+                    '4.6' {
+                        Log "Individual Task: Uninstall Chocolatey"
+                        $powerPlanInfo = Set-TemporaryMaxPerformancePlan
+                        try {
+                            Uninstall-Chocolatey
+                        } finally {
+                            Restore-PowerPlan -PowerPlanInfo $powerPlanInfo
+                        }
+                    }
                     'B' { Log "Returning to Main Menu..."; break SubMenu }
                     default { Write-Host "Invalid input. Please choose a valid option." -ForegroundColor Red }
                 }
