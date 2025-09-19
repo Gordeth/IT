@@ -3,20 +3,20 @@
     Orchestrates various machine preparation and Windows maintenance tasks.
 .DESCRIPTION
     This script acts as a central orchestrator for automating machine setup, Windows maintenance, and UniFi server management.
-    It features robust logging, internet connectivity checks, dynamic execution policy handling, and offers interactive task selection for silent or verbose operation.
-    It can perform tasks such as system file repair, power plan optimization, and execution of child scripts like MACHINEPREP.ps1, WUA.ps1, WGET.ps1, MSO_UPDATE.ps1, and IUS.ps1.
+    It features a nested menu for bundled and individual tasks, robust logging, internet connectivity checks, dynamic execution policy handling, and offers interactive task selection for silent or verbose operation.
+    It can perform bundled tasks (Machine Preparation, Windows Maintenance) or individual actions like system file repair, power plan optimization, and execution of child scripts.
 .NOTES
     Script: TO.ps1
-    Version: 1.0.5
+    Version: 1.0.6
         Dependencies:
         - Internet connectivity for various operations.
         - modules/Functions.ps1 for logging and other utility functions.
         - Child scripts: MACHINEPREP.ps1, WUA.ps1, WGET.ps1, MSO_UPDATE.ps1, IUS.ps1 (located in the same directory or relative paths).
     Change Log:
-        Version 1.0.5:
-        - Modified `Invoke-ElevatedCommand` to use `Start-Process -NoNewWindow` to ensure real-time progress of console applications like SFC and DISM is always visible.
-        - Fixed a syntax error in the `Invoke-Script` catch block.
-        - Fixed a variable syntax error in `Confirm-OfficeInstalled`.
+        Version 1.0.6:
+        - Implemented a nested menu structure with a main menu and a sub-menu for "Individual Tasks" for better organization.
+        - Added individual tasks for running specific maintenance actions (Windows Update, Winget Update, Office Update, System Repair, Chocolatey management).
+        - Optimized power plan management to only activate for long-running bundled tasks, improving efficiency for smaller, individual tasks.
         Version 1.0.4: Refactored power plan management to use functions from Functions.ps1.
         Version 1.0.3: Updated script descriptions and metadata.
         Version 1.0.2: Improved logging and error handling.
@@ -225,7 +225,7 @@ function Repair-SystemFiles {
     }
 }
 # Log the initial message indicating the script has started, using the Log function.
-Log "Starting Task Orchestrator script v1.0.5..." "INFO"
+Log "Starting Task Orchestrator script v1.0.6..." "INFO"
 # ================== SAVE ORIGINAL EXECUTION POLICY ==================
 # Store the current PowerShell execution policy to restore it later.
 # This is crucial for maintaining system security posture after script execution.
@@ -252,38 +252,6 @@ if ($mode.ToUpper() -eq "V") {
     $ProgressPreference = "SilentlyContinue"
     $WarningPreference = "SilentlyContinue"
 }
-# ================== ASK FOR TASK==================
-# This section now handles task selection interactively. If running
-# non-interactively and no task is specified, the script will exit.
-
-# --- Existing mode selection (S/V) would go here, if it's still needed ---
-# For example, before this 'Ask for Task' section.
-# $mode = Read-Host "Choose mode [S/V]"
-# if ($mode.ToUpper() -eq "V") { $VerboseMode = $true } else { $VerboseMode = $false }
-# Log "Mode selected."
-
-# Initialize $task variable (it will be set by user input)
-$task = ''
-
-# Always prompt for task selection
-Write-Host ""
-Write-Host "Select Task:"
-Write-Host "[1] Machine Preparation (semi-automated)"
-Write-Host "[2] Windows Maintenance"
-Write-Host "[3] Install/Upgrade UniFi Server"
-
-$isValidInput = $false
-while (-not $isValidInput) {
-    $taskInput = Read-Host "Choose task [1/2/3]"
-    switch ($taskInput) {
-        "1" { $task = "MachinePrep"; $isValidInput = $true }
-        "2" { $task = "WindowsMaintenance"; $isValidInput = $true }
-        "3" { $task = "InstallUpgradeUniFiServer"; $isValidInput = true }
-        default { Write-Host "Invalid input. Please choose 1, 2, or 3." -ForegroundColor Red }
-    }
-}
-Log "User interactively selected task: $task"
-
 # ================== CHECK INTERNET CONNECTIVITY ==================
 # Verify that the system has active internet connectivity before attempting downloads.
 Log "Checking internet connectivity..."
@@ -309,53 +277,100 @@ Set-ExecutionPolicy Bypass -Scope Process -Force -ErrorAction SilentlyContinue
 # ================== INSTALL NUGET PROVIDER ==================
 Install-NuGetProvider
 # Verify if NuGet is installed before proceeding
+ 
+# ================== MAIN MENU LOOP ==================
+while ($true) {
+    Write-Host ""
+    Write-Host "--- Main Menu ---"
+    Write-Host "Select a task to perform:"
+    Write-Host ""
+    Write-Host "--- Bundled Tasks ---"
+    Write-Host "[1] Machine Preparation (Full setup for new machines)"
+    Write-Host "[2] Windows Maintenance (Comprehensive update and health check)"
+    Write-Host "[3] Install/Upgrade UniFi Server"
+    Write-Host ""
+    Write-Host "--- Other Options ---"
+    Write-Host "[4] Run Individual Tasks..."
+    Write-Host "[Q] Quit"
+    Write-Host ""
 
-# ================== CREATE TEMPORARY MAX PERFORMANCE POWER PLAN ==================
-# This is now handled by a function from Functions.ps1.
-# It creates and activates the plan, and returns the original and temporary plan info.
-$powerPlanInfo = Set-TemporaryMaxPerformancePlan
-# ================== TASK SELECTION ==================
-switch ($task) {
-    "MachinePrep" {
-        Log "Task selected: Machine Preparation (semi-automated)"
-        Log "Executing scripts from local path..."
-        Invoke-Script -ScriptName "MACHINEPREP.ps1" -LogDir $LogDir -VerboseMode $VerboseMode
-        Repair-SystemFiles
-        if (Confirm-OfficeInstalled) {
-            Invoke-Script -ScriptName "MSO_UPDATE.ps1" -LogDir $LogDir -VerboseMode $VerboseMode
-        } else {
-            Log "Microsoft Office not detected. Skipping Office update script."
+    $mainChoice = Read-Host "Choose an option"
+
+    switch ($mainChoice.ToUpper()) {
+        '1' {
+            Log "Task selected: Machine Preparation (semi-automated)"
+            $powerPlanInfo = Set-TemporaryMaxPerformancePlan
+            try {
+                Invoke-Script -ScriptName "MACHINEPREP.ps1" -LogDir $LogDir -VerboseMode $VerboseMode
+                Repair-SystemFiles
+                if (Confirm-OfficeInstalled) {
+                    Invoke-Script -ScriptName "MSO_UPDATE.ps1" -LogDir $LogDir -VerboseMode $VerboseMode
+                } else {
+                    Log "Microsoft Office not detected. Skipping Office update script."
+                }
+            } finally {
+                Restore-PowerPlan -PowerPlanInfo $powerPlanInfo
+            }
         }
-        
-    }
-    "WindowsMaintenance" {
-        Log "Task selected: Windows Maintenance"
-        Log "Executing scripts from local path..."
-        Invoke-Script -ScriptName "WUA.ps1" -LogDir $LogDir -VerboseMode $VerboseMode
-        Repair-SystemFiles
-        Invoke-Script -ScriptName "WGET.ps1" -LogDir $LogDir -VerboseMode $VerboseMode
-        if (Confirm-OfficeInstalled) {
-            Invoke-Script -ScriptName "MSO_UPDATE.ps1" -LogDir $LogDir -VerboseMode $VerboseMode
-        } else {
-            Log "Microsoft Office not detected. Skipping Office update."
+        '2' {
+            Log "Task selected: Windows Maintenance"
+            $powerPlanInfo = Set-TemporaryMaxPerformancePlan
+            try {
+                Invoke-Script -ScriptName "WUA.ps1" -LogDir $LogDir -VerboseMode $VerboseMode
+                Repair-SystemFiles
+                Invoke-Script -ScriptName "WGET.ps1" -LogDir $LogDir -VerboseMode $VerboseMode
+                if (Confirm-OfficeInstalled) {
+                    Invoke-Script -ScriptName "MSO_UPDATE.ps1" -LogDir $LogDir -VerboseMode $VerboseMode
+                } else {
+                    Log "Microsoft Office not detected. Skipping Office update."
+                }
+            } finally {
+                Restore-PowerPlan -PowerPlanInfo $powerPlanInfo
+            }
         }
-        
-    }
-    "InstallUpgradeUniFiServer" {
-        Log "Task selected: Install/Upgrade UniFi Server"
-        Log "Executing IUS.ps1 from local path..."
-        Invoke-Script -ScriptName "IUS.ps1" -LogDir $LogDir -VerboseMode $VerboseMode
-    }
-    default {
-        Log "Invalid task selection. Exiting script. Received value: '$task'" -Level "ERROR"
-        Exit 1
+        '3' {
+            Log "Task selected: Install/Upgrade UniFi Server"
+            Invoke-Script -ScriptName "IUS.ps1" -LogDir $LogDir -VerboseMode $VerboseMode
+        }
+        '4' {
+            # --- INDIVIDUAL TASKS SUB-MENU ---
+            while ($true) {
+                Write-Host ""
+                Write-Host "--- Individual Tasks Menu ---"
+                Write-Host "[1] Run Windows Updates"
+                Write-Host "[2] Update Applications (Winget)"
+                Write-Host "[3] Update Microsoft Office"
+                Write-Host "[4] Repair System Files (SFC & DISM)"
+                Write-Host "[5] Install Chocolatey"
+                Write-Host "[6] Uninstall Chocolatey"
+                Write-Host "[B] Back to Main Menu"
+                Write-Host ""
+
+                $subChoice = Read-Host "Choose an individual task"
+
+                switch ($subChoice.ToUpper()) {
+                    '1' { Log "Individual Task: Run Windows Updates"; Invoke-Script -ScriptName "WUA.ps1" -LogDir $LogDir -VerboseMode $VerboseMode }
+                    '2' { Log "Individual Task: Update Applications (Winget)"; Invoke-Script -ScriptName "WGET.ps1" -LogDir $LogDir -VerboseMode $VerboseMode }
+                    '3' {
+                        Log "Individual Task: Update Microsoft Office"
+                        if (Confirm-OfficeInstalled) { Invoke-Script -ScriptName "MSO_UPDATE.ps1" -LogDir $LogDir -VerboseMode $VerboseMode }
+                        else { Log "Microsoft Office not detected. Skipping." }
+                    }
+                    '4' { Log "Individual Task: Repair System Files"; Repair-SystemFiles }
+                    '5' { Log "Individual Task: Install Chocolatey"; Install-Chocolatey }
+                    '6' { Log "Individual Task: Uninstall Chocolatey"; Uninstall-Chocolatey }
+                    'B' { Log "Returning to Main Menu..."; break }
+                    default { Write-Host "Invalid input. Please choose a valid option." -ForegroundColor Red }
+                }
+            }
+        }
+        'Q' {
+            Log "User chose to quit. Exiting script."
+            break # Exit the main menu loop
+        }
+        default { Write-Host "Invalid input. Please choose a valid option from the menu." -ForegroundColor Red }
     }
 }
-
-# ================== RESTORE AND CLEANUP POWER PLAN ==================
-# This is now handled by a function from Functions.ps1.
-# It restores the original plan and deletes the temporary one.
-Restore-PowerPlan -PowerPlanInfo $powerPlanInfo
 
 # ================== RESTORE EXECUTION POLICY ==================
 # Revert the PowerShell execution policy for the current process to its original state.
