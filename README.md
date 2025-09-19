@@ -11,6 +11,7 @@ This is a **PowerShell project** designed to automate common system maintenance 
 *   **📦 Software Management:** Installs baseline software (TeamViewer, Chrome, etc.) and updates all existing applications using Winget. Manages Chocolatey for packages not available on Winget.
 *   **🔩 Driver & Firmware:** Auto-detects the machine's brand (Dell, HP, Lenovo) and installs the corresponding driver update utility. It also detects internal disk brands (Samsung, Crucial, WD, etc.) and installs their management software for firmware updates and optimization.
 *   **⚕️ System Health:** Runs System File Checker (SFC) to ensure system integrity.
+*   **🧹 System Cleanup:** Clears system and user temporary files and empties the Recycle Bin to free up disk space. This task is available individually and is also integrated into the main maintenance bundles.
 *   **⚡ Performance Optimization:** Creates and activates a temporary "Maximum Performance" power plan during execution to speed up tasks, then safely removes it and restores the original plan.
 *   **🌐 UniFi Server Management:** Installs or upgrades the UniFi Network Server and its Java dependency.
 *   **📝 Ephemeral Logging:** Creates detailed, task-specific log files during execution inside a temporary folder (`%TEMP%\IAP\src\Log`). **Note:** This folder is automatically deleted by the bootstrapper upon script completion.
@@ -45,9 +46,11 @@ When you launch the bootstrapper, you'll be prompted to select a mode and a task
 | `modules\Functions.ps1` | Contains shared, reusable helper functions for logging, package management (NuGet, Chocolatey), power plan management, and file downloads, promoting a modular and DRY (Don't Repeat Yourself) design. |
 | `src\MACHINEPREP.ps1` | Contains tasks specifically for the "Machine Preparation" option. |
 | `src/WUA.ps1` | Handles the Windows Update routine, including conditional System Restore Point creation. |
+| `src\WUA.ps1` | Handles the Windows Update routine, including conditional System Restore Point creation. |
 | `src\WGET.ps1` | Handles the Winget update and cleanup routine. |
 | `src\MSO_UPDATE.ps1` | An optional routine for updating Microsoft Office (Click-to-Run). |
 | `src\IUS.ps1` | Handles the installation and upgrade of the UniFi Network Server. |
+| `src\CLEANUP.ps1` | Handles system cleanup tasks like clearing temporary files and emptying the Recycle Bin. |
 
 ---
 
