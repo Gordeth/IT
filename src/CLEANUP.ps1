@@ -13,10 +13,12 @@
     This parameter is mandatory.
 .NOTES
     Script: CLEANUP.ps1
-    Version: 1.0.2
+    Version: 1.0.3
     Dependencies:
         - PowerShell 5.1 or later.
     Changelog:
+        v1.0.3
+        - Modified `cleanmgr.exe` execution to run with a hidden window and display an indeterminate progress bar in verbose mode for a better user experience.
         v1.0.2
         - Enhanced cleanup to include running the built-in Windows Disk Cleanup tool (cleanmgr.exe) in an automated mode for more thorough cleaning.
         - Removed the dedicated 'Empty Recycle Bin' step as it is now handled by cleanmgr.
@@ -64,7 +66,7 @@ if (-not (Test-Path $LogFile)) {
 }
 
 # ==================== Script Execution Start ====================
-Log "Starting CLEANUP.ps1 script v1.0.2" "INFO"
+Log "Starting CLEANUP.ps1 script v1.0.3" "INFO"
 
 # ================== 1. Clear System Temporary Files ==================
 try {
@@ -142,12 +144,26 @@ try {
         }
     }
 
-    Log "Running cleanmgr.exe with sageset $sagesetNumber. This may take a long time, especially the 'Update Cleanup'..." "INFO"
-    # Start cleanmgr.exe and wait for it to complete.
-    $process = Start-Process -FilePath "cleanmgr.exe" -ArgumentList "/sagerun:$sagesetNumber" -Wait -PassThru -NoNewWindow
-    
-    Log "Windows Disk Cleanup completed with exit code: $($process.ExitCode)." "INFO"
+    try {
+        Log "Running cleanmgr.exe with sageset $sagesetNumber. This may take a long time, especially the 'Update Cleanup'..." "INFO"
+        
+        # In verbose mode, show an indeterminate progress bar since cleanmgr can take a long time.
+        if ($VerboseMode) {
+            Write-Progress -Activity "Running Windows Disk Cleanup" -Status "This may take a long time..." -PercentComplete -1
+        }
+
+        # Start cleanmgr.exe hidden and wait for it to complete.
+        $process = Start-Process -FilePath "cleanmgr.exe" -ArgumentList "/sagerun:$sagesetNumber" -Wait -PassThru -WindowStyle Hidden
+        
+        Log "Windows Disk Cleanup completed with exit code: $($process.ExitCode)." "INFO"
+    } finally {
+        # Ensure the progress bar is always closed, even if the process is interrupted.
+        if ($VerboseMode) {
+            Write-Progress -Activity "Running Windows Disk Cleanup" -Status "Completed." -Completed
+        }
+    }
 } catch {
+    # This outer catch will handle errors from the registry configuration part.
     Log "An error occurred during the Windows Disk Cleanup process: $_" "ERROR"
 }
 
