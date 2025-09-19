@@ -7,12 +7,15 @@
     It can perform bundled tasks (Machine Preparation, Windows Maintenance) or individual actions like system file repair, power plan optimization, and execution of child scripts.
 .NOTES
     Script: TO.ps1
-    Version: 1.0.7
+    Version: 1.0.8
         Dependencies:
         - Internet connectivity for various operations.
         - modules/Functions.ps1 for logging and other utility functions.
-        - Child scripts: MACHINEPREP.ps1, WUA.ps1, WGET.ps1, MSO_UPDATE.ps1, IUS.ps1 (located in the same directory or relative paths).
+        - Child scripts: MACHINEPREP.ps1, WUA.ps1, WGET.ps1, MSO_UPDATE.ps1, IUS.ps1, CLEANUP.ps1 (located in the same directory or relative paths).
     Change Log:
+        Version 1.0.8:
+        - Added a new `CLEANUP.ps1` script for system cleanup tasks (temp files, recycle bin).
+        - Integrated the cleanup task as a new individual task and at the end of the `Machine Preparation` and `Windows Maintenance` bundles.
         Version 1.0.7:
         - Refactored the script by moving local helper functions (`Invoke-Script`, `Confirm-OfficeInstalled`, `Repair-SystemFiles`) to the central `modules/Functions.ps1` module.
         - Updated calls to `Invoke-Script` to align with its new definition in the functions module.
@@ -70,7 +73,7 @@ if (-not (Test-Path $LogFile)) {
 # The path is relative to this script's location ($PSScriptRoot).
 . "$PSScriptRoot/../modules/Functions.ps1"
 # Log the initial message indicating the script has started, using the Log function.
-Log "Starting Task Orchestrator script v1.0.7..." "INFO"
+Log "Starting Task Orchestrator script v1.0.8..." "INFO"
 # ================== SAVE ORIGINAL EXECUTION POLICY ==================
 # Store the current PowerShell execution policy to restore it later.
 # This is crucial for maintaining system security posture after script execution.
@@ -153,6 +156,7 @@ Install-NuGetProvider
                 } else {
                     Log "Microsoft Office not detected. Skipping Office update script."
                 }
+                Invoke-Script -ScriptName "CLEANUP.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode
             } finally {
                 Restore-PowerPlan -PowerPlanInfo $powerPlanInfo
             }
@@ -169,6 +173,7 @@ Install-NuGetProvider
                 } else {
                     Log "Microsoft Office not detected. Skipping Office update."
                 }
+                Invoke-Script -ScriptName "CLEANUP.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode
             } finally {
                 Restore-PowerPlan -PowerPlanInfo $powerPlanInfo
             }
@@ -188,10 +193,11 @@ Install-NuGetProvider
                 Write-Host "[D] Repair System Files (SFC & DISM)"
                 Write-Host "[E] Install Chocolatey"
                 Write-Host "[F] Uninstall Chocolatey"
+                Write-Host "[G] System Cleanup"
                 Write-Host "[M] Back to Main Menu"
                 Write-Host ""
 
-                $subChoice = Read-Host "Choose an individual task [A-F, M]"
+                $subChoice = Read-Host "Choose an individual task [A-G, M]"
 
                 switch ($subChoice.ToUpper()) {
                     'A' {
@@ -245,6 +251,15 @@ Install-NuGetProvider
                         $powerPlanInfo = Set-TemporaryMaxPerformancePlan
                         try {
                             Uninstall-Chocolatey
+                        } finally {
+                            Restore-PowerPlan -PowerPlanInfo $powerPlanInfo
+                        }
+                    }
+                    'G' {
+                        Log "Individual Task: System Cleanup"
+                        $powerPlanInfo = Set-TemporaryMaxPerformancePlan
+                        try {
+                            Invoke-Script -ScriptName "CLEANUP.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode
                         } finally {
                             Restore-PowerPlan -PowerPlanInfo $powerPlanInfo
                         }
