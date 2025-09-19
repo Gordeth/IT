@@ -81,9 +81,14 @@ try {
 # ================== 2. Clear User Temporary Files ==================
 try {
     $userTempPath = "$env:TEMP"
-    Log "Clearing current user's temporary files from '$userTempPath'..."
-    # Get child items and pipe them to Remove-Item.
-    Get-ChildItem -Path $userTempPath -Recurse -Force -ErrorAction SilentlyContinue | ForEach-Object {
+    # IMPORTANT: The bootstrapper places the project in a folder named 'IAP' inside the temp directory.
+    # We must exclude this folder to avoid self-deletion.
+    $projectFolderName = "IAP"
+    Log "Clearing current user's temporary files from '$userTempPath', excluding the project folder '$projectFolderName'..."
+
+    # Get all child items directly in the temp folder, excluding the project folder itself, then delete them recursively.
+    # This is safer than a blanket `Get-ChildItem -Recurse` which would try to delete the running scripts.
+    Get-ChildItem -Path $userTempPath -Exclude $projectFolderName -Force -ErrorAction SilentlyContinue | ForEach-Object {
         try {
             Remove-Item -Path $_.FullName -Recurse -Force -ErrorAction Stop
         } catch {
