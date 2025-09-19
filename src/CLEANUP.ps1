@@ -13,10 +13,13 @@
     This parameter is mandatory.
 .NOTES
     Script: CLEANUP.ps1
-    Version: 1.0.1
+    Version: 1.0.2
     Dependencies:
         - PowerShell 5.1 or later.
     Changelog:
+        v1.0.2
+        - Enhanced cleanup to include running the built-in Windows Disk Cleanup tool (cleanmgr.exe) in an automated mode for more thorough cleaning.
+        - Removed the dedicated 'Empty Recycle Bin' step as it is now handled by cleanmgr.
         v1.0.1
         - Updated user temp file cleanup to exclude `bootstrapper.ps1` to prevent errors when run via the one-liner.
         v1.0.0
@@ -61,7 +64,7 @@ if (-not (Test-Path $LogFile)) {
 }
 
 # ==================== Script Execution Start ====================
-Log "Starting CLEANUP.ps1 script v1.0.1" "INFO"
+Log "Starting CLEANUP.ps1 script v1.0.2" "INFO"
 
 # ================== 1. Clear System Temporary Files ==================
 try {
@@ -102,15 +105,50 @@ try {
     Log "An error occurred while accessing the user temporary files directory: $_" -Level "WARN"
 }
 
-# ================== 3. Empty Recycle Bin ==================
+# ================== 3. Run Windows Disk Cleanup (cleanmgr.exe) ==================
 try {
-    Log "Emptying the current user's Recycle Bin..."
-    # This cmdlet is available in PowerShell 5.1+ and is the most reliable method.
-    Clear-RecycleBin -Force -ErrorAction SilentlyContinue
-    Log "Recycle Bin emptied successfully."
+    Log "Configuring and running Windows Disk Cleanup utility (cleanmgr.exe)..." "INFO"
+    $sagesetNumber = 99
+    $sagesetRegValue = "StateFlags" + $sagesetNumber.ToString("0000")
+    $volumeCachesPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches"
+
+    # List of cleanup handlers to enable. These are the names of the registry keys.
+    $handlersToEnable = @(
+        "Active Setup Temp Folders",
+        "Downloaded Program Files",
+        "Internet Cache Files",
+        "Recycle Bin",
+        "Temporary Files",
+        "Thumbnails",
+        "Update Cleanup", # This is equivalent to Component Store Cleanup (WinSxS)
+        "Windows Error Reporting Files",
+        "Windows Upgrade Log Files",
+        "Delivery Optimization Files"
+    )
+
+    Log "Enabling the following cleanup handlers for sageset ${sagesetNumber}: $($handlersToEnable -join ', ')" "INFO"
+
+    foreach ($handler in $handlersToEnable) {
+        $handlerPath = Join-Path $volumeCachesPath $handler
+        if (Test-Path $handlerPath) {
+            try {
+                Set-ItemProperty -Path $handlerPath -Name $sagesetRegValue -Value 2 -Type DWord -Force -ErrorAction Stop
+                Log "Enabled handler: $handler" "INFO"
+            } catch {
+                Log "Failed to enable handler '$handler'. Error: $_" "WARN"
+            }
+        } else {
+            Log "Cleanup handler key not found: $handler. Skipping." "WARN"
+        }
+    }
+
+    Log "Running cleanmgr.exe with sageset $sagesetNumber. This may take a long time, especially the 'Update Cleanup'..." "INFO"
+    # Start cleanmgr.exe and wait for it to complete.
+    $process = Start-Process -FilePath "cleanmgr.exe" -ArgumentList "/sagerun:$sagesetNumber" -Wait -PassThru -NoNewWindow
+    
+    Log "Windows Disk Cleanup completed with exit code: $($process.ExitCode)." "INFO"
 } catch {
-    # This catch block might not be hit if -ErrorAction is SilentlyContinue, but it's good practice.
-    Log "An error occurred while trying to empty the Recycle Bin: $_" -Level "WARN"
+    Log "An error occurred during the Windows Disk Cleanup process: $_" "ERROR"
 }
 
 # ================== End of script ==================
