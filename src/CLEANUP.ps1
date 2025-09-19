@@ -13,10 +13,12 @@
     This parameter is mandatory.
 .NOTES
     Script: CLEANUP.ps1
-    Version: 1.0.3
+    Version: 1.0.4
     Dependencies:
         - PowerShell 5.1 or later.
     Changelog:
+        v1.0.4
+        - Replaced `Start-Process` with `WScript.Shell` COM object to run `cleanmgr.exe` to ensure the window is reliably hidden.
         v1.0.3
         - Modified `cleanmgr.exe` execution to run with a hidden window and display an indeterminate progress bar in verbose mode for a better user experience.
         v1.0.2
@@ -66,7 +68,7 @@ if (-not (Test-Path $LogFile)) {
 }
 
 # ==================== Script Execution Start ====================
-Log "Starting CLEANUP.ps1 script v1.0.3" "INFO"
+Log "Starting CLEANUP.ps1 script v1.0.4" "INFO"
 
 # ================== 1. Clear System Temporary Files ==================
 try {
@@ -152,10 +154,13 @@ try {
             Write-Progress -Activity "Running Windows Disk Cleanup" -Status "This may take a long time..." -PercentComplete -1
         }
 
-        # Start cleanmgr.exe hidden and wait for it to complete.
-        $process = Start-Process -FilePath "cleanmgr.exe" -ArgumentList "/sagerun:$sagesetNumber" -Wait -PassThru -WindowStyle Hidden
-        
-        Log "Windows Disk Cleanup completed with exit code: $($process.ExitCode)." "INFO"
+        # Use WScript.Shell for a more reliable hidden window.
+        # Start-Process -WindowStyle Hidden can be ignored by some applications like cleanmgr.exe.
+        $WshShell = New-Object -ComObject WScript.Shell
+        # The 'Run' method parameters are: (command, windowStyle, waitOnReturn)
+        $exitCode = $WshShell.Run("cleanmgr.exe /sagerun:$sagesetNumber", 0, $true)
+
+        Log "Windows Disk Cleanup completed with exit code: $exitCode." "INFO"
     } finally {
         # Ensure the progress bar is always closed, even if the process is interrupted.
         if ($VerboseMode) {
