@@ -13,10 +13,12 @@
     This parameter is mandatory.
 .NOTES
     Script: CLEANUP.ps1
-    Version: 1.0.0
+    Version: 1.0.1
     Dependencies:
         - PowerShell 5.1 or later.
     Changelog:
+        v1.0.1
+        - Updated user temp file cleanup to exclude `bootstrapper.ps1` to prevent errors when run via the one-liner.
         v1.0.0
         - Initial release with functionality to clear system temp, user temp, and empty the Recycle Bin.
 #>
@@ -59,7 +61,7 @@ if (-not (Test-Path $LogFile)) {
 }
 
 # ==================== Script Execution Start ====================
-Log "Starting CLEANUP.ps1 script v1.0.0" "INFO"
+Log "Starting CLEANUP.ps1 script v1.0.1" "INFO"
 
 # ================== 1. Clear System Temporary Files ==================
 try {
@@ -83,12 +85,12 @@ try {
     $userTempPath = "$env:TEMP"
     # IMPORTANT: The bootstrapper places the project in a folder named 'IAP' inside the temp directory.
     # We must exclude this folder to avoid self-deletion.
-    $projectFolderName = "IAP"
-    Log "Clearing current user's temporary files from '$userTempPath', excluding the project folder '$projectFolderName'..."
+    $exclusions = @("IAP", "bootstrapper.ps1")
+    Log "Clearing current user's temporary files from '$userTempPath', excluding project files: $($exclusions -join ', ')..."
 
     # Get all child items directly in the temp folder, excluding the project folder itself, then delete them recursively.
     # This is safer than a blanket `Get-ChildItem -Recurse` which would try to delete the running scripts.
-    Get-ChildItem -Path $userTempPath -Exclude $projectFolderName -Force -ErrorAction SilentlyContinue | ForEach-Object {
+    Get-ChildItem -Path $userTempPath -Exclude $exclusions -Force -ErrorAction SilentlyContinue | ForEach-Object {
         try {
             Remove-Item -Path $_.FullName -Recurse -Force -ErrorAction Stop
         } catch {
