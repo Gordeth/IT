@@ -279,7 +279,7 @@ Install-NuGetProvider
 # Verify if NuGet is installed before proceeding
  
 # ================== MAIN MENU LOOP ==================
-while ($true) {
+:MainMenu while ($true) {
     Write-Host ""
     Write-Host "--- Main Menu ---"
     Write-Host "Select a task to perform:"
@@ -366,7 +366,7 @@ while ($true) {
         }
         'Q' {
             Log "User chose to quit. Exiting script."
-            break # Exit the main menu loop
+            break MainMenu # Exit the main menu loop
         }
         default { Write-Host "Invalid input. Please choose a valid option from the menu." -ForegroundColor Red }
     }
