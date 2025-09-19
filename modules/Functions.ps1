@@ -1,11 +1,14 @@
 # ================================================== 
 # Functions.ps1
-# Version: 1.0.16
+# Version: 1.0.17
 # Contains reusable functions for the IT maintenance project.
 # ================================================== 
 #
 # ================== Change Log ================== 
 #
+# V 1.0.17
+# - Moved `Invoke-Script`, `Confirm-OfficeInstalled`, and `Repair-SystemFiles` functions from TO.ps1 to this module for better centralization and reusability.
+# - Adapted `Invoke-Script` to accept a `$ScriptDir` parameter.
 # V 1.0.16
 # - Cleaned up and fixed logic in `Restore-PowerPlan` to prevent errors when the original plan is the same as the temporary plan.
 # V 1.0.15
@@ -446,5 +449,154 @@ function Restore-PowerPlan {
         }
     } catch {
         Log "Failed to remove temporary power plan: $_" "ERROR"
+    }
+}
+
+# ================== INVOKE SCRIPT FUNCTION ==================
+# A centralized function to execute child scripts, passing necessary parameters.
+function Invoke-Script {
+    param (
+        [string]$ScriptName,
+        [string]$ScriptDir,      # The directory where the script to be invoked resides.
+        [switch]$VerboseMode,    # Parameter to control console verbosity in the child script.
+        [string]$LogDir          # Parameter to pass the centralized log directory path.
+    )
+    $scriptPath = Join-Path $ScriptDir $ScriptName
+    Log "Running $ScriptName..."
+    try {
+        # Pass the parameters to the child script
+        & $scriptPath -VerboseMode:$VerboseMode -LogDir:$LogDir -ErrorAction Stop
+        Log "$ScriptName executed successfully."
+    } catch {
+        Log "Error during execution of '$ScriptName': $($_.Exception.Message)" -Level "ERROR"
+    }
+}
+
+# ================== FUNCTION: CHECK IF OFFICE IS INSTALLED ==================
+# Helper function to confirm if Microsoft Office is installed on the system.
+function Confirm-OfficeInstalled {
+    # Define common installation paths for Microsoft Office (32-bit and 64-bit). Use braces for variable names with special characters.
+    $officePaths = @(
+        "${env:ProgramFiles(x86)}\Microsoft Office", # Common 32-bit path on 64-bit OS
+        "${env:ProgramFiles}\Microsoft Office",# Common 64-bit path
+        "${env:ProgramW6432}\Microsoft Office"# Alternative 64-bit path
+    )
+    # Iterate through the paths to check for existence.
+    foreach ($path in $officePaths) {
+        if (Test-Path $path) {
+            return $true # Return true if any Office path is found
+        }
+    }
+    return $false # Return false if no Office paths are found
+}
+
+# ================== FUNCTION: REPAIR SYSTEM FILES (SFC & DISM) ==================
+# Runs SFC and DISM to check for and repair Windows system file corruption.
+function Repair-SystemFiles {
+    Log "Starting system file integrity check and repair process..." "INFO"
+
+    # Internal helper to run external commands, respecting the VerboseMode switch.
+    function Invoke-ElevatedCommand {
+        param(
+            [string]$FilePath,
+            [string]$Arguments,
+            [string]$LogName
+        )
+
+        Log "Executing: $FilePath $Arguments" "INFO"
+        Log "The output of this command will be displayed directly in the console for real-time progress." "INFO"
+
+        # Using Start-Process with -NoNewWindow and -Wait is the most reliable way to run a console
+        # application in the current window and see its real-time output.
+        $process = Start-Process -FilePath $FilePath -ArgumentList $Arguments -Wait -PassThru -NoNewWindow
+        $exitCode = $process.ExitCode
+
+        Log "$LogName process finished with exit code: $exitCode" "INFO"
+        return $exitCode
+    }
+
+    # Internal helper to get the result from the last SFC session in CBS.log
+    function Get-SfcLastSessionResult {
+        param ([string]$CbsLogPath)
+        if (-not (Test-Path $CbsLogPath)) {
+            Log "CBS.log not found at '$CbsLogPath'." "WARN"
+            return "LogNotFound"
+        }
+
+        # Add a small delay to ensure the log file is flushed before reading.
+        Start-Sleep -Seconds 5
+
+        # Find the line number of the last session start marker.
+        $sessionStart = Select-String -Path $CbsLogPath -Pattern '\[SR\] Beginning Verify and Repair transaction' | Select-Object -Last 1
+        
+        if (-not $sessionStart) {
+            Log "Could not find any SFC session start in CBS.log." "WARN"
+            return "NoSessionFound"
+        }
+
+        # Get content from that line number to the end of the file.
+        $lastSessionContent = Get-Content $CbsLogPath | Select-Object -Skip ($sessionStart.LineNumber - 1)
+
+        # Check for key phrases in the log output in order of severity.
+        if ($lastSessionContent -match "Cannot repair member file") {
+            return "CannotRepair"
+        } elseif ($lastSessionContent -match "Repairing and verifying") {
+            return "Repaired"
+        } elseif ($lastSessionContent -match "found integrity violations") {
+            return "CorruptionFound"
+        } elseif ($lastSessionContent -match "did not find any integrity violations" -or $lastSessionContent -match "found no integrity violations") {
+            return "NoViolations"
+        } else {
+            return "Unknown"
+        }
+    }
+
+    # --- Step 1: Run SFC in verification mode ---
+    try {
+        Log "Running System File Checker (SFC) in verification-only mode..." "INFO"
+        $sfcExitCode = Invoke-ElevatedCommand -FilePath "sfc.exe" -Arguments "/verifyonly" -LogName "SFC Verify"
+        if ($sfcExitCode -eq 0) {
+            Log "SFC verification completed with exit code 0. No integrity violations found. System files are healthy." "INFO"
+            return # Exit the function as no repair is needed.
+        } else {
+            # A non-zero exit code indicates that integrity violations were found.
+            Log "SFC verification found integrity violations (Exit Code: $sfcExitCode). Proceeding with repair." "WARN"
+        }
+    } catch {
+        Log "An unexpected error occurred during SFC /verifyonly operation: $($_.Exception.Message)" "ERROR"
+        Log "Attempting to run full repair scan despite verification error." "WARN"
+    }
+
+    # --- Step 2: Run DISM to ensure the component store is healthy ---
+    try {
+        Log "Running DISM to check and repair the Windows Component Store. This may take a long time..." "INFO"
+        $dismExitCode = Invoke-ElevatedCommand -FilePath "dism.exe" -Arguments "/Online /Cleanup-Image /RestoreHealth" -LogName "DISM"
+
+        if ($dismExitCode -eq 0) {
+            Log "DISM completed successfully. The component store is healthy." "INFO"
+        } else {
+            Log "DISM finished with a non-zero exit code ($dismExitCode). The component store may have issues. See DISM logs for details." "WARN"
+        }
+    } catch {
+        Log "An unexpected error occurred while running DISM: $($_.Exception.Message)" "ERROR"
+        Log "Proceeding to SFC despite DISM error." "WARN"
+    }
+
+    # --- Step 3: Run SFC in repair mode (if needed) ---
+    try {
+        Log "Running System File Checker (SFC) in repair mode (scannow)..." "INFO"
+        Invoke-ElevatedCommand -FilePath "sfc.exe" -Arguments "/scannow" -LogName "SFC Scan"
+
+        $cbsLogPath = "$env:windir\Logs\CBS\CBS.log"
+        $repairResult = Get-SfcLastSessionResult -CbsLogPath $cbsLogPath
+
+        switch ($repairResult) {
+            "Repaired" { Log "SFC Result: Found and successfully repaired system file corruption." "INFO" }
+            "CannotRepair" { Log "SFC Result: Found corrupt files but was unable to fix some of them. Manual intervention may be required." "ERROR" }
+            "NoViolations" { Log "SFC Result: Repair scan completed and found no integrity violations (possibly fixed by DISM)." "INFO" }
+            default { Log "SFC repair scan completed, but the result could not be definitively determined from the log ('$repairResult')." "WARN" }
+        }
+    } catch {
+        Log "An unexpected error occurred during SFC /scannow operation: $($_.Exception.Message)" "ERROR"
     }
 }
