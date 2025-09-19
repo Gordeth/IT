@@ -13,10 +13,12 @@
     This parameter is mandatory.
 .NOTES
     Script: CLEANUP.ps1
-    Version: 1.0.4
+    Version: 1.0.5
     Dependencies:
         - PowerShell 5.1 or later.
     Changelog:
+        v1.0.5
+        - Modified `cleanmgr.exe` execution to run minimized (`-WindowStyle 7`) as it appears to resist being fully hidden.
         v1.0.4
         - Replaced `Start-Process` with `WScript.Shell` COM object to run `cleanmgr.exe` to ensure the window is reliably hidden.
         v1.0.3
@@ -68,7 +70,7 @@ if (-not (Test-Path $LogFile)) {
 }
 
 # ==================== Script Execution Start ====================
-Log "Starting CLEANUP.ps1 script v1.0.4" "INFO"
+Log "Starting CLEANUP.ps1 script v1.0.5" "INFO"
 
 # ================== 1. Clear System Temporary Files ==================
 try {
@@ -158,7 +160,8 @@ try {
         # Start-Process -WindowStyle Hidden can be ignored by some applications like cleanmgr.exe.
         $WshShell = New-Object -ComObject WScript.Shell
         # The 'Run' method parameters are: (command, windowStyle, waitOnReturn)
-        $exitCode = $WshShell.Run("cleanmgr.exe /sagerun:$sagesetNumber", 0, $true)
+        # WindowStyle 7 runs the program minimized.
+        $exitCode = $WshShell.Run("cleanmgr.exe /sagerun:$sagesetNumber", 7, $true)
 
         Log "Windows Disk Cleanup completed with exit code: $exitCode." "INFO"
     } finally {
