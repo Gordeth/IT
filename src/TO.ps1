@@ -334,7 +334,7 @@ Install-NuGetProvider
         }
         '4' {
             # --- INDIVIDUAL TASKS SUB-MENU ---
-            while ($true) {
+            :SubMenu while ($true) {
                 Write-Host ""
                 Write-Host "--- Individual Tasks Menu ---"
                 Write-Host "[1] Run Windows Updates"
@@ -359,7 +359,7 @@ Install-NuGetProvider
                     '4' { Log "Individual Task: Repair System Files"; Repair-SystemFiles }
                     '5' { Log "Individual Task: Install Chocolatey"; Install-Chocolatey }
                     '6' { Log "Individual Task: Uninstall Chocolatey"; Uninstall-Chocolatey }
-                    'B' { Log "Returning to Main Menu..."; break }
+                    'B' { Log "Returning to Main Menu..."; break SubMenu }
                     default { Write-Host "Invalid input. Please choose a valid option." -ForegroundColor Red }
                 }
             }
