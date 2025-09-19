@@ -1,11 +1,13 @@
 # ================================================== 
 # Functions.ps1
-# Version: 1.0.17
+# Version: 1.0.18
 # Contains reusable functions for the IT maintenance project.
 # ================================================== 
 #
 # ================== Change Log ================== 
 #
+# V 1.0.18
+# - Updated `Invoke-Script` to accept a hashtable of parameters (`$ScriptParameters`) for more flexible child script execution.
 # V 1.0.17
 # - Moved `Invoke-Script`, `Confirm-OfficeInstalled`, and `Repair-SystemFiles` functions from TO.ps1 to this module for better centralization and reusability.
 # - Adapted `Invoke-Script` to accept a `$ScriptDir` parameter.
@@ -457,15 +459,22 @@ function Restore-PowerPlan {
 function Invoke-Script {
     param (
         [string]$ScriptName,
-        [string]$ScriptDir,      # The directory where the script to be invoked resides.
-        [switch]$VerboseMode,    # Parameter to control console verbosity in the child script.
-        [string]$LogDir          # Parameter to pass the centralized log directory path.
+        [string]$ScriptDir,
+        [switch]$VerboseMode,
+        [string]$LogDir,
+        [hashtable]$ScriptParameters = @{} # Optional hashtable for additional script parameters.
     )
     $scriptPath = Join-Path $ScriptDir $ScriptName
     Log "Running $ScriptName..."
     try {
-        # Pass the parameters to the child script
-        & $scriptPath -VerboseMode:$VerboseMode -LogDir:$LogDir -ErrorAction Stop
+        # Combine standard parameters with any custom ones provided.
+        $allParams = $ScriptParameters
+        $allParams['VerboseMode'] = $VerboseMode
+        $allParams['LogDir'] = $LogDir
+        $allParams['ErrorAction'] = 'Stop'
+
+        # Use splatting to execute the child script with the combined parameters.
+        & $scriptPath @allParams
         Log "$ScriptName executed successfully."
     } catch {
         Log "Error during execution of '$ScriptName': $($_.Exception.Message)" -Level "ERROR"

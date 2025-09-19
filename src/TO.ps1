@@ -14,11 +14,12 @@
         - Child scripts: MACHINEPREP.ps1, WUA.ps1, WGET.ps1, MSO_UPDATE.ps1, IUS.ps1, CLEANUP.ps1 (located in the same directory or relative paths).
     Change Log:
         Version 1.0.8:
-        - Added a new `CLEANUP.ps1` script for system cleanup tasks (temp files, recycle bin).
-        - Integrated the cleanup task as a new individual task and at the end of the `Machine Preparation` and `Windows Maintenance` bundles.
+        - Modified bundled tasks (Machine Prep, Windows Maintenance) to run a 'Light' cleanup at the beginning to free up space, and a 'Full' cleanup at the end to complete all tasks.
+        - Updated `Invoke-Script` calls to use the new `-ScriptParameters` argument for passing custom parameters to child scripts.
         Version 1.0.7:
         - Refactored the script by moving local helper functions (`Invoke-Script`, `Confirm-OfficeInstalled`, `Repair-SystemFiles`) to the central `modules/Functions.ps1` module.
         - Updated calls to `Invoke-Script` to align with its new definition in the functions module.
+        - Added a new `CLEANUP.ps1` script and integrated it into tasks.
         Version 1.0.6:
         - Implemented a nested menu structure with a main menu and a sub-menu for "Individual Tasks" for better organization.
         - Added individual tasks for running specific maintenance actions (Windows Update, Winget Update, Office Update, System Repair, Chocolatey management).
@@ -149,6 +150,7 @@ Install-NuGetProvider
             Log "Task selected: Machine Preparation (semi-automated)"
             $powerPlanInfo = Set-TemporaryMaxPerformancePlan
             try {
+                Invoke-Script -ScriptName "CLEANUP.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode
                 Invoke-Script -ScriptName "MACHINEPREP.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode
                 Repair-SystemFiles
                 if (Confirm-OfficeInstalled) {
@@ -156,7 +158,6 @@ Install-NuGetProvider
                 } else {
                     Log "Microsoft Office not detected. Skipping Office update script."
                 }
-                Invoke-Script -ScriptName "CLEANUP.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode
             } finally {
                 Restore-PowerPlan -PowerPlanInfo $powerPlanInfo
             }
@@ -165,6 +166,7 @@ Install-NuGetProvider
             Log "Task selected: Windows Maintenance"
             $powerPlanInfo = Set-TemporaryMaxPerformancePlan
             try {
+                Invoke-Script -ScriptName "CLEANUP.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode
                 Invoke-Script -ScriptName "WUA.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode
                 Repair-SystemFiles
                 Invoke-Script -ScriptName "WGET.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode
@@ -173,7 +175,6 @@ Install-NuGetProvider
                 } else {
                     Log "Microsoft Office not detected. Skipping Office update."
                 }
-                Invoke-Script -ScriptName "CLEANUP.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode
             } finally {
                 Restore-PowerPlan -PowerPlanInfo $powerPlanInfo
             }
