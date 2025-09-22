@@ -535,11 +535,8 @@ function Repair-SystemFiles {
         # Add a small delay to ensure the log file is flushed before reading.
         Start-Sleep -Seconds 5
 
-        # Find the line number of the last session start marker.
-        # Read the last 200 lines of the CBS.log, as SFC summary is usually at the end.
-        # This is more robust than trying to find a specific session start marker,
-        # which can be inconsistent or lead to missing the actual summary.
-        $lastLogContent = Get-Content -Path $CbsLogPath -Tail 200 -ErrorAction SilentlyContinue
+        # Read the last 300 lines of the CBS.log to be safe, as summaries can be verbose.
+        $lastLogContent = Get-Content -Path $CbsLogPath -Tail 300 -ErrorAction SilentlyContinue
 
         if (-not $lastLogContent) {
             Log "Could not read content from CBS.log or log is empty." "WARN"
@@ -547,30 +544,39 @@ function Repair-SystemFiles {
         }
 
         # Check for key phrases in the log output in order of specificity/severity.
-        # These are the common summary lines SFC writes to CBS.log.
-        if ($lastLogContent -match "Windows Resource Protection found corrupt files but was unable to fix some of them") {
+        # These phrases are found in the summary section of CBS.log.
+        # Using '-match' which is case-insensitive by default.
+        
+        # Most severe/specific first: unable to fix.
+        if ($lastLogContent -match "found corrupt files.*but was unable to fix") {
             return "CannotRepair"
-        } elseif ($lastLogContent -match "Windows Resource Protection found corrupt files and successfully repaired them") {
+        } 
+        # Also check for the detailed error line which is a strong indicator of failure.
+        elseif ($lastLogContent -match "Cannot repair member file") {
+            return "CannotRepair"
+        }
+        # Next, check for successful repair.
+        elseif ($lastLogContent -match "found corrupt files.*and successfully repaired them") {
             return "Repaired"
-        } elseif ($lastLogContent -match "Windows Resource Protection found integrity violations") {
-            # This covers the case where violations are found, but it doesn't explicitly state "repaired" or "unable to fix".
-            # It implies corruption was detected.
+        }
+        # Then, check for the general "violations found" message from /verifyonly.
+        elseif ($lastLogContent -match "found integrity violations") {
             return "CorruptionFound"
-        } elseif ($lastLogContent -match "Windows Resource Protection did not find any integrity violations") {
+        }
+        # Finally, check for the "no violations" message.
+        elseif ($lastLogContent -match "did not find any integrity violations") {
             return "NoViolations"
         }
-        # Fallback for detailed errors if no clear summary is found in the last lines.
-        elseif ($lastLogContent -match "Cannot repair member file") {
-            return "CorruptionFound" # Treat as corruption found, even if no explicit summary
-        }
-        # If none of the above specific summary lines or detailed errors are found, it's truly unknown or an unexpected state.
+        
+        # If none of the above summary lines are found, it's an unknown state.
+        Log "Could not determine SFC result from the last 300 lines of CBS.log. Defaulting to 'Unknown'." "DEBUG"
         return "Unknown"
     }
 
     # --- Step 1: Run SFC in verification mode ---
     try {
         Log "Running System File Checker (SFC) in verification-only mode..." "INFO"
-        Invoke-ElevatedCommand -FilePath "sfc.exe" -Arguments "/verifyonly" -LogName "SFC Verify"
+        $null = Invoke-ElevatedCommand -FilePath "sfc.exe" -Arguments "/verifyonly" -LogName "SFC Verify"
 
         # Check the CBS.log for the actual result, as sfc.exe's exit code is not always reliable.
         $cbsLogPath = "$env:windir\Logs\CBS\CBS.log"
@@ -588,6 +594,10 @@ function Repair-SystemFiles {
         Log "An unexpected error occurred during SFC /verifyonly operation: $($_.Exception.Message)" "ERROR"
         Log "Attempting to run full repair scan despite verification error." "WARN"
     }
+
+    # --- DEBUGGING HALT ---
+    Log "DEBUG: Halting script after SFC verification as requested for debugging." "DEBUG"
+    exit
 
     # --- Step 2: Run DISM to ensure the component store is healthy ---
     try {
