@@ -529,7 +529,7 @@ function Repair-SystemFiles {
         $cbsLogDir = "$env:windir\Logs\CBS"
         if (-not (Test-Path $cbsLogDir)) {
             Log "CBS log directory not found at '$cbsLogDir'." "WARN"
-            return "LogNotFound"
+            return [PSCustomObject]@{ Status = "LogNotFound"; Details = "CBS log directory not found at '$cbsLogDir'." }
         }
 
         # Add a small delay to ensure the log file is flushed before reading.
@@ -540,7 +540,7 @@ function Repair-SystemFiles {
 
         if (-not $logFiles) {
             Log "No CBS log files found in '$cbsLogDir'." "WARN"
-            return "LogNotFound"
+            return [PSCustomObject]@{ Status = "LogNotFound"; Details = "No CBS log files found in '$cbsLogDir'." }
         }
 
         # Iterate through the log files (newest first) to find the most recent SFC session.
@@ -570,21 +570,21 @@ function Repair-SystemFiles {
 
                 # Now, search within this smaller block of text for the summary phrases.
                 if ($sessionContent -match "Cannot repair member file") {
-                    return "CannotRepair"
+                    return [PSCustomObject]@{ Status = "CannotRepair"; Details = "SFC found corrupt files but could not repair them." }
                 }
                 elseif ($sessionContent -match "found corrupt files and successfully repaired them") {
-                    return "Repaired"
+                    return [PSCustomObject]@{ Status = "Repaired"; Details = "SFC found and repaired corrupt files." }
                 }
                 elseif (($sessionContent -match "found integrity violations") -or ($sessionContent -match "Count of times corruption detected: [1-9]\d*")) {
-                    return "CorruptionFound"
+                    return [PSCustomObject]@{ Status = "CorruptionFound"; Details = "SFC found integrity violations." }
                 }
                 elseif ($sessionContent -match "did not find any integrity violations") {
-                    return "NoViolations"
+                    return [PSCustomObject]@{ Status = "NoViolations"; Details = "SFC did not find any integrity violations." }
                 }
 
                 # If a session was found but no result phrase, we can stop searching and report 'Unknown'.
                 Log "SFC session found in '$($logFile.Name)', but result is indeterminate. Defaulting to 'Unknown'." "DEBUG"
-                return "Unknown"
+                return [PSCustomObject]@{ Status = "Unknown"; Details = "SFC session result could not be determined from the log." }
             }
         }
 
@@ -592,10 +592,10 @@ function Repair-SystemFiles {
         Log "Could not find any SFC session start marker in any CBS logs. Checking for a simple 'no violations' message as a fallback in CBS.log." "WARN"
         $cbsLogPath = Join-Path $cbsLogDir "CBS.log"
         if ((Test-Path $cbsLogPath) -and (Select-String -Path $cbsLogPath -Pattern '\[SR\] Windows Resource Protection did not find any integrity violations' -Quiet)) {
-            return "NoViolations"
+            return [PSCustomObject]@{ Status = "NoViolations"; Details = "SFC did not find any integrity violations (fallback check)." }
         }
 
-        return "NoSessionFound"
+        return [PSCustomObject]@{ Status = "NoSessionFound"; Details = "Could not find any SFC session in the CBS logs." }
     }
 
     # --- Step 1: Run SFC in verification mode ---
@@ -606,13 +606,13 @@ function Repair-SystemFiles {
         # Check the CBS logs for the actual result, as sfc.exe's exit code is not always reliable.
         $verificationResult = Get-SfcLastSessionResult
 
-        Log "SFC verification log analysis result: '$verificationResult'" "INFO"
+        Log "SFC verification log analysis result: '$($verificationResult.Status)' - Details: $($verificationResult.Details)" "INFO"
 
-        if ($verificationResult -eq "NoViolations") {
+        if ($verificationResult.Status -eq "NoViolations") {
             Log "SFC verification completed. No integrity violations found. System files are healthy." "INFO"
             return # Exit the function as no repair is needed.
         } else {
-            Log "SFC verification found potential integrity violations ('$verificationResult'). Proceeding with repair." "WARN"
+            Log "SFC verification found potential integrity violations ('$($verificationResult.Status)'). Proceeding with repair." "WARN"
         }
     } catch {
         Log "An unexpected error occurred during SFC /verifyonly operation: $($_.Exception.Message)" "ERROR"
@@ -641,11 +641,11 @@ function Repair-SystemFiles {
 
         $repairResult = Get-SfcLastSessionResult
 
-        switch ($repairResult) {
-            "Repaired" { Log "SFC Result: Found and successfully repaired system file corruption." "INFO" }
-            "CannotRepair" { Log "SFC Result: Found corrupt files but was unable to fix some of them. Manual intervention may be required." "ERROR" }
-            "NoViolations" { Log "SFC Result: Repair scan completed and found no integrity violations (possibly fixed by DISM)." "INFO" }
-            default { Log "SFC repair scan completed, but the result could not be definitively determined from the log ('$repairResult')." "WARN" }
+        switch ($repairResult.Status) {
+            "Repaired" { Log "SFC Result: $($repairResult.Details)" "INFO" }
+            "CannotRepair" { Log "SFC Result: $($repairResult.Details) Manual intervention may be required." "ERROR" }
+            "NoViolations" { Log "SFC Result: $($repairResult.Details) (possibly fixed by DISM)." "INFO" }
+            default { Log "SFC repair scan completed, but the result could not be definitively determined from the log ('$($repairResult.Status)'). Details: $($repairResult.Details)" "WARN" }
         }
     } catch {
         Log "An unexpected error occurred during SFC /scannow operation: $($_.Exception.Message)" "ERROR"
