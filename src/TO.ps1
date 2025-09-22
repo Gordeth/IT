@@ -150,7 +150,7 @@ Install-NuGetProvider
             Log "Task selected: Machine Preparation (semi-automated)"
             $powerPlanInfo = Set-TemporaryMaxPerformancePlan
             try {
-                Invoke-Script -ScriptName "CLEANUP.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode
+                Invoke-Script -ScriptName "CLEANUP.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode -ScriptParameters @{ CleanupMode = 'Light' }
                 Invoke-Script -ScriptName "MACHINEPREP.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode
                 Repair-SystemFiles
                 if (Confirm-OfficeInstalled) {
@@ -158,6 +158,7 @@ Install-NuGetProvider
                 } else {
                     Log "Microsoft Office not detected. Skipping Office update script."
                 }
+                Invoke-Script -ScriptName "CLEANUP.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode -ScriptParameters @{ CleanupMode = 'Full' }
             } finally {
                 Restore-PowerPlan -PowerPlanInfo $powerPlanInfo
             }
@@ -166,7 +167,7 @@ Install-NuGetProvider
             Log "Task selected: Windows Maintenance"
             $powerPlanInfo = Set-TemporaryMaxPerformancePlan
             try {
-                Invoke-Script -ScriptName "CLEANUP.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode
+                Invoke-Script -ScriptName "CLEANUP.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode -ScriptParameters @{ CleanupMode = 'Light' }
                 Invoke-Script -ScriptName "WUA.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode
                 Repair-SystemFiles
                 Invoke-Script -ScriptName "WGET.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode
@@ -175,6 +176,7 @@ Install-NuGetProvider
                 } else {
                     Log "Microsoft Office not detected. Skipping Office update."
                 }
+                Invoke-Script -ScriptName "CLEANUP.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode -ScriptParameters @{ CleanupMode = 'Full' }
             } finally {
                 Restore-PowerPlan -PowerPlanInfo $powerPlanInfo
             }
