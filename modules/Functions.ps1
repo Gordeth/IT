@@ -525,55 +525,63 @@ function Repair-SystemFiles {
     }
 
     # Internal helper to get the result from the last SFC session in CBS.log
-    function Get-SfcLastSessionResult {
-        param ([string]$CbsLogPath)
-        if (-not (Test-Path $CbsLogPath)) {
-            Log "CBS.log not found at '$CbsLogPath'." "WARN"
+    function Get-SfcLastSessionResult { # No longer takes a path, searches all CBS logs.
+        $cbsLogDir = "$env:windir\Logs\CBS"
+        if (-not (Test-Path $cbsLogDir)) {
+            Log "CBS log directory not found at '$cbsLogDir'." "WARN"
             return "LogNotFound"
         }
 
         # Add a small delay to ensure the log file is flushed before reading.
         Start-Sleep -Seconds 5
 
-        # The CBS.log can be very large and contain entries from components other than SFC (like PnP, as observed).
-        # The most reliable method is to find the start of the *last* SFC transaction and parse only from that point.
-        # Using Select-String is more memory-efficient for large files than Get-Content.
-        $lastSessionStart = Select-String -Path $CbsLogPath -Pattern '\[SR\] Beginning Verify and Repair transaction' | Select-Object -Last 1
+        # Get all CBS log files, including persisted ones, and sort them by the last write time (newest first).
+        $logFiles = Get-ChildItem -Path $cbsLogDir -Filter "Cbs*.log" | Sort-Object -Property LastWriteTime -Descending
 
-        if (-not $lastSessionStart) {
-            Log "Could not find any SFC session start marker in CBS.log. Checking for a simple 'no violations' message as a fallback." "WARN"
-            # This handles cases where SFC runs but doesn't create a full transaction log (less common).
-            if (Select-String -Path $CbsLogPath -Pattern '\[SR\] Windows Resource Protection did not find any integrity violations' -Quiet) {
-                return "NoViolations"
+        if (-not $logFiles) {
+            Log "No CBS log files found in '$cbsLogDir'." "WARN"
+            return "LogNotFound"
+        }
+
+        # Iterate through the log files (newest first) to find the most recent SFC session.
+        foreach ($logFile in $logFiles) {
+            Log "Searching for SFC session in '$($logFile.Name)'..." "DEBUG"
+            $lastSessionStart = Select-String -Path $logFile.FullName -Pattern '\[SR\] Beginning Verify and Repair transaction' | Select-Object -Last 1
+
+            if ($lastSessionStart) {
+                Log "Found most recent SFC session in '$($logFile.Name)'. Analyzing content..." "INFO"
+                
+                # Get all content from the line number of the last session start to the end of the file.
+                $sessionContent = Get-Content $logFile.FullName -ReadCount 0 | Select-Object -Skip ($lastSessionStart.LineNumber - 1)
+
+                # Now, search within this smaller block of text for the summary phrases.
+                if ($sessionContent -match "Cannot repair member file") {
+                    return "CannotRepair"
+                }
+                elseif ($sessionContent -match "found corrupt files and successfully repaired them") {
+                    return "Repaired"
+                }
+                elseif (($sessionContent -match "found integrity violations") -or ($sessionContent -match "Count of times corruption detected: [1-9]\d*")) {
+                    return "CorruptionFound"
+                }
+                elseif ($sessionContent -match "did not find any integrity violations") {
+                    return "NoViolations"
+                }
+
+                # If a session was found but no result phrase, we can stop searching and report 'Unknown'.
+                Log "SFC session found in '$($logFile.Name)', but result is indeterminate. Defaulting to 'Unknown'." "DEBUG"
+                return "Unknown"
             }
-            return "NoSessionFound"
         }
 
-        # Get all content from the line number of the last session start to the end of the file.
-        # This narrows our search to only the most recent SFC run, ignoring older logs or other component logs.
-        $sessionContent = Get-Content $CbsLogPath -ReadCount 0 | Select-Object -Skip ($lastSessionStart.LineNumber - 1)
-
-        # Now, search within this smaller block of text for the summary phrases.
-        # The order is important: check for the most severe outcomes first.
-        # We check for "Cannot repair" first, as it's the most critical failure.
-        if ($sessionContent -match "Cannot repair member file") {
-            return "CannotRepair"
-        }
-        # Next, check for a successful repair.
-        elseif ($sessionContent -match "found corrupt files and successfully repaired them") {
-            return "Repaired"
-        }
-        # These messages indicate corruption was found (e.g., from /verifyonly or a summary line).
-        elseif (($sessionContent -match "found integrity violations") -or ($sessionContent -match "Count of times corruption detected: [1-9]\d*")) {
-            return "CorruptionFound"
-        }
-        # This is the success message.
-        elseif ($sessionContent -match "did not find any integrity violations") {
+        # If we looped through all files and found no session start marker...
+        Log "Could not find any SFC session start marker in any CBS logs. Checking for a simple 'no violations' message as a fallback in CBS.log." "WARN"
+        $cbsLogPath = Join-Path $cbsLogDir "CBS.log"
+        if ((Test-Path $cbsLogPath) -and (Select-String -Path $cbsLogPath -Pattern '\[SR\] Windows Resource Protection did not find any integrity violations' -Quiet)) {
             return "NoViolations"
         }
 
-        Log "Could not determine SFC result from the last session in CBS.log. Defaulting to 'Unknown'." "DEBUG"
-        return "Unknown"
+        return "NoSessionFound"
     }
 
     # --- Step 1: Run SFC in verification mode ---
@@ -581,9 +589,8 @@ function Repair-SystemFiles {
         Log "Running System File Checker (SFC) in verification-only mode..." "INFO"
         $null = Invoke-ElevatedCommand -FilePath "sfc.exe" -Arguments "/verifyonly" -LogName "SFC Verify"
 
-        # Check the CBS.log for the actual result, as sfc.exe's exit code is not always reliable.
-        $cbsLogPath = "$env:windir\Logs\CBS\CBS.log"
-        $verificationResult = Get-SfcLastSessionResult -CbsLogPath $cbsLogPath
+        # Check the CBS logs for the actual result, as sfc.exe's exit code is not always reliable.
+        $verificationResult = Get-SfcLastSessionResult
 
         Log "SFC verification log analysis result: '$verificationResult'" "INFO"
 
@@ -618,8 +625,7 @@ function Repair-SystemFiles {
         Log "Running System File Checker (SFC) in repair mode (scannow)..." "INFO"
         Invoke-ElevatedCommand -FilePath "sfc.exe" -Arguments "/scannow" -LogName "SFC Scan"
 
-        $cbsLogPath = "$env:windir\Logs\CBS\CBS.log"
-        $repairResult = Get-SfcLastSessionResult -CbsLogPath $cbsLogPath
+        $repairResult = Get-SfcLastSessionResult
 
         switch ($repairResult) {
             "Repaired" { Log "SFC Result: Found and successfully repaired system file corruption." "INFO" }
