@@ -563,8 +563,8 @@ function Repair-SystemFiles {
         elseif ($sessionContent -match "found corrupt files and successfully repaired them") {
             return "Repaired"
         }
-        # This is the message from a /verifyonly scan that finds issues.
-        elseif ($sessionContent -match "found integrity violations") {
+        # These messages indicate corruption was found (e.g., from /verifyonly or a summary line).
+        elseif (($sessionContent -match "found integrity violations") -or ($sessionContent -match "Count of times corruption detected: [1-9]\d*")) {
             return "CorruptionFound"
         }
         # This is the success message.
