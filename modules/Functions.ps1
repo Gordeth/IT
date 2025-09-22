@@ -551,8 +551,22 @@ function Repair-SystemFiles {
             if ($lastSessionStart) {
                 Log "Found most recent SFC session in '$($logFile.Name)'. Analyzing content..." "INFO"
                 
-                # Get all content from the line number of the last session start to the end of the file.
-                $sessionContent = Get-Content $logFile.FullName -ReadCount 0 | Select-Object -Skip ($lastSessionStart.LineNumber - 1)
+                # Get all content from the start of the session to the end of the file.
+                $contentAfterStart = Get-Content $logFile.FullName -ReadCount 0 | Select-Object -Skip ($lastSessionStart.LineNumber - 1)
+
+                # Find the end of the Trusted Installer session to narrow the search, based on log analysis.
+                # This makes the parsing more precise by isolating the specific transaction.
+                $sessionEnd = $contentAfterStart | Select-String -Pattern 'Ending TrustedInstaller finalization.' | Select-Object -First 1
+                
+                $sessionContent = if ($sessionEnd) {
+                    # If an end marker is found, only parse the content within that session block.
+                    Log "Session end marker found. Parsing content between start and end." "DEBUG"
+                    $contentAfterStart | Select-Object -First $sessionEnd.LineNumber
+                } else {
+                    # If no end marker is found (e.g., unexpected termination), parse to the end of the file.
+                    Log "Session end marker not found. Parsing all content after session start." "DEBUG"
+                    $contentAfterStart
+                }
 
                 # Now, search within this smaller block of text for the summary phrases.
                 if ($sessionContent -match "Cannot repair member file") {
