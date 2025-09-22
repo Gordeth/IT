@@ -538,12 +538,12 @@ function Repair-SystemFiles {
         # The CBS.log can be very large and contain entries from components other than SFC (like PnP, as observed).
         # The most reliable method is to find the start of the *last* SFC transaction and parse only from that point.
         # Using Select-String is more memory-efficient for large files than Get-Content.
-        $lastSessionStart = Select-String -Path $CbsLogPath -Pattern '\[SR\] Beginning Verify and Repair transaction' -SimpleMatch | Select-Object -Last 1
+        $lastSessionStart = Select-String -Path $CbsLogPath -Pattern '\[SR\] Beginning Verify and Repair transaction' | Select-Object -Last 1
 
         if (-not $lastSessionStart) {
             Log "Could not find any SFC session start marker in CBS.log. Checking for a simple 'no violations' message as a fallback." "WARN"
             # This handles cases where SFC runs but doesn't create a full transaction log (less common).
-            if (Select-String -Path $CbsLogPath -Pattern '\[SR\] Windows Resource Protection did not find any integrity violations' -SimpleMatch -Quiet) {
+            if (Select-String -Path $CbsLogPath -Pattern '\[SR\] Windows Resource Protection did not find any integrity violations' -Quiet) {
                 return "NoViolations"
             }
             return "NoSessionFound"
