@@ -608,6 +608,7 @@ function Repair-SystemFiles {
 
         # Check console output first for definitive result
         $consoleText = $sfcConsoleOutput -join " "
+        Log "SFC console output captured: $consoleText" "DEBUG"
         if ($consoleText -match "Windows Resource Protection did not find any integrity violations") {
             Log "SFC verification completed. No integrity violations found. System files are healthy." "INFO"
             return # Exit the function as no repair is needed.
