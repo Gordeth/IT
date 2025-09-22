@@ -151,10 +151,10 @@ Install-NuGetProvider
             $powerPlanInfo = Set-TemporaryMaxPerformancePlan
             try {
                 Invoke-Script -ScriptName "CLEANUP.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode -ScriptParameters @{ CleanupMode = 'Light' }
-                Invoke-Script -ScriptName "MACHINEPREP.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode
+                Invoke-Script -ScriptName "MACHINEPREP.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode -ScriptParameters @{}
                 Repair-SystemFiles
                 if (Confirm-OfficeInstalled) {
-                    Invoke-Script -ScriptName "MSO_UPDATE.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode
+                    Invoke-Script -ScriptName "MSO_UPDATE.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode -ScriptParameters @{}
                 } else {
                     Log "Microsoft Office not detected. Skipping Office update script."
                 }
@@ -168,11 +168,11 @@ Install-NuGetProvider
             $powerPlanInfo = Set-TemporaryMaxPerformancePlan
             try {
                 Invoke-Script -ScriptName "CLEANUP.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode -ScriptParameters @{ CleanupMode = 'Light' }
-                Invoke-Script -ScriptName "WUA.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode
+                Invoke-Script -ScriptName "WUA.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode -ScriptParameters @{}
                 Repair-SystemFiles
-                Invoke-Script -ScriptName "WGET.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode
+                Invoke-Script -ScriptName "WGET.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode -ScriptParameters @{}
                 if (Confirm-OfficeInstalled) {
-                    Invoke-Script -ScriptName "MSO_UPDATE.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode
+                    Invoke-Script -ScriptName "MSO_UPDATE.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode -ScriptParameters @{}
                 } else {
                     Log "Microsoft Office not detected. Skipping Office update."
                 }
@@ -183,7 +183,7 @@ Install-NuGetProvider
         }
         '3' {
             Log "Task selected: Install/Upgrade UniFi Server"
-            Invoke-Script -ScriptName "IUS.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode
+            Invoke-Script -ScriptName "IUS.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode -ScriptParameters @{}
         }
         '4' {
             # --- INDIVIDUAL TASKS SUB-MENU ---
@@ -207,7 +207,7 @@ Install-NuGetProvider
                         Log "Individual Task: Run Windows Updates"
                         $powerPlanInfo = Set-TemporaryMaxPerformancePlan
                         try {
-                            Invoke-Script -ScriptName "WUA.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode
+                            Invoke-Script -ScriptName "WUA.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode -ScriptParameters @{}
                         } finally {
                             Restore-PowerPlan -PowerPlanInfo $powerPlanInfo
                         }
@@ -216,7 +216,7 @@ Install-NuGetProvider
                         Log "Individual Task: Update Applications (Winget)"
                         $powerPlanInfo = Set-TemporaryMaxPerformancePlan
                         try {
-                            Invoke-Script -ScriptName "WGET.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode
+                            Invoke-Script -ScriptName "WGET.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode -ScriptParameters @{}
                         } finally {
                             Restore-PowerPlan -PowerPlanInfo $powerPlanInfo
                         }
@@ -225,7 +225,7 @@ Install-NuGetProvider
                         Log "Individual Task: Update Microsoft Office"
                         $powerPlanInfo = Set-TemporaryMaxPerformancePlan
                         try {
-                            if (Confirm-OfficeInstalled) { Invoke-Script -ScriptName "MSO_UPDATE.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode }
+                            if (Confirm-OfficeInstalled) { Invoke-Script -ScriptName "MSO_UPDATE.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode -ScriptParameters @{} }
                             else { Log "Microsoft Office not detected. Skipping." }
                         } finally {
                             Restore-PowerPlan -PowerPlanInfo $powerPlanInfo
@@ -262,7 +262,10 @@ Install-NuGetProvider
                         Log "Individual Task: System Cleanup"
                         $powerPlanInfo = Set-TemporaryMaxPerformancePlan
                         try {
-                            Invoke-Script -ScriptName "CLEANUP.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode
+                            $cleanupChoice = Read-Host "Choose cleanup mode: [L]ight or [F]ull"
+                            $cleanupMode = if ($cleanupChoice.ToUpper() -eq 'L') { 'Light' } else { 'Full' }
+                            Log "Selected cleanup mode: $cleanupMode"
+                            Invoke-Script -ScriptName "CLEANUP.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode -ScriptParameters @{ CleanupMode = $cleanupMode }
                         } finally {
                             Restore-PowerPlan -PowerPlanInfo $powerPlanInfo
                         }
