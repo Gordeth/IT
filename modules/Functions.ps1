@@ -602,7 +602,8 @@ function Repair-SystemFiles {
     try {
         Log "Running System File Checker (SFC) in verification-only mode..." "INFO"
         Log "Executing: sfc.exe /verifyonly" "INFO"
-        $sfcConsoleOutput = & sfc.exe /verifyonly 2>&1
+        Log "The output of this command will be displayed directly in the console for real-time progress." "INFO"
+        $sfcConsoleOutput = & sfc.exe /verifyonly 2>&1 | Tee-Object -FilePath * -Append
         Log "SFC Verify process finished" "INFO"
 
         # Check console output first for definitive result
