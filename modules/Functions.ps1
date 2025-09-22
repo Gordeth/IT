@@ -563,13 +563,19 @@ function Repair-SystemFiles {
     # --- Step 1: Run SFC in verification mode ---
     try {
         Log "Running System File Checker (SFC) in verification-only mode..." "INFO"
-        $sfcExitCode = Invoke-ElevatedCommand -FilePath "sfc.exe" -Arguments "/verifyonly" -LogName "SFC Verify"
-        if ($sfcExitCode -eq 0) {
-            Log "SFC verification completed with exit code 0. No integrity violations found. System files are healthy." "INFO"
+        Invoke-ElevatedCommand -FilePath "sfc.exe" -Arguments "/verifyonly" -LogName "SFC Verify"
+
+        # Check the CBS.log for the actual result, as sfc.exe's exit code is not always reliable.
+        $cbsLogPath = "$env:windir\Logs\CBS\CBS.log"
+        $verificationResult = Get-SfcLastSessionResult -CbsLogPath $cbsLogPath
+
+        Log "SFC verification log analysis result: '$verificationResult'" "INFO"
+
+        if ($verificationResult -eq "NoViolations") {
+            Log "SFC verification completed. No integrity violations found. System files are healthy." "INFO"
             return # Exit the function as no repair is needed.
         } else {
-            # A non-zero exit code indicates that integrity violations were found.
-            Log "SFC verification found integrity violations (Exit Code: $sfcExitCode). Proceeding with repair." "WARN"
+            Log "SFC verification found potential integrity violations ('$verificationResult'). Proceeding with repair." "WARN"
         }
     } catch {
         Log "An unexpected error occurred during SFC /verifyonly operation: $($_.Exception.Message)" "ERROR"
