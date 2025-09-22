@@ -615,6 +615,8 @@ function Repair-SystemFiles {
         # Fallback: If log parsing is unclear, try parsing the direct output
         if ($verificationResult.Status -eq "Unknown" -or $verificationResult.Status -eq "NoSessionFound") {
             $outputText = $sfcOutput -join "`n"
+            # Log the raw output for troubleshooting
+            Log "Raw SFC /verifyonly output:`n$outputText" "DEBUG"
             if ($outputText -match "Windows Resource Protection did not find any integrity violations") {
                 $verificationResult = [PSCustomObject]@{ Status = "NoViolations"; Details = "SFC did not find any integrity violations (console output fallback)." }
                 Log "SFC verification result determined from console output: '$($verificationResult.Status)' - $($verificationResult.Details)" "INFO"
