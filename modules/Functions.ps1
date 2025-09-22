@@ -601,18 +601,40 @@ function Repair-SystemFiles {
     # --- Step 1: Run SFC in verification mode ---
     try {
         Log "Running System File Checker (SFC) in verification-only mode..." "INFO"
-        $null = Invoke-ElevatedCommand -FilePath "sfc.exe" -Arguments "/verifyonly" -LogName "SFC Verify"
+        # Capture output for fallback parsing
+        $sfcOutput = & sfc.exe /verifyonly 2>&1
+        $null = $sfcOutput # still run for side effects
+
+        # Add a small delay to ensure CBS log is flushed
+        Start-Sleep -Seconds 5
 
         # Check the CBS logs for the actual result
         $verificationResult = Get-SfcLastSessionResult
         Log "SFC verification result: '$($verificationResult.Status)' - Details: $($verificationResult.Details)" "INFO"
 
+        # Fallback: If log parsing is unclear, try parsing the direct output
+        if ($verificationResult.Status -eq "Unknown" -or $verificationResult.Status -eq "NoSessionFound") {
+            $outputText = $sfcOutput -join "`n"
+            if ($outputText -match "Windows Resource Protection did not find any integrity violations") {
+                $verificationResult = [PSCustomObject]@{ Status = "NoViolations"; Details = "SFC did not find any integrity violations (console output fallback)." }
+                Log "SFC verification result determined from console output: '$($verificationResult.Status)' - $($verificationResult.Details)" "INFO"
+            } elseif ($outputText -match "Windows Resource Protection found corrupt files but was unable to fix some of them") {
+                $verificationResult = [PSCustomObject]@{ Status = "CannotRepair"; Details = "SFC found corrupt files but could not repair them (console output fallback)." }
+                Log "SFC verification result determined from console output: '$($verificationResult.Status)' - $($verificationResult.Details)" "WARN"
+            } elseif ($outputText -match "Windows Resource Protection found corrupt files and successfully repaired them") {
+                $verificationResult = [PSCustomObject]@{ Status = "Repaired"; Details = "SFC found and repaired corrupt files (console output fallback)." }
+                Log "SFC verification result determined from console output: '$($verificationResult.Status)' - $($verificationResult.Details)" "INFO"
+            } elseif ($outputText -match "Windows Resource Protection found integrity violations") {
+                $verificationResult = [PSCustomObject]@{ Status = "CorruptionFound"; Details = "SFC found integrity violations (console output fallback)." }
+                Log "SFC verification result determined from console output: '$($verificationResult.Status)' - $($verificationResult.Details)" "WARN"
+            }
+        }
+
         if ($verificationResult.Status -eq "NoViolations") {
             Log "SFC verification completed. No integrity violations found. System files are healthy." "INFO"
             return # Exit the function as no repair is needed.
         } elseif ($verificationResult.Status -eq "Unknown" -or $verificationResult.Status -eq "NoSessionFound") {
-            # If we can't determine the result from logs, assume no issues and exit
-            Log "SFC verification result unclear from logs, but no obvious issues detected. Skipping repair." "INFO"
+            Log "SFC verification result unclear from logs and output, but no obvious issues detected. Skipping repair." "INFO"
             return
         } else {
             Log "SFC verification found potential integrity violations ('$($verificationResult.Status)'). Proceeding with repair." "WARN"
