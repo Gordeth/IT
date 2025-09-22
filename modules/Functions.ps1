@@ -536,28 +536,35 @@ function Repair-SystemFiles {
         Start-Sleep -Seconds 5
 
         # Find the line number of the last session start marker.
-        $sessionStart = Select-String -Path $CbsLogPath -Pattern '\[SR\] Beginning Verify and Repair transaction' | Select-Object -Last 1
-        
-        if (-not $sessionStart) {
-            Log "Could not find any SFC session start in CBS.log." "WARN"
-            return "NoSessionFound"
+        # Read the last 200 lines of the CBS.log, as SFC summary is usually at the end.
+        # This is more robust than trying to find a specific session start marker,
+        # which can be inconsistent or lead to missing the actual summary.
+        $lastLogContent = Get-Content -Path $CbsLogPath -Tail 200 -ErrorAction SilentlyContinue
+
+        if (-not $lastLogContent) {
+            Log "Could not read content from CBS.log or log is empty." "WARN"
+            return "EmptyLog"
         }
 
-        # Get content from that line number to the end of the file.
-        $lastSessionContent = Get-Content $CbsLogPath | Select-Object -Skip ($sessionStart.LineNumber - 1)
-
-        # Check for key phrases in the log output in order of severity.
-        if ($lastSessionContent -match "Cannot repair member file") {
+        # Check for key phrases in the log output in order of specificity/severity.
+        # These are the common summary lines SFC writes to CBS.log.
+        if ($lastLogContent -match "Windows Resource Protection found corrupt files but was unable to fix some of them") {
             return "CannotRepair"
-        } elseif ($lastSessionContent -match "Repairing and verifying") {
+        } elseif ($lastLogContent -match "Windows Resource Protection found corrupt files and successfully repaired them") {
             return "Repaired"
-        } elseif ($lastSessionContent -match "found integrity violations") {
+        } elseif ($lastLogContent -match "Windows Resource Protection found integrity violations") {
+            # This covers the case where violations are found, but it doesn't explicitly state "repaired" or "unable to fix".
+            # It implies corruption was detected.
             return "CorruptionFound"
-        } elseif ($lastSessionContent -match "did not find any integrity violations" -or $lastSessionContent -match "found no integrity violations") {
+        } elseif ($lastLogContent -match "Windows Resource Protection did not find any integrity violations") {
             return "NoViolations"
-        } else {
-            return "Unknown"
         }
+        # Fallback for detailed errors if no clear summary is found in the last lines.
+        elseif ($lastLogContent -match "Cannot repair member file") {
+            return "CorruptionFound" # Treat as corruption found, even if no explicit summary
+        }
+        # If none of the above specific summary lines or detailed errors are found, it's truly unknown or an unexpected state.
+        return "Unknown"
     }
 
     # --- Step 1: Run SFC in verification mode ---
