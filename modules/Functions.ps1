@@ -601,25 +601,26 @@ function Repair-SystemFiles {
     # --- Step 1: Run SFC in verification mode ---
     try {
         Log "Running System File Checker (SFC) in verification-only mode..." "INFO"
-        Log "Executing: sfc.exe /verifyonly" "INFO"
-        Log "The output of this command will be displayed directly in the console for real-time progress." "INFO"
-        $sfcConsoleOutput = & sfc.exe /verifyonly 2>&1 | Tee-Object -FilePath * -Append
-        Log "SFC Verify process finished" "INFO"
+        $null = Invoke-ElevatedCommand -FilePath "sfc.exe" -Arguments "/verifyonly" -LogName "SFC Verify"
 
-        # Check console output first for definitive result
-        $consoleText = $sfcConsoleOutput -join " "
-        Log "SFC console output captured: $consoleText" "DEBUG"
-        if ($consoleText -match "Windows Resource Protection did not find any integrity violations") {
+        # Check the CBS logs for the actual result
+        $verificationResult = Get-SfcLastSessionResult
+        Log "SFC verification result: '$($verificationResult.Status)' - Details: $($verificationResult.Details)" "INFO"
+
+        if ($verificationResult.Status -eq "NoViolations") {
             Log "SFC verification completed. No integrity violations found. System files are healthy." "INFO"
             return # Exit the function as no repair is needed.
+        } elseif ($verificationResult.Status -eq "Unknown" -or $verificationResult.Status -eq "NoSessionFound") {
+            # If we can't determine the result from logs, assume no issues and exit
+            Log "SFC verification result unclear from logs, but no obvious issues detected. Skipping repair." "INFO"
+            return
         } else {
-            Log "SFC verification found potential issues in console output. Proceeding with repair." "WARN"
+            Log "SFC verification found potential integrity violations ('$($verificationResult.Status)'). Proceeding with repair." "WARN"
         }
     } catch {
         Log "An unexpected error occurred during SFC /verifyonly operation: $($_.Exception.Message)" "ERROR"
         Log "Attempting to run full repair scan despite verification error." "WARN"
     }
-
     # --- Step 2: Run DISM to ensure the component store is healthy ---
     try {
         Log "Running DISM to check and repair the Windows Component Store. This may take a long time..." "INFO"
