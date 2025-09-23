@@ -534,7 +534,6 @@ function Repair-SystemFiles {
                 if ($VerboseMode) { Write-Host $e.Data } # Display in real-time if in verbose mode.
             }
         }.GetNewClosure()
-        $p.OutputDataReceived.Add($outputHandler)
 
         $errorHandler = {
             param($source, $e)
@@ -543,14 +542,28 @@ function Repair-SystemFiles {
                 if ($VerboseMode) { Write-Host $e.Data -ForegroundColor Yellow } # Display errors in real-time.
             }
         }.GetNewClosure()
-        $p.ErrorDataReceived.Add($errorHandler)
 
-        $p.Start() | Out-Null
-        $p.BeginOutputReadLine()
-        $p.BeginErrorReadLine()
+        # Explicitly create the delegate types from the script blocks.
+        # This makes the intent clear and can provide better errors if the script block is incompatible.
+        $outputDelegate = [System.Diagnostics.DataReceivedEventHandler]$outputHandler
+        $errorDelegate = [System.Diagnostics.DataReceivedEventHandler]$errorHandler
 
-        $p.WaitForExit()
-        $exitCode = $p.ExitCode
+        # Use the add_EventName syntax to subscribe to the events using the created delegates.
+        $p.add_OutputDataReceived($outputDelegate)
+        $p.add_ErrorDataReceived($errorDelegate)
+
+        try {
+            $p.Start() | Out-Null
+            $p.BeginOutputReadLine()
+            $p.BeginErrorReadLine()
+
+            $p.WaitForExit()
+            $exitCode = $p.ExitCode
+        } finally {
+            # Unsubscribe from events to prevent potential memory leaks.
+            $p.remove_OutputDataReceived($outputDelegate)
+            $p.remove_ErrorDataReceived($errorDelegate)
+        }
         Log "SFC /verifyonly process completed with exit code: $exitCode." "DEBUG"
 
         $sfcOutputText = $outputLines -join [System.Environment]::NewLine
