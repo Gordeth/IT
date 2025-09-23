@@ -520,15 +520,15 @@ function Repair-SystemFiles {
                 $tailJob = Start-Job { Get-Content -Path $using:tempSfcLog.FullName -Wait }
             }
 
-            # Run sfc.exe, redirecting its output to the temp file.
-            # Use Start-Process to ensure it waits for completion and can be hidden.
+            # Construct the command to be run inside cmd.exe, which can correctly redirect both stdout and stderr to the same file.
+            $commandToRun = "sfc.exe /verifyonly 1> ""$($tempSfcLog.FullName)"" 2>&1"
+
+            # Use Start-Process with cmd.exe to run the command and control window visibility.
             $processArgs = @{
-                FilePath               = "sfc.exe"
-                ArgumentList           = "/verifyonly"
-                RedirectStandardOutput = $tempSfcLog.FullName
-                RedirectStandardError  = $tempSfcLog.FullName
-                Wait                   = $true
-                PassThru               = $true
+                FilePath     = "cmd.exe"
+                ArgumentList = "/c $commandToRun"
+                Wait         = $true
+                PassThru     = $true
             }
             if ($VerboseMode) {
                 $processArgs.NoNewWindow = $true
