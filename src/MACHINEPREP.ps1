@@ -127,6 +127,7 @@ try {
         # `--accept-package-agreements`: Automatically accepts package agreements.
         # `--accept-source-agreements`: Automatically accepts source agreements.
         winget install --id=TeamViewer.TeamViewerHost --silent --accept-package-agreements --accept-source-agreements
+        if ($LASTEXITCODE -ne 0) { throw "Winget exited with code $LASTEXITCODE while installing TeamViewer Host." }
         Log "TeamViewer Host installed successfully."
     }
 } catch {
@@ -200,6 +201,7 @@ foreach ($app in $apps) {
             # `--silent`: Suppresses the installation UI.
             # `--accept-package-agreements` and `--accept-source-agreements`: Automatically accept necessary agreements.
             winget install --id=$($app.Id) -e --silent --accept-package-agreements --accept-source-agreements
+            if ($LASTEXITCODE -ne 0) { throw "Winget exited with code $LASTEXITCODE while installing $($app.Name)." }
             Log "$($app.Name) installed successfully."
         }
     } catch {
@@ -223,6 +225,7 @@ try {
         # Install OpenVPN Connect using winget.
         # `--scope machine`: Installs for all users on the machine.
         winget install --id=OpenVPNTechnologies.OpenVPNConnect -e --scope machine --silent --accept-package-agreements --accept-source-agreements
+        if ($LASTEXITCODE -ne 0) { throw "Winget exited with code $LASTEXITCODE while installing OpenVPN Connect." }
         Log "OpenVPN Connect installed successfully."
     } else {
         Log "OpenVPN Connect installation skipped."
@@ -264,9 +267,7 @@ try {
                     if ($package) {
                         $packageId = $package.Id
                         winget install --id=$packageId -e --silent --accept-package-agreements --accept-source-agreements
-                        if ($LASTEXITCODE -eq 0) {
-                            Log "Lenovo Vantage installed successfully."
-                        } else {
+                        if ($LASTEXITCODE -ne 0) {
                             Log "Failed to install Lenovo Vantage. Winget exit code: $LASTEXITCODE." "ERROR"
                         }
                     } else {
@@ -293,9 +294,7 @@ try {
                     try {
                         Log "HP Support Assistant not found. Attempting installation via Chocolatey..."
                         choco install hpsupportassistant --force -y
-                        if ($LASTEXITCODE -eq 0) {
-                            Log "HP Support Assistant installed successfully."
-                        } elseif ($LASTEXITCODE -ne 0) {
+                        if ($LASTEXITCODE -ne 0) {
                             Log "HP Support Assistant installation via Chocolatey failed with exit code $LASTEXITCODE. Check Chocolatey logs." "ERROR"
                         }
                     } catch {
@@ -319,9 +318,7 @@ try {
                     if ($package) {
                         $packageId = $package.Id
                         winget install --id=$packageId -e --silent --accept-package-agreements --accept-source-agreements
-                        if ($LASTEXITCODE -eq 0) {
-                            Log "Dell Command Update installed successfully."
-                        } else {
+                        if ($LASTEXITCODE -ne 0) {
                             Log "Failed to install Dell Command Update. Winget exit code: $LASTEXITCODE." "ERROR"
                         }
                     } else {
@@ -407,13 +404,13 @@ try {
                         try {
                             Log "Installing Samsung Magician via Chocolatey..." "INFO"
                             choco install samsung-magician --force -y --params "'/S'"
-                            if ($LASTEXITCODE -eq 0) {
-                                Log "Samsung Magician installed successfully via Chocolatey." "INFO"
-                                $installedDiskApps += "Samsung"
-                            } elseif ($LASTEXITCODE -eq 1) {
+                            if ($LASTEXITCODE -eq 1) {
                                 Log "Samsung Magician installation via Chocolatey finished with a known issue (e.g., already installed, reboot required). Check Chocolatey logs." "WARN"
+                            } elseif ($LASTEXITCODE -ne 0) {
+                                throw "Choco exited with code $LASTEXITCODE while installing Samsung Magician."
                             }
-                        } catch {
+                        }
+                        catch {
                             Log "Error during Samsung Magician installation via Chocolatey: $_" -Level "ERROR"
                         }
                     } else {
@@ -423,11 +420,13 @@ try {
             }
             "*Kingston*" { 
                 winget install --id=Kingston.SSDManager -e --silent --accept-package-agreements --accept-source-agreements
+                if ($LASTEXITCODE -ne 0) { throw "Winget exited with code $LASTEXITCODE while installing Kingston SSD Manager." }
                 Log "Kingston SSD Manager installed." "INFO"
                 $installedDiskApps += "Kingston"
             }
             "*Crucial*" { 
                 winget install --id=Micron.CrucialStorageExecutive -e --silent --accept-package-agreements --accept-source-agreements
+                if ($LASTEXITCODE -ne 0) { throw "Winget exited with code $LASTEXITCODE while installing Crucial Storage Executive." }
                 Log "Crucial Storage Executive installed." "INFO"
                 $installedDiskApps += "Crucial"
             }
@@ -436,13 +435,13 @@ try {
                     try {
                         Log "Installing Western Digital Dashboard via Chocolatey..." "INFO"
                         choco install wd-dashboard --force -y
-                        if ($LASTEXITCODE -eq 0) {
-                            Log "Western Digital Dashboard installed successfully via Chocolatey." "INFO"
-                            $installedDiskApps += "WesternDigital"
-                        } elseif ($LASTEXITCODE -eq 1) {
+                        if ($LASTEXITCODE -eq 1) {
                             Log "Western Digital Dashboard installation via Chocolatey finished with a known issue. Check Chocolatey logs." "WARN"
+                        } elseif ($LASTEXITCODE -ne 0) {
+                            throw "Choco exited with code $LASTEXITCODE while installing WD Dashboard."
                         }
-                    } catch {
+                    }
+                    catch {
                         Log "Error during Western Digital Dashboard installation via Chocolatey: $_" -Level "ERROR"
                     }
                 } else {
@@ -451,11 +450,13 @@ try {
             }
             "*Intel*" {
                 winget install --id=Intel.MemoryAndStorageTool -e --silent --accept-package-agreements --accept-source-agreements
+                if ($LASTEXITCODE -ne 0) { throw "Winget exited with code $LASTEXITCODE while installing Intel Memory and Storage Tool." }
                 Log "Intel Memory and Storage Tool installed." "INFO"
                 $installedDiskApps += "Intel"
             }
             "*SanDisk*" {
                 winget install --id=SanDisk.Dashboard -e --silent --accept-package-agreements --accept-source-agreements
+                if ($LASTEXITCODE -ne 0) { throw "Winget exited with code $LASTEXITCODE while installing SanDisk SSD Dashboard." }
                 Log "SanDisk SSD Dashboard installed." "INFO"
                 $installedDiskApps += "SanDisk"
             }
