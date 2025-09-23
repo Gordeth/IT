@@ -236,12 +236,22 @@ Set-ExecutionPolicy Bypass -Scope Process -Force -ErrorAction SilentlyContinue
                         Invoke-IndividualTask -TaskName "Repair System Files" -ScriptName "REPAIR.ps1"
                     }
                     'E' {
-                        Invoke-IndividualTask -TaskName "Install Chocolatey" -ScriptName "Install-Chocolatey.ps1" # This assumes a wrapper script or direct call
-                        Install-Chocolatey # Or call directly if it's simple
+                        Log "Individual Task: Install Chocolatey"
+                        $powerPlanInfo = Set-TemporaryMaxPerformancePlan
+                        try {
+                            Install-Chocolatey
+                        } finally {
+                            Restore-PowerPlan -PowerPlanInfo $powerPlanInfo
+                        }
                     }
                     'F' {
-                        Invoke-IndividualTask -TaskName "Uninstall Chocolatey" -ScriptName "Uninstall-Chocolatey.ps1" # This assumes a wrapper script or direct call
-                        Uninstall-Chocolatey # Or call directly if it's simple
+                        Log "Individual Task: Uninstall Chocolatey"
+                        $powerPlanInfo = Set-TemporaryMaxPerformancePlan
+                        try {
+                            Uninstall-Chocolatey
+                        } finally {
+                            Restore-PowerPlan -PowerPlanInfo $powerPlanInfo
+                        }
                     }
                     'G' {
                         $cleanupChoice = Read-Host "Choose cleanup mode: [L]ight or [F]ull"
