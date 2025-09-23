@@ -503,7 +503,6 @@ function Confirm-OfficeInstalled {
 # Runs SFC and DISM to check for and repair Windows system file corruption.
 function Repair-SystemFiles {
     Log "Starting system file integrity check and repair process..." "INFO"
-
     # Internal helper to run external commands, respecting the VerboseMode switch.
     function Invoke-ElevatedCommand {
         param(
@@ -513,139 +512,68 @@ function Repair-SystemFiles {
         )
 
         Log "Executing: $FilePath $Arguments" "INFO"
-        Log "The output of this command will be displayed directly in the console for real-time progress." "INFO"
-
-        # Using Start-Process with -NoNewWindow and -Wait is the most reliable way to run a console
-        # application in the current window and see its real-time output.
-        $process = Start-Process -FilePath $FilePath -ArgumentList $Arguments -Wait -PassThru -NoNewWindow
-        $exitCode = $process.ExitCode
-
-        Log "$LogName process finished with exit code: $exitCode" "INFO"
+        # In verbose mode, show real-time output. Otherwise, just run it.
+        if ($VerboseMode) {
+            Log "The output of this command will be displayed directly in the console for real-time progress." "INFO"
+            $process = Start-Process -FilePath $FilePath -ArgumentList $Arguments -Wait -PassThru -NoNewWindow
+            $exitCode = $process.ExitCode
+        } else {
+            $process = Start-Process -FilePath $FilePath -ArgumentList $Arguments -Wait -PassThru -WindowStyle Hidden
+            $exitCode = $process.ExitCode
+        }
+        Log "$LogName process finished with exit code: $exitCode." "INFO"
         return $exitCode
     }
 
-    # Internal helper to get the result from the last SFC session in CBS.log
-    function Get-SfcLastSessionResult { # No longer takes a path, searches all CBS logs.
-        $cbsLogDir = "$env:windir\Logs\CBS"
-        if (-not (Test-Path $cbsLogDir)) {
-            Log "CBS log directory not found at '$cbsLogDir'." "WARN"
-            return [PSCustomObject]@{ Status = "LogNotFound"; Details = "CBS log directory not found at '$cbsLogDir'." }
-        }
-
-        # Add a small delay to ensure the log file is flushed before reading.
-        Start-Sleep -Seconds 5
-
-        # Get all CBS log files, including persisted ones, and sort them by the last write time (newest first).
-        $logFiles = Get-ChildItem -Path $cbsLogDir -Filter "Cbs*.log" | Sort-Object -Property LastWriteTime -Descending
-
-        if (-not $logFiles) {
-            Log "No CBS log files found in '$cbsLogDir'." "WARN"
-            return [PSCustomObject]@{ Status = "LogNotFound"; Details = "No CBS log files found in '$cbsLogDir'." }
-        }
-
-        # Iterate through the log files (newest first) to find the most recent SFC session.
-        foreach ($logFile in $logFiles) {
-            Log "Searching for SFC session in '$($logFile.Name)'..." "DEBUG"
-            $lastSessionStart = Select-String -Path $logFile.FullName -Pattern '\[SR\] Beginning Verify and Repair transaction' | Select-Object -Last 1
-
-            if ($lastSessionStart) {
-                Log "Found most recent SFC session in '$($logFile.Name)'. Analyzing content..." "INFO"
-                
-                # Get all content from the start of the session to the end of the file.
-                $contentAfterStart = Get-Content $logFile.FullName -ReadCount 0 | Select-Object -Skip ($lastSessionStart.LineNumber - 1)
-
-                # Find the end of the Trusted Installer session to narrow the search, based on log analysis.
-                # This makes the parsing more precise by isolating the specific transaction.
-                $sessionEnd = $contentAfterStart | Select-String -Pattern 'Ending TrustedInstaller finalization.' | Select-Object -First 1
-                
-                $sessionContent = if ($sessionEnd) {
-                    # If an end marker is found, only parse the content within that session block.
-                    Log "Session end marker found. Parsing content between start and end." "DEBUG"
-                    $contentAfterStart | Select-Object -First $sessionEnd.LineNumber
-                } else {
-                    # If no end marker is found (e.g., unexpected termination), parse to the end of the file.
-                    Log "Session end marker not found. Parsing all content after session start." "DEBUG"
-                    $contentAfterStart
-                }
-
-                # Now, search within this smaller block of text for the summary phrases.
-                if ($sessionContent -match "Cannot repair member file") {
-                    return [PSCustomObject]@{ Status = "CannotRepair"; Details = "SFC found corrupt files but could not repair them." }
-                }
-                elseif ($sessionContent -match "found corrupt files and successfully repaired them") {
-                    return [PSCustomObject]@{ Status = "Repaired"; Details = "SFC found and repaired corrupt files." }
-                }
-                elseif (($sessionContent -match "found integrity violations") -or ($sessionContent -match "Count of times corruption detected: [1-9]\d*")) {
-                    return [PSCustomObject]@{ Status = "CorruptionFound"; Details = "SFC found integrity violations." }
-                }
-                elseif ($sessionContent -match "did not find any integrity violations") {
-                    return [PSCustomObject]@{ Status = "NoViolations"; Details = "SFC did not find any integrity violations." }
-                }
-
-                # If a session was found but no result phrase, we can stop searching and report 'Unknown'.
-                Log "SFC session found in '$($logFile.Name)', but result is indeterminate. Defaulting to 'Unknown'." "DEBUG"
-                return [PSCustomObject]@{ Status = "Unknown"; Details = "SFC session result could not be determined from the log." }
-            }
-        }
-
-        # If we looped through all files and found no session start marker...
-        Log "Could not find any SFC session start marker in any CBS logs. Checking for a simple 'no violations' message as a fallback in CBS.log." "WARN"
-        $cbsLogPath = Join-Path $cbsLogDir "CBS.log"
-        if ((Test-Path $cbsLogPath) -and (Select-String -Path $cbsLogPath -Pattern '\[SR\] Windows Resource Protection did not find any integrity violations' -Quiet)) {
-            return [PSCustomObject]@{ Status = "NoViolations"; Details = "SFC did not find any integrity violations (fallback check)." }
-        }
-
-        return [PSCustomObject]@{ Status = "NoSessionFound"; Details = "Could not find any SFC session in the CBS logs." }
-    }
-
-    # --- Step 1: Run SFC in verification mode ---
+    # --- Step 1: Run SFC in verification mode and parse console output ---
+    $violationsFound = $false
     try {
         Log "Running System File Checker (SFC) in verification-only mode..." "INFO"
-        # Capture output for fallback parsing
-        $sfcOutput = & sfc.exe /verifyonly 2>&1
-        $null = $sfcOutput # still run for side effects
+        # Run sfc and capture all output streams to a variable.
+        $sfcOutput = & sfc.exe /verifyonly 2>&1 | Out-String
+        Log "SFC /verifyonly raw output:`n$sfcOutput" "DEBUG"
 
-        # Add a small delay to ensure CBS log is flushed
-        Start-Sleep -Seconds 5
-
-        # Check the CBS logs for the actual result
-        $verificationResult = Get-SfcLastSessionResult
-        Log "SFC verification result: '$($verificationResult.Status)' - Details: $($verificationResult.Details)" "INFO"
-
-        # Fallback: If log parsing is unclear, try parsing the direct output
-        if ($verificationResult.Status -eq "Unknown" -or $verificationResult.Status -eq "NoSessionFound") {
-            $outputText = $sfcOutput -join "`n"
-            # Log the raw output for troubleshooting
-            Log "Raw SFC /verifyonly output:`n$outputText" "DEBUG"
-            if ($outputText -match "Windows Resource Protection did not find any integrity violations") {
-                $verificationResult = [PSCustomObject]@{ Status = "NoViolations"; Details = "SFC did not find any integrity violations (console output fallback)." }
-                Log "SFC verification result determined from console output: '$($verificationResult.Status)' - $($verificationResult.Details)" "INFO"
-            } elseif ($outputText -match "Windows Resource Protection found corrupt files but was unable to fix some of them") {
-                $verificationResult = [PSCustomObject]@{ Status = "CannotRepair"; Details = "SFC found corrupt files but could not repair them (console output fallback)." }
-                Log "SFC verification result determined from console output: '$($verificationResult.Status)' - $($verificationResult.Details)" "WARN"
-            } elseif ($outputText -match "Windows Resource Protection found corrupt files and successfully repaired them") {
-                $verificationResult = [PSCustomObject]@{ Status = "Repaired"; Details = "SFC found and repaired corrupt files (console output fallback)." }
-                Log "SFC verification result determined from console output: '$($verificationResult.Status)' - $($verificationResult.Details)" "INFO"
-            } elseif ($outputText -match "Windows Resource Protection found integrity violations") {
-                $verificationResult = [PSCustomObject]@{ Status = "CorruptionFound"; Details = "SFC found integrity violations (console output fallback)." }
-                Log "SFC verification result determined from console output: '$($verificationResult.Status)' - $($verificationResult.Details)" "WARN"
-            }
-        }
-
-        if ($verificationResult.Status -eq "NoViolations") {
+        if ($sfcOutput -match "did not find any integrity violations") {
             Log "SFC verification completed. No integrity violations found. System files are healthy." "INFO"
             return # Exit the function as no repair is needed.
-        } elseif ($verificationResult.Status -eq "Unknown" -or $verificationResult.Status -eq "NoSessionFound") {
-            Log "SFC verification result unclear from logs and output, but no obvious issues detected. Skipping repair." "INFO"
-            return
-        } else {
-            Log "SFC verification found potential integrity violations ('$($verificationResult.Status)'). Proceeding with repair." "WARN"
         }
+        
+        # If we reach here, either violations were found or the result is unknown.
+        # In either case, we should prompt for repair.
+        Log "SFC verification did not report a clean bill of health. A repair may be needed." "WARN"
+        $violationsFound = $true
+
     } catch {
         Log "An unexpected error occurred during SFC /verifyonly operation: $($_.Exception.Message)" "ERROR"
-        Log "Attempting to run full repair scan despite verification error." "WARN"
+        Log "Assuming a repair is needed due to the error." "WARN"
+        $violationsFound = $true
     }
-    # --- Step 2: Run DISM to ensure the component store is healthy ---
+
+    # --- Step 2: Decide whether to proceed with repair based on verification results ---
+    if ($violationsFound) {
+        $proceedWithRepair = $false
+        if ($VerboseMode) {
+            # Interactive mode: Ask the user.
+            $choice = Read-Host "SFC found potential issues. Do you wish to run a full repair (DISM & SFC /scannow)? (Y/N)"
+            if ($choice -match '^(?i)y(es)?$') {
+                $proceedWithRepair = $true
+            }
+        } else {
+            # Silent mode: Proceed automatically.
+            Log "Silent mode enabled. Proceeding with repair automatically." "INFO"
+            $proceedWithRepair = $true
+        }
+
+        if (-not $proceedWithRepair) {
+            Log "User chose not to proceed with the system file repair. Skipping." "INFO"
+            return
+        }
+    } else {
+        # This case should not be reached due to the 'return' in the try block, but it's good practice.
+        return
+    }
+
+    # --- Step 3: Run DISM to ensure the component store is healthy ---
     try {
         Log "Running DISM to check and repair the Windows Component Store. This may take a long time..." "INFO"
         $dismExitCode = Invoke-ElevatedCommand -FilePath "dism.exe" -Arguments "/Online /Cleanup-Image /RestoreHealth" -LogName "DISM"
@@ -660,19 +588,11 @@ function Repair-SystemFiles {
         Log "Proceeding to SFC despite DISM error." "WARN"
     }
 
-    # --- Step 3: Run SFC in repair mode (if needed) ---
+    # --- Step 4: Run SFC in repair mode ---
     try {
         Log "Running System File Checker (SFC) in repair mode (scannow)..." "INFO"
         Invoke-ElevatedCommand -FilePath "sfc.exe" -Arguments "/scannow" -LogName "SFC Scan"
-
-        $repairResult = Get-SfcLastSessionResult
-
-        switch ($repairResult.Status) {
-            "Repaired" { Log "SFC Result: $($repairResult.Details)" "INFO" }
-            "CannotRepair" { Log "SFC Result: $($repairResult.Details) Manual intervention may be required." "ERROR" }
-            "NoViolations" { Log "SFC Result: $($repairResult.Details) (possibly fixed by DISM)." "INFO" }
-            default { Log "SFC repair scan completed, but the result could not be definitively determined from the log ('$($repairResult.Status)'). Details: $($repairResult.Details)" "WARN" }
-        }
+        Log "SFC /scannow process completed. Please review the output above for results." "INFO"
     } catch {
         Log "An unexpected error occurred during SFC /scannow operation: $($_.Exception.Message)" "ERROR"
     }
