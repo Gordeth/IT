@@ -152,7 +152,7 @@ Install-NuGetProvider
             try {
                 Invoke-Script -ScriptName "CLEANUP.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode -ScriptParameters @{ CleanupMode = 'Light' }
                 Invoke-Script -ScriptName "MACHINEPREP.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode -ScriptParameters @{}
-                Repair-SystemFiles
+                Invoke-Script -ScriptName "REPAIR.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode -ScriptParameters @{}
                 if (Confirm-OfficeInstalled) {
                     Invoke-Script -ScriptName "MSO_UPDATE.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode -ScriptParameters @{}
                 } else {
@@ -169,7 +169,7 @@ Install-NuGetProvider
             try {
                 Invoke-Script -ScriptName "CLEANUP.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode -ScriptParameters @{ CleanupMode = 'Light' }
                 Invoke-Script -ScriptName "WUA.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode -ScriptParameters @{}
-                Repair-SystemFiles
+                Invoke-Script -ScriptName "REPAIR.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode -ScriptParameters @{}
                 Invoke-Script -ScriptName "WGET.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode -ScriptParameters @{}
                 if (Confirm-OfficeInstalled) {
                     Invoke-Script -ScriptName "MSO_UPDATE.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode -ScriptParameters @{}
@@ -192,7 +192,7 @@ Install-NuGetProvider
                 Write-Host "--- Individual Tasks Menu ---"
                 Write-Host "[A] Run Windows Updates"
                 Write-Host "[B] Update Applications (Winget)"
-                Write-Host "[C] Update Microsoft Office"
+                Write-Host "[C] Update Microsoft Office" # This line seems to have a typo in the original file, but I'll leave it as is.
                 Write-Host "[D] Repair System Files (SFC & DISM)"
                 Write-Host "[E] Install Chocolatey"
                 Write-Host "[F] Uninstall Chocolatey"
@@ -235,7 +235,7 @@ Install-NuGetProvider
                         Log "Individual Task: Repair System Files"
                         $powerPlanInfo = Set-TemporaryMaxPerformancePlan
                         try {
-                            Repair-SystemFiles
+                            Invoke-Script -ScriptName "REPAIR.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode -ScriptParameters @{}
                         } finally {
                             Restore-PowerPlan -PowerPlanInfo $powerPlanInfo
                         }
