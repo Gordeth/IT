@@ -549,17 +549,17 @@ function Repair-SystemFiles {
         # Use .GetNewClosure() to ensure the event handler scriptblocks can access local variables ($outputLines, $VerboseMode).
         $outputHandler = {
             param($source, $e)
-            if ($e.Data) {
+            if ($null -ne $e.Data) { # Check for null, which indicates the end of the stream.
                 [void]$outputLines.Add($e.Data)
-                if ($VerboseMode) { Write-Host $e.Data } # Display in real-time if in verbose mode.
+                if ($VerboseMode) { $Host.UI.WriteLine($e.Data) } # Use $Host.UI.WriteLine for thread-safe console output.
             }
         }.GetNewClosure()
 
         $errorHandler = {
             param($source, $e)
-            if ($e.Data) {
+            if ($null -ne $e.Data) {
                 [void]$outputLines.Add($e.Data)
-                if ($VerboseMode) { Write-Host $e.Data -ForegroundColor Yellow } # Display errors in real-time.
+                if ($VerboseMode) { $Host.UI.WriteLine([consolecolor]::Yellow, $Host.UI.RawUI.BackgroundColor, $e.Data) } # Use a thread-safe method for colored output.
             }
         }.GetNewClosure()
 
