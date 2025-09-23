@@ -516,8 +516,9 @@ function Repair-SystemFiles {
             Log "SFC verification completed. No integrity violations found. System files are healthy." "INFO"
             return # Exit the function as no repair is needed.
         }
-        # Now check for "found integrity violations" but NOT "did not find any integrity violations"
-        elseif ($sfcOutput | Where-Object { $_ -match "found integrity violations" -and $_ -notmatch "did not find any integrity violations" }) {
+        # If success message is not found, check for the failure message using a more specific regex.
+        # This regex looks for "found integrity violations" that is NOT preceded by "did not ".
+        elseif ($sfcOutput | Select-String -Pattern '(?<!did not )found integrity violations' -Quiet) {
             Log "SFC verification found integrity violations. A repair will be initiated." "WARN"
         } else {
             # This catches other messages like "could not perform the requested operation"
@@ -594,5 +595,4 @@ function Repair-SystemFiles {
     } catch {
         Log "An unexpected error occurred during SFC /scannow operation: $($_.Exception.Message)" "ERROR"
     }
-}
 }
