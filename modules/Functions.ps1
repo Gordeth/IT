@@ -524,21 +524,26 @@ function Repair-SystemFiles {
 
         # Use a synchronized list to store output from multiple event handler threads.
         $outputLines = [System.Collections.ArrayList]::Synchronized( (New-Object System.Collections.ArrayList) )
-        $verboseCapture = $VerboseMode # Capture value for use in event handler script block.
 
         # Register event handlers to capture output data as it is generated.
-        $p.OutputDataReceived.add({
-            if ($_.Data) {
-                [void]$outputLines.Add($_.Data)
-                if ($verboseCapture) { Write-Host $_.Data } # Display in real-time if in verbose mode.
+        # Use .GetNewClosure() to ensure the event handler scriptblocks can access local variables ($outputLines, $VerboseMode).
+        $outputHandler = {
+            param($source, $e)
+            if ($e.Data) {
+                [void]$outputLines.Add($e.Data)
+                if ($VerboseMode) { Write-Host $e.Data } # Display in real-time if in verbose mode.
             }
-        })
-        $p.ErrorDataReceived.add({
-            if ($_.Data) {
-                [void]$outputLines.Add($_.Data)
-                if ($verboseCapture) { Write-Host $_.Data -ForegroundColor Yellow } # Display errors in real-time.
+        }.GetNewClosure()
+        $p.OutputDataReceived.Add($outputHandler)
+
+        $errorHandler = {
+            param($source, $e)
+            if ($e.Data) {
+                [void]$outputLines.Add($e.Data)
+                if ($VerboseMode) { Write-Host $e.Data -ForegroundColor Yellow } # Display errors in real-time.
             }
-        })
+        }.GetNewClosure()
+        $p.ErrorDataReceived.Add($errorHandler)
 
         $p.Start() | Out-Null
         $p.BeginOutputReadLine()
