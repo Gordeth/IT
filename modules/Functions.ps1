@@ -512,12 +512,13 @@ function Repair-SystemFiles {
         Log "SFC /verifyonly raw output:`n$($sfcOutput | Out-String)" "DEBUG"
 
         # Use Select-String for a very reliable, case-insensitive pattern match on the output string.
-        # The -Quiet switch returns a boolean, which is perfect for an 'if' statement.
-        if ($sfcOutput | Select-String -Pattern "did not find any integrity violations" -Quiet) {
+        # -SimpleMatch performs a literal string comparison, avoiding regex complexities.
+        # -Quiet returns a boolean, which is perfect for an 'if' statement.
+        if ($sfcOutput | Select-String -Pattern "did not find any integrity violations" -SimpleMatch -Quiet) {
             Log "SFC verification completed. No integrity violations found. System files are healthy." "INFO"
             return # Exit the function as no repair is needed.
         }
-        elseif ($sfcOutput | Select-String -Pattern "found integrity violations" -Quiet) {
+        elseif ($sfcOutput | Select-String -Pattern "found integrity violations" -SimpleMatch -Quiet) {
             Log "SFC verification found integrity violations. A repair will be initiated." "WARN"
         } else {
             # This catches other messages like "could not perform the requested operation"
