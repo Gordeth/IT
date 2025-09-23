@@ -507,19 +507,56 @@ function Repair-SystemFiles {
     # --- Step 1: Run SFC in verification mode and parse console output ---
     try {
         Log "Running System File Checker (SFC) in verification-only mode..." "INFO"
-        # Run sfc and capture all output streams to a variable.
-        $sfcOutput = & sfc.exe /verifyonly 2>&1
+        # We need to both display output in real-time (in verbose mode) and capture it for parsing.
+        # We'll redirect the command's output to a temporary file and then read from it.
+        $tempSfcLog = New-TemporaryFile
+        $tailJob = $null
+        $sfcOutputText = ""
 
-        $sfcOutputText = $sfcOutput | Out-String
-        # For troubleshooting, save the raw output to a temp file.
+        try {
+            # In verbose mode, start a background job to 'tail' the temp log file to the console.
+            if ($VerboseMode) {
+                Log "SFC output will be displayed in real-time." "INFO"
+                $tailJob = Start-Job { Get-Content -Path $using:tempSfcLog.FullName -Wait }
+            }
+
+            # Run sfc.exe, redirecting its output to the temp file.
+            # Use Start-Process to ensure it waits for completion and can be hidden.
+            $processArgs = @{
+                FilePath               = "sfc.exe"
+                ArgumentList           = "/verifyonly"
+                RedirectStandardOutput = $tempSfcLog.FullName
+                RedirectStandardError  = $tempSfcLog.FullName
+                Wait                   = $true
+                PassThru               = $true
+            }
+            if ($VerboseMode) {
+                $processArgs.NoNewWindow = $true
+            } else {
+                $processArgs.WindowStyle = 'Hidden'
+            }
+            $process = Start-Process @processArgs
+            Log "SFC /verifyonly process completed with exit code: $($process.ExitCode)." "DEBUG"
+
+        } finally {
+            # Stop the tailing job if it was started.
+            if ($tailJob) {
+                Stop-Job $tailJob
+                # Receive output from job to display any remaining lines
+                if ($VerboseMode) { Receive-Job $tailJob | Out-Host }
+                Remove-Job $tailJob -Force
+            }
+            # Read the captured output from the temporary file for parsing.
+            if (Test-Path $tempSfcLog.FullName) {
+                $sfcOutputText = Get-Content -Path $tempSfcLog.FullName -Encoding Unicode | Out-String
+                Remove-Item $tempSfcLog.FullName -Force
+            }
+        }
+
+        # For troubleshooting, save the raw output to a more permanent temp file.
         $sfcLogPath = "$env:TEMP\SFC_VerifyOnly.log"
         $sfcOutputText | Out-File -FilePath $sfcLogPath -Encoding UTF8
         Log "Raw SFC output saved to $sfcLogPath for review." "DEBUG"
-
-        if ($VerboseMode) {
-            Log "Opening SFC output log for debugging..." "DEBUG"
-            Invoke-Item -Path $sfcLogPath
-        }
 
         # Normalize the output to handle potential encoding issues from sfc.exe (e.g., extra spaces/nulls).
         # We remove all non-alphanumeric characters and convert to lowercase for a reliable match.
