@@ -536,13 +536,15 @@ function Repair-SystemFiles {
         if ($sfcOutput -match "did not find any integrity violations") {
             Log "SFC verification completed. No integrity violations found. System files are healthy." "INFO"
             return # Exit the function as no repair is needed.
+        } elseif ($sfcOutput -match "found integrity violations") {
+            Log "SFC verification found integrity violations. A repair will be initiated." "WARN"
+            $violationsFound = $true
+        } else {
+            # This catches other messages like "could not perform the requested operation"
+            # or other errors, ensuring we proceed with repair as a safe default.
+            Log "SFC verification returned an unexpected status. Assuming a repair is needed. Full output: $sfcOutput" "WARN"
+            $violationsFound = $true
         }
-        
-        # If we reach here, either violations were found or the result is unknown.
-        # In either case, we should prompt for repair.
-        Log "SFC verification did not report a clean bill of health. A repair may be needed." "WARN"
-        $violationsFound = $true
-
     } catch {
         Log "An unexpected error occurred during SFC /verifyonly operation: $($_.Exception.Message)" "ERROR"
         Log "Assuming a repair is needed due to the error." "WARN"
