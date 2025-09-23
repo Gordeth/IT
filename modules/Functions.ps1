@@ -508,21 +508,21 @@ function Repair-SystemFiles {
     try {
         Log "Running System File Checker (SFC) in verification-only mode..." "INFO"
         # Run sfc and capture all output streams to a variable.
-        $sfcOutput = & sfc.exe /verifyonly 2>&1 | Out-String
-        Log "SFC /verifyonly raw output:`n$sfcOutput" "DEBUG"
+        $sfcOutput = & sfc.exe /verifyonly 2>&1
+        Log "SFC /verifyonly raw output:`n$($sfcOutput | Out-String)" "DEBUG"
 
         # Use Select-String for a very reliable, case-insensitive pattern match on the output string.
         # The -Quiet switch returns a boolean, which is perfect for an 'if' statement.
         if ($sfcOutput | Select-String -Pattern "did not find any integrity violations" -Quiet) {
             Log "SFC verification completed. No integrity violations found. System files are healthy." "INFO"
             return # Exit the function as no repair is needed.
-        } 
+        }
         elseif ($sfcOutput | Select-String -Pattern "found integrity violations" -Quiet) {
             Log "SFC verification found integrity violations. A repair will be initiated." "WARN"
         } else {
             # This catches other messages like "could not perform the requested operation"
             # or other errors, ensuring we proceed with repair as a safe default.
-            Log "SFC verification returned an unexpected status. Assuming a repair is needed. Full output: $sfcOutput" "WARN"
+            Log "SFC verification returned an unexpected status. Assuming a repair is needed. Full output: $($sfcOutput | Out-String)" "WARN"
         }
     } catch {
         Log "An unexpected error occurred during SFC /verifyonly operation: $($_.Exception.Message)" "ERROR"
