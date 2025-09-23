@@ -504,12 +504,32 @@ function Confirm-OfficeInstalled {
 function Repair-SystemFiles {
     Log "Starting system file integrity check and repair process..." "INFO"
 
+    # --- Define paths to system executables, handling 32/64-bit redirection ---
+    $sfcPath = ""
+    $dismPath = ""
+    # Check if running as a 32-bit process on a 64-bit OS (WoW64)
+    if ($env:PROCESSOR_ARCHITECTURE -eq 'x86' -and $env:PROCESSOR_ARCHITEW6432 -eq 'AMD64') {
+        Log "Detected 32-bit PowerShell on 64-bit Windows. Using Sysnative path for system tools." "DEBUG"
+        $sfcPath = "$env:windir\Sysnative\sfc.exe"
+        $dismPath = "$env:windir\Sysnative\dism.exe"
+    } else {
+        Log "Detected 64-bit PowerShell or 32-bit on 32-bit Windows. Using System32 path." "DEBUG"
+        $sfcPath = "$env:windir\System32\sfc.exe"
+        $dismPath = "$env:windir\System32\dism.exe"
+    }
+
+    # Verify that the executables can be found at the determined paths.
+    if (-not (Test-Path $sfcPath)) {
+        Log "Could not find sfc.exe at the expected path: $sfcPath. This can happen if the script is run in a 32-bit PowerShell console on a 64-bit system. Please use a 64-bit PowerShell console. Aborting." "ERROR"
+        return
+    }
+
     # --- Step 1: Run SFC in verification mode and parse console output ---
     try {
         Log "Running System File Checker (SFC) in verification-only mode..." "INFO"
         # Use the .NET Process class for robust output handling and real-time display.
         $pinfo = New-Object System.Diagnostics.ProcessStartInfo
-        $pinfo.FileName = "sfc.exe"
+        $pinfo.FileName = $sfcPath
         $pinfo.Arguments = "/verifyonly"
         $pinfo.RedirectStandardError = $true
         $pinfo.RedirectStandardOutput = $true
@@ -644,7 +664,7 @@ function Repair-SystemFiles {
     # --- Step 3: Run DISM to ensure the component store is healthy ---
     try {
         Log "Running DISM to check and repair the Windows Component Store. This may take a long time..." "INFO"
-        $dismExitCode = & $InvokeElevatedCommand -FilePath "dism.exe" -Arguments "/Online /Cleanup-Image /RestoreHealth" -LogName "DISM"
+        $dismExitCode = & $InvokeElevatedCommand -FilePath $dismPath -Arguments "/Online /Cleanup-Image /RestoreHealth" -LogName "DISM"
 
         if ($dismExitCode -eq 0) {
             Log "DISM completed successfully. The component store is healthy." "INFO"
@@ -659,7 +679,7 @@ function Repair-SystemFiles {
     # --- Step 4: Run SFC in repair mode ---
     try {
         Log "Running System File Checker (SFC) in repair mode (scannow)..." "INFO"
-        & $InvokeElevatedCommand -FilePath "sfc.exe" -Arguments "/scannow" -LogName "SFC Scan"
+        & $InvokeElevatedCommand -FilePath $sfcPath -Arguments "/scannow" -LogName "SFC Scan"
         Log "SFC /scannow process completed. Please review the output above for results." "INFO"
     } catch {
         Log "An unexpected error occurred during SFC /scannow operation: $($_.Exception.Message)" "ERROR"
