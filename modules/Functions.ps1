@@ -517,7 +517,8 @@ function Repair-SystemFiles {
             # In verbose mode, start a background job to 'tail' the temp log file to the console.
             if ($VerboseMode) {
                 Log "SFC output will be displayed in real-time." "INFO"
-                $tailJob = Start-Job { Get-Content -Path $using:tempSfcLog.FullName -Wait }
+                # The job now correctly specifies Unicode encoding to prevent garbled output.
+                $tailJob = Start-Job { Get-Content -Path $using:tempSfcLog.FullName -Wait -Encoding Unicode }
             }
 
             # Construct the command to be run inside cmd.exe, which can correctly redirect both stdout and stderr to the same file.
@@ -527,15 +528,25 @@ function Repair-SystemFiles {
             $processArgs = @{
                 FilePath     = "cmd.exe"
                 ArgumentList = "/c $commandToRun"
-                Wait         = $true
                 PassThru     = $true
             }
             if ($VerboseMode) {
                 $processArgs.NoNewWindow = $true
+                $processArgs.Wait = $false # Don't wait, so we can poll for output.
+                $process = Start-Process @processArgs
+
+                # Poll the job for output while the process is running to provide real-time feedback.
+                while (-not $process.HasExited) {
+                    Receive-Job $tailJob | Out-Host
+                    Start-Sleep -Milliseconds 250
+                }
+                # Final check for any remaining output after the process exits.
+                Receive-Job $tailJob | Out-Host
             } else {
                 $processArgs.WindowStyle = 'Hidden'
+                $processArgs.Wait = $true # In silent mode, just wait for it to finish.
+                $process = Start-Process @processArgs
             }
-            $process = Start-Process @processArgs
             Log "SFC /verifyonly process completed with exit code: $($process.ExitCode)." "DEBUG"
 
         } finally {
@@ -543,7 +554,7 @@ function Repair-SystemFiles {
             if ($tailJob) {
                 Stop-Job $tailJob
                 # Receive output from job to display any remaining lines
-                if ($VerboseMode) { Receive-Job $tailJob | Out-Host }
+                Receive-Job $tailJob | Out-Null # Flush any remaining job output, already displayed by the loop.
                 Remove-Job $tailJob -Force
             }
             # Read the captured output from the temporary file for parsing.
