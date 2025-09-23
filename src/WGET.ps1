@@ -33,32 +33,15 @@ param (
   [string]$LogDir
 )
 
-# ==================== Setup Paths and Global Variables ====================
 # ==================== Preference Variables ====================
 # Set common preference variables for consistent script behavior.
 $ErrorActionPreference = 'Stop' # Stop on any error
-$WarningPreference = 'Continue' # Display warnings but continue
-$VerbosePreference = 'Continue' # Display verbose messages
 
-# ==================== Module Imports / Dot Sourcing ====================
-# --- IMPORTANT: Sourcing the Functions.ps1 module to make the Log function available.
-# The path is relative to the location of this script (which should be the 'src' folder).
-# This ensures that the Log function is available in the scope of this script.
+# ==================== Module Imports ====================
 . "$PSScriptRoot/../modules/Functions.ps1"
 
-# ==================== Global Variable Initialization & Log Setup ====================
-# Add a check to ensure the log directory path was provided.
-if (-not $LogDir) {
-    Write-Host "ERROR: The LogDir parameter is mandatory and cannot be empty." -ForegroundColor Red
-    exit 1
-}
-
-# --- Construct the dedicated log file path for this script ---
-# This script will now create its own file named WGET.txt inside the provided log directory.
+# ==================== Log Setup ====================
 $LogFile = Join-Path $LogDir "WGET.txt"
-
-
-# Create a new log file or append to the existing one.
 if (-not (Test-Path $LogFile)) {
     "Log file created by WGET.ps1." | Out-File $LogFile -Append
 }
@@ -75,16 +58,18 @@ try {
     # native output to be displayed on the console.
     if ($VerboseMode) {
         winget upgrade --all --accept-source-agreements --accept-package-agreements
+        if ($LASTEXITCODE -ne 0) { throw "Winget exited with code $LASTEXITCODE." }
     } else {
         # If `$VerboseMode` is not enabled, run the `winget` command and redirect
         # its console output to `Out-Null` to suppress it, keeping the console clean.
         # This means only messages from the `Log` function will appear.
         winget upgrade --all --accept-source-agreements --accept-package-agreements | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw "Winget exited with code $LASTEXITCODE." }
     }
     # If `winget` command completes without throwing a PowerShell error, log success.
     Log "All packages updated successfully."
 } catch {
     # If the `winget` command encounters an error (e.g., winget not found, update failure),
-    # log the error message using the "ERROR" level, ensuring it's always displayed.
-    Log "Failed to update packages: $_" "ERROR"
+    # or if it returns a non-zero exit code, log the error message.
+    Log "Failed to update packages with winget. Error: $_" "ERROR"
 }
