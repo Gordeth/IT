@@ -182,7 +182,8 @@ try {
 $apps = @(
     @{ Name = "7-Zip"; Id = "7zip.7zip" },
     @{ Name = "Google Chrome"; Id = "Google.Chrome" },
-    @{ Name = "Adobe Acrobat Reader 64-bit"; Id = "Adobe.Acrobat.Reader.64-bit" }
+    @{ Name = "Adobe Acrobat Reader 64-bit"; Id = "Adobe.Acrobat.Reader.64-bit" },
+    @{ Name = "Microsoft Visual C++ 2015-2022 Redistributable (x64)"; Id = "Microsoft.VCRedist.2015+.x64" }
 )
 
 # Iterate through each application defined in the `$apps` array.
