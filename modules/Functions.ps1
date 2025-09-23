@@ -454,6 +454,144 @@ function Restore-PowerPlan {
     }
 }
 
+# =================================================================================
+# New-SystemRestorePoint
+# Creates a system restore point, temporarily bypassing the creation frequency limit.
+# =================================================================================
+function New-SystemRestorePoint {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$Description
+    )
+
+    Log "Attempting to create a system restore point with description: '$Description'..." "INFO"
+    $restorePointRegistryPath = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SystemRestore"
+    $restorePointFrequencyValueName = "SystemRestorePointCreationFrequency"
+    $originalFrequencyValue = $null
+    $frequencyValueExisted = $false
+    $registryWasAdjusted = $false
+
+    try {
+        # Temporarily bypass the default system restore point creation frequency.
+        Log "Temporarily adjusting system restore point frequency..." "INFO"
+        if (Test-Path $restorePointRegistryPath) {
+            $property = Get-ItemProperty -Path $restorePointRegistryPath -Name $restorePointFrequencyValueName -ErrorAction SilentlyContinue
+            if ($null -ne $property) {
+                $frequencyValueExisted = $true
+                $originalFrequencyValue = $property.$restorePointFrequencyValueName
+            }
+        } else {
+            New-Item -Path $restorePointRegistryPath -Force | Out-Null
+        }
+        
+        Set-ItemProperty -Path $restorePointRegistryPath -Name $restorePointFrequencyValueName -Value 0 -Type DWord -Force
+        $registryWasAdjusted = $true
+        Log "System restore point frequency set to 0 to allow immediate creation." "INFO"
+
+        # Enable restore and create the checkpoint.
+        Set-Service -Name 'VSS' -StartupType Manual -ErrorAction SilentlyContinue
+        Start-Service -Name 'VSS' -ErrorAction SilentlyContinue
+        Enable-ComputerRestore -Drive "$($env:SystemDrive)\" -ErrorAction SilentlyContinue
+        Checkpoint-Computer -Description $Description -RestorePointType "MODIFY_SETTINGS"
+        Log "Restore point '$Description' created successfully." "INFO"
+        return $true
+    } catch {
+        Log "Failed to create a system restore point. Error: $($_.Exception.Message)" "ERROR"
+        return $false
+    } finally {
+        # Restore the default system restore point creation frequency.
+        if ($registryWasAdjusted) {
+            Log "Restoring original system restore point frequency setting..." "INFO"
+            if ($frequencyValueExisted) {
+                Set-ItemProperty -Path $restorePointRegistryPath -Name $restorePointFrequencyValueName -Value $originalFrequencyValue -Type DWord -Force
+            } else {
+                Remove-ItemProperty -Path $restorePointRegistryPath -Name $restorePointFrequencyValueName -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
+}
+
+# =================================================================================
+# Invoke-CommandWithLogging
+# Executes an external command, captures all output to a log file, and optionally
+# displays it in real-time to the console. This is a robust replacement for
+# simple Start-Process calls, ensuring no output is ever lost.
+# =================================================================================
+function Invoke-CommandWithLogging {
+    param(
+        [Parameter(Mandatory=$true)][string]$FilePath,
+        [Parameter(Mandatory=$true)][string]$Arguments,
+        [Parameter(Mandatory=$true)][string]$LogName,
+        [Parameter(Mandatory=$true)][string]$LogDir,
+        [switch]$VerboseMode
+    )
+
+    Log "Executing: $FilePath $Arguments" "INFO"
+    $commandLogFile = Join-Path $LogDir "$LogName.log"
+    Log "Output for this command will be logged to '$($commandLogFile)'" "INFO"
+    if ($VerboseMode) {
+        Log "The output of this command will be displayed directly in the console for real-time progress." "INFO"
+    }
+
+    # Clear old log file if it exists
+    if (Test-Path $commandLogFile) {
+        Remove-Item $commandLogFile -Force
+    }
+
+    $pinfo = New-Object System.Diagnostics.ProcessStartInfo
+    $pinfo.FileName = $FilePath
+    $pinfo.Arguments = $Arguments
+    $pinfo.RedirectStandardError = $true
+    $pinfo.RedirectStandardOutput = $true
+    $pinfo.UseShellExecute = $false
+    $pinfo.CreateNoWindow = $true
+    # DISM and SFC both use Unicode for their progress output.
+    $pinfo.StandardOutputEncoding = [System.Text.Encoding]::Unicode
+    $pinfo.StandardErrorEncoding = [System.Text.Encoding]::Unicode
+
+    $p = New-Object System.Diagnostics.Process
+    $p.StartInfo = $pinfo
+
+    # Use .GetNewClosure() to ensure the event handlers can access variables from this scope.
+    $outputHandler = {
+        param($source, $e)
+        if ($null -ne $e.Data) {
+            $e.Data | Add-Content -Path $commandLogFile
+            if ($VerboseMode) { $Host.UI.WriteLine($e.Data) }
+        }
+    }.GetNewClosure()
+
+    $errorHandler = {
+        param($source, $e)
+        if ($null -ne $e.Data) {
+            "STDERR: $($e.Data)" | Add-Content -Path $commandLogFile
+            if ($VerboseMode) { $Host.UI.WriteLine("STDERR: $($e.Data)") }
+        }
+    }.GetNewClosure()
+
+    $outputDelegate = [System.Diagnostics.DataReceivedEventHandler]$outputHandler
+    $errorDelegate = [System.Diagnostics.DataReceivedEventHandler]$errorHandler
+
+    $p.add_OutputDataReceived($outputDelegate)
+    $p.add_ErrorDataReceived($errorDelegate)
+
+    $exitCode = -1
+    try {
+        $p.Start() | Out-Null
+        $p.BeginOutputReadLine()
+        $p.BeginErrorReadLine()
+        $p.WaitForExit()
+        $exitCode = $p.ExitCode
+    } finally {
+        $p.remove_OutputDataReceived($outputDelegate)
+        $p.remove_ErrorDataReceived($errorDelegate)
+        if ($p) { $p.Dispose() }
+    }
+
+    Log "$LogName process finished with exit code: $exitCode." "INFO"
+    return $exitCode
+}
+
 # ================== INVOKE SCRIPT FUNCTION ==================
 # A centralized function to execute child scripts, passing necessary parameters.
 function Invoke-Script {
@@ -504,25 +642,10 @@ function Confirm-OfficeInstalled {
 function Repair-SystemFiles {
     Log "Starting system file integrity check and repair process..." "INFO"
 
-    # --- Define paths to system executables, handling 32/64-bit redirection ---
-    $sfcPath = ""
-    $dismPath = ""
-    # Check if running as a 32-bit process on a 64-bit OS (WoW64)
-    if ($env:PROCESSOR_ARCHITECTURE -eq 'x86' -and $env:PROCESSOR_ARCHITEW6432 -eq 'AMD64') {
-        Log "Detected 32-bit PowerShell on 64-bit Windows. Using Sysnative path for system tools." "DEBUG"
-        $sfcPath = "$env:windir\Sysnative\sfc.exe"
-        $dismPath = "$env:windir\Sysnative\dism.exe"
-    } else {
-        Log "Detected 64-bit PowerShell or 32-bit on 32-bit Windows. Using System32 path." "DEBUG"
-        $sfcPath = "$env:windir\System32\sfc.exe"
-        $dismPath = "$env:windir\System32\dism.exe"
-    }
-
-    # Verify that the executables can be found at the determined paths.
-    if (-not (Test-Path $sfcPath)) {
-        Log "Could not find sfc.exe at the expected path: $sfcPath. This can happen if the script is run in a 32-bit PowerShell console on a 64-bit system. Please use a 64-bit PowerShell console. Aborting." "ERROR"
-        return
-    }
+    # Define paths to system executables. Assuming a 64-bit PowerShell environment.
+    # This simplifies the logic by removing the check for 32-bit PowerShell on 64-bit Windows (WoW64).
+    $sfcPath = "$env:windir\System32\sfc.exe"
+    $dismPath = "$env:windir\System32\dism.exe"
 
     # --- Step 1: Run SFC in verification mode and parse console output ---
     try {
@@ -561,17 +684,10 @@ function Repair-SystemFiles {
                 $p.Dispose()
             }
         }
-        Log "SFC /verifyonly process completed with exit code: $exitCode." "DEBUG"
-
-        # For troubleshooting, save the raw output to a more permanent temp file.
-        $sfcLogPath = "$env:TEMP\SFC_VerifyOnly.log"
-        $sfcOutputText | Out-File -FilePath $sfcLogPath -Encoding UTF8
-        Log "Raw SFC output saved to $sfcLogPath for review." "DEBUG"
 
         # Normalize the output to handle potential encoding issues from sfc.exe (e.g., extra spaces/nulls).
         # We remove all non-alphanumeric characters and convert to lowercase for a reliable match.
         $normalizedOutput = ($sfcOutputText -replace '[^a-zA-Z0-9]').ToLower()
-        Log "Normalized SFC output for parsing: $normalizedOutput" "DEBUG"
 
         # Define spaceless, lowercase patterns for matching. These are robust against the encoding issues.
         $successPattern = "windowsresourceprotectiondidnotfindanyintegrityviolations"
@@ -613,49 +729,30 @@ function Repair-SystemFiles {
         return
     }
 
-    # Internal helper to run external commands, respecting the VerboseMode switch.
-    # Defined here so it's only created if a repair is actually running.
-    $InvokeElevatedCommand = {
-        param(
-            [string]$FilePath,
-            [string]$Arguments,
-            [string]$LogName
-        )
+    # --- Step 3: Create System Restore Point before repair ---
+    New-SystemRestorePoint -Description "Pre-System_Repair"
 
-        Log "Executing: $FilePath $Arguments" "INFO"
-        # In verbose mode, show real-time output. Otherwise, just run it.
-        if ($VerboseMode) {
-            Log "The output of this command will be displayed directly in the console for real-time progress." "INFO"
-            $process = Start-Process -FilePath $FilePath -ArgumentList $Arguments -Wait -PassThru -NoNewWindow
-            $exitCode = $process.ExitCode
-        } else {
-            $process = Start-Process -FilePath $FilePath -ArgumentList $Arguments -Wait -PassThru -WindowStyle Hidden
-            $exitCode = $process.ExitCode
-        }
-        Log "$LogName process finished with exit code: $exitCode." "INFO"
-        return $exitCode
-    }
-
-    # --- Step 3: Run DISM to ensure the component store is healthy ---
+    # --- Step 4: Run DISM to ensure the component store is healthy ---
     try {
         Log "Running DISM to check and repair the Windows Component Store. This may take a long time..." "INFO"
-        $dismExitCode = & $InvokeElevatedCommand -FilePath $dismPath -Arguments "/Online /Cleanup-Image /RestoreHealth" -LogName "DISM"
+        # Use the new robust command invocation function.
+        $dismExitCode = Invoke-CommandWithLogging -FilePath $dismPath -Arguments "/Online /Cleanup-Image /RestoreHealth" -LogName "DISM" -LogDir $LogDir -VerboseMode:$VerboseMode
 
         if ($dismExitCode -eq 0) {
             Log "DISM completed successfully. The component store is healthy." "INFO"
         } else {
-            Log "DISM finished with a non-zero exit code ($dismExitCode). The component store may have issues. See DISM logs for details." "WARN"
+            Log "DISM finished with a non-zero exit code ($dismExitCode). The component store may have issues. See DISM.log for details." "WARN"
         }
     } catch {
         Log "An unexpected error occurred while running DISM: $($_.Exception.Message)" "ERROR"
         Log "Proceeding to SFC despite DISM error." "WARN"
     }
 
-    # --- Step 4: Run SFC in repair mode ---
+    # --- Step 5: Run SFC in repair mode ---
     try {
         Log "Running System File Checker (SFC) in repair mode (scannow)..." "INFO"
-        & $InvokeElevatedCommand -FilePath $sfcPath -Arguments "/scannow" -LogName "SFC Scan"
-        Log "SFC /scannow process completed. Please review the output above for results." "INFO"
+        Invoke-CommandWithLogging -FilePath $sfcPath -Arguments "/scannow" -LogName "SFC_Scan" -LogDir $LogDir -VerboseMode:$VerboseMode
+        Log "SFC /scannow process completed. Please review the SFC_Scan.log file for results." "INFO"
     } catch {
         Log "An unexpected error occurred during SFC /scannow operation: $($_.Exception.Message)" "ERROR"
     }
