@@ -46,6 +46,7 @@ When you launch the bootstrapper, you'll be prompted to select a mode and a task
 | `src\MACHINEPREP.ps1` | Contains tasks specifically for the "Machine Preparation" option. |
 | `src/WUA.ps1` | Handles the Windows Update routine, including conditional System Restore Point creation. |
 | `src\WGET.ps1` | Handles the Winget update and cleanup routine. |
+| `src\REPAIR.ps1` | Handles system file integrity checks and repairs, including user prompts and reboot management. |
 | `src\MSO_UPDATE.ps1` | An optional routine for updating Microsoft Office (Click-to-Run). |
 | `src\IUS.ps1` | Handles the installation and upgrade of the UniFi Network Server. |
 
