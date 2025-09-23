@@ -52,30 +52,15 @@ param (
   [string]$LogDir
 )
 
-# ==================== Setup Paths and Global Variables ====================
 # ==================== Preference Variables ====================
 # Set common preference variables for consistent script behavior.
 $ErrorActionPreference = 'Stop' # Stop on any error
-$WarningPreference = 'Continue' # Display warnings but continue
-$VerbosePreference = 'Continue' # Display verbose messages
 
-# ==================== Module Imports / Dot Sourcing ====================
-# --- IMPORTANT: Sourcing the Functions.ps1 module to make the Log function available.
-# The path is relative to the location of this script (which should be the 'src' folder).
-# This ensures that the Log function is available in the scope of this script.
+# ==================== Module Imports ====================
 . "$PSScriptRoot/../modules/Functions.ps1"
 
-# ==================== Global Variable Initialization & Log Setup ====================
-# Add a check to ensure the log directory path was provided.
-if (-not $LogDir) {
-    Write-Host "ERROR: The LogDir parameter is mandatory and cannot be empty." -ForegroundColor Red
-    exit 1
-}
-
-# --- Construct the dedicated log file path for this script ---
-# This script will now create its own file named WUA.txt inside the provided log directory.
+# ==================== Log Setup ====================
 $LogFile = Join-Path $LogDir "WUA.txt"
-
 
 # Create a new log file or append to the existing one.
 if (-not (Test-Path $LogFile)) {
