@@ -511,11 +511,13 @@ function Repair-SystemFiles {
         $sfcOutput = & sfc.exe /verifyonly 2>&1 | Out-String
         Log "SFC /verifyonly raw output:`n$sfcOutput" "DEBUG"
 
-        # Use IndexOf for a more robust, non-regex, case-insensitive string search.
-        if ($sfcOutput.IndexOf("did not find any integrity violations", [System.StringComparison]::InvariantCultureIgnoreCase) -ge 0) {
+        # Use Select-String for a very reliable, case-insensitive pattern match on the output string.
+        # The -Quiet switch returns a boolean, which is perfect for an 'if' statement.
+        if ($sfcOutput | Select-String -Pattern "did not find any integrity violations" -Quiet) {
             Log "SFC verification completed. No integrity violations found. System files are healthy." "INFO"
             return # Exit the function as no repair is needed.
-        } elseif ($sfcOutput.IndexOf("found integrity violations", [System.StringComparison]::InvariantCultureIgnoreCase) -ge 0) {
+        } 
+        elseif ($sfcOutput | Select-String -Pattern "found integrity violations" -Quiet) {
             Log "SFC verification found integrity violations. A repair will be initiated." "WARN"
         } else {
             # This catches other messages like "could not perform the requested operation"
