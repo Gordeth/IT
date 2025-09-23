@@ -503,8 +503,52 @@ function Confirm-OfficeInstalled {
 # Runs SFC and DISM to check for and repair Windows system file corruption.
 function Repair-SystemFiles {
     Log "Starting system file integrity check and repair process..." "INFO"
+
+    # --- Step 1: Run SFC in verification mode and parse console output ---
+    try {
+        Log "Running System File Checker (SFC) in verification-only mode..." "INFO"
+        # Run sfc and capture all output streams to a variable.
+        $sfcOutput = & sfc.exe /verifyonly 2>&1 | Out-String
+        Log "SFC /verifyonly raw output:`n$sfcOutput" "DEBUG"
+
+        # Use IndexOf for a more robust, non-regex, case-insensitive string search.
+        if ($sfcOutput.IndexOf("did not find any integrity violations", [System.StringComparison]::InvariantCultureIgnoreCase) -ge 0) {
+            Log "SFC verification completed. No integrity violations found. System files are healthy." "INFO"
+            return # Exit the function as no repair is needed.
+        } elseif ($sfcOutput.IndexOf("found integrity violations", [System.StringComparison]::InvariantCultureIgnoreCase) -ge 0) {
+            Log "SFC verification found integrity violations. A repair will be initiated." "WARN"
+        } else {
+            # This catches other messages like "could not perform the requested operation"
+            # or other errors, ensuring we proceed with repair as a safe default.
+            Log "SFC verification returned an unexpected status. Assuming a repair is needed. Full output: $sfcOutput" "WARN"
+        }
+    } catch {
+        Log "An unexpected error occurred during SFC /verifyonly operation: $($_.Exception.Message)" "ERROR"
+        Log "Assuming a repair is needed due to the error." "WARN"
+    }
+
+    # --- Step 2: If we reached this point, a repair is needed. Confirm with user if in verbose mode. ---
+    $proceedWithRepair = $false
+    if ($VerboseMode) {
+        # Interactive mode: Ask the user.
+        $choice = Read-Host "SFC found potential issues. Do you wish to run a full repair (DISM & SFC /scannow)? (Y/N)"
+        if ($choice -match '^(?i)y(es)?$') {
+            $proceedWithRepair = $true
+        }
+    } else {
+        # Silent mode: Proceed automatically.
+        Log "Silent mode enabled. Proceeding with repair automatically." "INFO"
+        $proceedWithRepair = $true
+    }
+
+    if (-not $proceedWithRepair) {
+        Log "User chose not to proceed with the system file repair. Skipping." "INFO"
+        return
+    }
+
     # Internal helper to run external commands, respecting the VerboseMode switch.
-    function Invoke-ElevatedCommand {
+    # Defined here so it's only created if a repair is actually running.
+    $InvokeElevatedCommand = {
         param(
             [string]$FilePath,
             [string]$Arguments,
@@ -525,60 +569,10 @@ function Repair-SystemFiles {
         return $exitCode
     }
 
-    # --- Step 1: Run SFC in verification mode and parse console output ---
-    $violationsFound = $false
-    try {
-        Log "Running System File Checker (SFC) in verification-only mode..." "INFO"
-        # Run sfc and capture all output streams to a variable.
-        $sfcOutput = & sfc.exe /verifyonly 2>&1 | Out-String
-        Log "SFC /verifyonly raw output:`n$sfcOutput" "DEBUG"
-
-        if ($sfcOutput -match "did not find any integrity violations") {
-            Log "SFC verification completed. No integrity violations found. System files are healthy." "INFO"
-            return # Exit the function as no repair is needed.
-        } elseif ($sfcOutput -match "found integrity violations") {
-            Log "SFC verification found integrity violations. A repair will be initiated." "WARN"
-            $violationsFound = $true
-        } else {
-            # This catches other messages like "could not perform the requested operation"
-            # or other errors, ensuring we proceed with repair as a safe default.
-            Log "SFC verification returned an unexpected status. Assuming a repair is needed. Full output: $sfcOutput" "WARN"
-            $violationsFound = $true
-        }
-    } catch {
-        Log "An unexpected error occurred during SFC /verifyonly operation: $($_.Exception.Message)" "ERROR"
-        Log "Assuming a repair is needed due to the error." "WARN"
-        $violationsFound = $true
-    }
-
-    # --- Step 2: Decide whether to proceed with repair based on verification results ---
-    if ($violationsFound) {
-        $proceedWithRepair = $false
-        if ($VerboseMode) {
-            # Interactive mode: Ask the user.
-            $choice = Read-Host "SFC found potential issues. Do you wish to run a full repair (DISM & SFC /scannow)? (Y/N)"
-            if ($choice -match '^(?i)y(es)?$') {
-                $proceedWithRepair = $true
-            }
-        } else {
-            # Silent mode: Proceed automatically.
-            Log "Silent mode enabled. Proceeding with repair automatically." "INFO"
-            $proceedWithRepair = $true
-        }
-
-        if (-not $proceedWithRepair) {
-            Log "User chose not to proceed with the system file repair. Skipping." "INFO"
-            return
-        }
-    } else {
-        # This case should not be reached due to the 'return' in the try block, but it's good practice.
-        return
-    }
-
     # --- Step 3: Run DISM to ensure the component store is healthy ---
     try {
         Log "Running DISM to check and repair the Windows Component Store. This may take a long time..." "INFO"
-        $dismExitCode = Invoke-ElevatedCommand -FilePath "dism.exe" -Arguments "/Online /Cleanup-Image /RestoreHealth" -LogName "DISM"
+        $dismExitCode = & $InvokeElevatedCommand -FilePath "dism.exe" -Arguments "/Online /Cleanup-Image /RestoreHealth" -LogName "DISM"
 
         if ($dismExitCode -eq 0) {
             Log "DISM completed successfully. The component store is healthy." "INFO"
@@ -593,7 +587,7 @@ function Repair-SystemFiles {
     # --- Step 4: Run SFC in repair mode ---
     try {
         Log "Running System File Checker (SFC) in repair mode (scannow)..." "INFO"
-        Invoke-ElevatedCommand -FilePath "sfc.exe" -Arguments "/scannow" -LogName "SFC Scan"
+        & $InvokeElevatedCommand -FilePath "sfc.exe" -Arguments "/scannow" -LogName "SFC Scan"
         Log "SFC /scannow process completed. Please review the output above for results." "INFO"
     } catch {
         Log "An unexpected error occurred during SFC /scannow operation: $($_.Exception.Message)" "ERROR"
