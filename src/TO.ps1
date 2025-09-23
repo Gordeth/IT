@@ -123,10 +123,6 @@ try {
 Log "Setting Execution Policy to Bypass..."
 Set-ExecutionPolicy Bypass -Scope Process -Force -ErrorAction SilentlyContinue
 
-# ================== INSTALL NUGET PROVIDER ==================
-Install-NuGetProvider
-# Verify if NuGet is installed before proceeding
- 
 # ================== MAIN MENU LOOP ==================
 :MainMenu while ($true) {
     Write-Host ""
@@ -148,6 +144,7 @@ Install-NuGetProvider
     switch ($mainChoice.ToUpper()) {
         '1' {
             Log "Task selected: Machine Preparation (semi-automated)"
+            Install-NuGetProvider
             $powerPlanInfo = Set-TemporaryMaxPerformancePlan
             try {
                 Invoke-Script -ScriptName "CLEANUP.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode -ScriptParameters @{ CleanupMode = 'Light' }
@@ -165,6 +162,7 @@ Install-NuGetProvider
         }
         '2' {
             Log "Task selected: Windows Maintenance"
+            Install-NuGetProvider
             $powerPlanInfo = Set-TemporaryMaxPerformancePlan
             try {
                 Invoke-Script -ScriptName "CLEANUP.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode -ScriptParameters @{ CleanupMode = 'Light' }
@@ -205,6 +203,7 @@ Install-NuGetProvider
                 switch ($subChoice.ToUpper()) {
                     'A' {
                         Log "Individual Task: Run Windows Updates"
+                        Install-NuGetProvider
                         $powerPlanInfo = Set-TemporaryMaxPerformancePlan
                         try {
                             Invoke-Script -ScriptName "WUA.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode -ScriptParameters @{}
