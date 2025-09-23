@@ -92,6 +92,34 @@ function Get-UnifiDirectory {
     return $null
 }
 
+# --- Helper function to start, wait, and stop the UniFi application ---
+function Restart-UnifiApplication {
+    param(
+        [int]$WaitSeconds,
+        [string]$Reason
+    )
+    Log "Attempting to start and stop UniFi Application: $Reason" "INFO"
+    $unifiDir = Get-UnifiDirectory
+    if ($unifiDir) {
+        $javawExe = Join-Path -Path $unifiDir -ChildPath "jre\bin\javaw.exe"
+        $aceJarPath = Join-Path -Path $unifiDir -ChildPath "lib\ace.jar"
+        $arguments = "--add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.time=ALL-UNNAMED --add-opens java.base/sun.security.util=ALL-UNNAMED --add-opens java.base/java.io=ALL-UNNAMED --add-opens java.rmi/sun.rmi.transport=ALL-UNNAMED -jar `"$aceJarPath`" ui"
+        
+        $process = Start-Process -FilePath $javawExe -ArgumentList $arguments -PassThru
+        if ($process) {
+            Log "UniFi Network Application process started with ID: $($process.Id)" "INFO"
+            Log "Waiting for $WaitSeconds seconds for initialization..." "INFO"
+            Start-Sleep -Seconds $WaitSeconds
+            Log "Stopping UniFi Network Application..." "INFO"
+            Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+            Log "UniFi Network Application stopped." "INFO"
+        } else {
+            Log "ERROR: Failed to start UniFi Network Application process." "ERROR"
+        }
+    } else {
+        Log "WARNING: ace.jar not found in any of the possible locations. Skipping application restart." "WARN"
+    }
+}
 
 # --- Step 1: Define Variables and Check for Existing Installation ---
 
@@ -208,30 +236,7 @@ exit
 }
 
 # --- Step 3.5: Start UniFi Network Application for the first time ---
-Log "Starting UniFi Network Application for the first time..." "INFO"
-
-$unifiDir = Get-UnifiDirectory
-
-if ($unifiDir) {
-    $javawExe = Join-Path -Path $unifiDir -ChildPath "jre\bin\javaw.exe"
-    $aceJarPath = Join-Path -Path $unifiDir -ChildPath "lib\ace.jar"
-    Log "Found javaw.exe at: $javawExe" "INFO"
-    Log "Found ace.jar at: $aceJarPath" "INFO"
-    $arguments = "--add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.time=ALL-UNNAMED --add-opens java.base/sun.security.util=ALL-UNNAMED --add-opens java.base/java.io=ALL-UNNAMED --add-opens java.rmi/sun.rmi.transport=ALL-UNNAMED -jar `"$aceJarPath`" ui"
-    $process = Start-Process -FilePath $javawExe -ArgumentList $arguments -PassThru
-    if ($process) {
-        Log "UniFi Network Application process started with ID: $($process.Id)" "INFO"
-        Log "Waiting for UniFi Network Application to initialize..." "INFO"
-        Start-Sleep -Seconds 90
-        Log "Stopping UniFi Network Application..." "INFO"
-        Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
-        Log "UniFi Network Application stopped." "INFO"
-    } else {
-        Log "ERROR: Failed to start UniFi Network Application process." "ERROR"
-    }
-} else {
-    Log "WARNING: ace.jar not found in any of the possible locations. Skipping first start." "WARN"
-}
+Restart-UnifiApplication -WaitSeconds 90 -Reason "First-time initialization"
 
 # --- Step 4: Add Firewall Rules ---
 Log "Configuring firewall rules..." "INFO"
@@ -251,30 +256,7 @@ foreach ($port in $ports) {
 }
 
 # --- Step 4.5: Restart UniFi Network Application to apply new firewall rules ---
-Log "Restarting UniFi Network Application to apply new firewall rules..." "INFO"
-
-$unifiDir = Get-UnifiDirectory
-
-if ($unifiDir) {
-    $javawExe = Join-Path -Path $unifiDir -ChildPath "jre\bin\javaw.exe"
-    $aceJarPath = Join-Path -Path $unifiDir -ChildPath "lib\ace.jar"
-    Log "Found javaw.exe at: $javawExe" "INFO"
-    Log "Found ace.jar at: $aceJarPath" "INFO"
-    $arguments = "--add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.time=ALL-UNNAMED --add-opens java.base/sun.security.util=ALL-UNNAMED --add-opens java.base/java.io=ALL-UNNAMED --add-opens java.rmi/sun.rmi.transport=ALL-UNNAMED -jar `"$aceJarPath`" ui"
-    $process = Start-Process -FilePath $javawExe -ArgumentList $arguments -PassThru
-    if ($process) {
-        Log "UniFi Network Application process started with ID: $($process.Id)" "INFO"
-        Log "Waiting for UniFi Network Application to initialize after firewall changes..." "INFO"
-        Start-Sleep -Seconds 30 # Shorter sleep for restart
-        Log "Stopping UniFi Network Application..." "INFO"
-        Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
-        Log "UniFi Network Application stopped." "INFO"
-    } else {
-        Log "ERROR: Failed to restart UniFi Network Application process." "ERROR"
-    }
-} else {
-    Log "WARNING: ace.jar not found in any of the possible locations. Skipping restart." "WARN"
-}
+Restart-UnifiApplication -WaitSeconds 30 -Reason "Applying new firewall rules"
 
 # --- Step 5: Install and Start the Service ---
 Log "Installing UniFi as a Windows service..." "INFO"
