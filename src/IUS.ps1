@@ -125,11 +125,10 @@ function Restart-UnifiApplication {
 
 Log "Defining variables and checking for existing installation..." "INFO"
 
-$unifiDir = "$env:UserProfile\Ubiquiti UniFi"
-$aceJarPath = Join-Path -Path $unifiDir -ChildPath "lib\ace.jar"
-
+$unifiDir = Get-UnifiDirectory
 # Check if UniFi is already installed
-if (Test-Path -Path $aceJarPath) {
+if ($unifiDir) {
+  $aceJarPath = Join-Path -Path $unifiDir -ChildPath "lib\ace.jar"
   Log "Existing UniFi installation found at '$unifiDir'." "WARN"
   Log "Initiating upgrade procedure..." "INFO"
   Log "NOTE: Please ensure you have a backup of your UniFi Network Server configuration before proceeding." "INFO"
