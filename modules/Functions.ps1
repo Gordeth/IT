@@ -510,19 +510,27 @@ function Repair-SystemFiles {
         # Run sfc and capture all output streams to a variable.
         $sfcOutput = & sfc.exe /verifyonly 2>&1
 
-        $normalizedOutput = ($sfcOutput | Out-String).Trim()
-        Log "Normalized SFC output:`n$normalizedOutput" "DEBUG"
+        $sfcOutputText = $sfcOutput | Out-String
+        # For troubleshooting, save the raw output to a temp file.
+        $sfcLogPath = "$env:TEMP\SFC_VerifyOnly.log"
+        $sfcOutputText | Out-File -FilePath $sfcLogPath -Encoding UTF8
+        Log "Raw SFC output saved to $sfcLogPath for review." "DEBUG"
 
-        if ($normalizedOutput -match "did not find any integrity violations") {
+        if ($VerboseMode) {
+            Log "Opening SFC output log for debugging..." "DEBUG"
+            Invoke-Item -Path $sfcLogPath
+        }
+
+        if ($sfcOutputText | Select-String -Pattern "Windows Resource Protection did not find any integrity violations." -SimpleMatch -Quiet) {
             Log "SFC verification completed. No integrity violations found. System files are healthy." "INFO"
             return
-        } elseif ($normalizedOutput -match "found.*integrity violations") {
+        } elseif ($sfcOutputText | Select-String -Pattern "Windows Resource Protection found integrity violations." -SimpleMatch -Quiet) {
             Log "SFC verification found integrity violations. A repair will be initiated." "WARN"
-        } elseif ($normalizedOutput -match "could not perform the requested operation") {
+        } elseif ($sfcOutputText | Select-String -Pattern "Windows Resource Protection could not perform the requested operation." -SimpleMatch -Quiet) {
             Log "SFC could not perform the requested operation. Proceeding with repair." "WARN"
         } else {
             # This catches other messages or errors, ensuring we proceed with repair as a safe default.
-            Log "SFC output could not be parsed reliably. Proceeding with repair as a precaution. Full output: $($sfcOutput | Out-String)" "WARN"
+            Log "SFC output could not be parsed reliably. Proceeding with repair as a precaution. Full output: $sfcOutputText" "WARN"
         }
     } catch {
         Log "An unexpected error occurred during SFC /verifyonly operation: $($_.Exception.Message)" "ERROR"
