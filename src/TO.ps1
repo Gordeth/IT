@@ -126,6 +126,23 @@ Set-ExecutionPolicy Bypass -Scope Process -Force -ErrorAction SilentlyContinue
 # ================== MAIN MENU LOOP ==================
 :MainMenu while ($true) {
     Write-Host ""
+
+    # Helper function to wrap individual tasks with power plan management
+    function Invoke-IndividualTask {
+        param(
+            [string]$TaskName,
+            [string]$ScriptName,
+            [hashtable]$ScriptParameters = @{}
+        )
+        Log "Individual Task: $TaskName"
+        $powerPlanInfo = Set-TemporaryMaxPerformancePlan
+        try {
+            Invoke-Script -ScriptName $ScriptName -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode -ScriptParameters $ScriptParameters
+        } finally {
+            Restore-PowerPlan -PowerPlanInfo $powerPlanInfo
+        }
+    }
+
     Write-Host "--- Main Menu ---"
     Write-Host "Select a task to perform:"
     Write-Host ""
@@ -202,72 +219,35 @@ Set-ExecutionPolicy Bypass -Scope Process -Force -ErrorAction SilentlyContinue
 
                 switch ($subChoice.ToUpper()) {
                     'A' {
-                        Log "Individual Task: Run Windows Updates"
                         Install-NuGetProvider
-                        $powerPlanInfo = Set-TemporaryMaxPerformancePlan
-                        try {
-                            Invoke-Script -ScriptName "WUA.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode -ScriptParameters @{}
-                        } finally {
-                            Restore-PowerPlan -PowerPlanInfo $powerPlanInfo
-                        }
+                        Invoke-IndividualTask -TaskName "Run Windows Updates" -ScriptName "WUA.ps1"
                     }
                     'B' {
-                        Log "Individual Task: Update Applications (Winget)"
-                        $powerPlanInfo = Set-TemporaryMaxPerformancePlan
-                        try {
-                            Invoke-Script -ScriptName "WGET.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode -ScriptParameters @{}
-                        } finally {
-                            Restore-PowerPlan -PowerPlanInfo $powerPlanInfo
-                        }
+                        Invoke-IndividualTask -TaskName "Update Applications (Winget)" -ScriptName "WGET.ps1"
                     }
                     'C' {
-                        Log "Individual Task: Update Microsoft Office"
-                        $powerPlanInfo = Set-TemporaryMaxPerformancePlan
-                        try {
-                            if (Confirm-OfficeInstalled) { Invoke-Script -ScriptName "MSO_UPDATE.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode -ScriptParameters @{} }
-                            else { Log "Microsoft Office not detected. Skipping." }
-                        } finally {
-                            Restore-PowerPlan -PowerPlanInfo $powerPlanInfo
+                        if (Confirm-OfficeInstalled) {
+                            Invoke-IndividualTask -TaskName "Update Microsoft Office" -ScriptName "MSO_UPDATE.ps1"
+                        } else {
+                            Log "Microsoft Office not detected. Skipping."
                         }
                     }
                     'D' {
-                        Log "Individual Task: Repair System Files"
-                        $powerPlanInfo = Set-TemporaryMaxPerformancePlan
-                        try {
-                            Invoke-Script -ScriptName "REPAIR.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode -ScriptParameters @{}
-                        } finally {
-                            Restore-PowerPlan -PowerPlanInfo $powerPlanInfo
-                        }
+                        Invoke-IndividualTask -TaskName "Repair System Files" -ScriptName "REPAIR.ps1"
                     }
                     'E' {
-                        Log "Individual Task: Install Chocolatey"
-                        $powerPlanInfo = Set-TemporaryMaxPerformancePlan
-                        try {
-                            Install-Chocolatey
-                        } finally {
-                            Restore-PowerPlan -PowerPlanInfo $powerPlanInfo
-                        }
+                        Invoke-IndividualTask -TaskName "Install Chocolatey" -ScriptName "Install-Chocolatey.ps1" # This assumes a wrapper script or direct call
+                        Install-Chocolatey # Or call directly if it's simple
                     }
                     'F' {
-                        Log "Individual Task: Uninstall Chocolatey"
-                        $powerPlanInfo = Set-TemporaryMaxPerformancePlan
-                        try {
-                            Uninstall-Chocolatey
-                        } finally {
-                            Restore-PowerPlan -PowerPlanInfo $powerPlanInfo
-                        }
+                        Invoke-IndividualTask -TaskName "Uninstall Chocolatey" -ScriptName "Uninstall-Chocolatey.ps1" # This assumes a wrapper script or direct call
+                        Uninstall-Chocolatey # Or call directly if it's simple
                     }
                     'G' {
-                        Log "Individual Task: System Cleanup"
-                        $powerPlanInfo = Set-TemporaryMaxPerformancePlan
-                        try {
-                            $cleanupChoice = Read-Host "Choose cleanup mode: [L]ight or [F]ull"
-                            $cleanupMode = if ($cleanupChoice.ToUpper() -eq 'L') { 'Light' } else { 'Full' }
-                            Log "Selected cleanup mode: $cleanupMode"
-                            Invoke-Script -ScriptName "CLEANUP.ps1" -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode -ScriptParameters @{ CleanupMode = $cleanupMode }
-                        } finally {
-                            Restore-PowerPlan -PowerPlanInfo $powerPlanInfo
-                        }
+                        $cleanupChoice = Read-Host "Choose cleanup mode: [L]ight or [F]ull"
+                        $cleanupMode = if ($cleanupChoice.ToUpper() -eq 'L') { 'Light' } else { 'Full' }
+                        Log "Selected cleanup mode: $cleanupMode"
+                        Invoke-IndividualTask -TaskName "System Cleanup" -ScriptName "CLEANUP.ps1" -ScriptParameters @{ CleanupMode = $cleanupMode }
                     }
                     'M' { Log "Returning to Main Menu..."; break SubMenu }
                     default { Write-Host "Invalid input. Please choose a valid option." -ForegroundColor Red }
