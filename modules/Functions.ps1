@@ -539,54 +539,29 @@ function Repair-SystemFiles {
         $pinfo.StandardOutputEncoding = [System.Text.Encoding]::Unicode
         $pinfo.StandardErrorEncoding = [System.Text.Encoding]::Unicode
 
-        $p = New-Object System.Diagnostics.Process
-        $p.StartInfo = $pinfo
-
-        # Use a synchronized list to store output from multiple event handler threads.
-        $outputLines = [System.Collections.ArrayList]::Synchronized( (New-Object System.Collections.ArrayList) )
-
-        # Register event handlers to capture output data as it is generated.
-        # Use .GetNewClosure() to ensure the event handler scriptblocks can access local variables ($outputLines, $VerboseMode).
-        $outputHandler = {
-            param($source, $e)
-            if ($null -ne $e.Data) { # Check for null, which indicates the end of the stream.
-                [void]$outputLines.Add($e.Data)
-                if ($VerboseMode) { $Host.UI.WriteLine($e.Data) } # Use $Host.UI.WriteLine for thread-safe console output.
-            }
-        }.GetNewClosure()
-
-        $errorHandler = {
-            param($source, $e)
-            if ($null -ne $e.Data) {
-                [void]$outputLines.Add($e.Data)
-                if ($VerboseMode) { $Host.UI.WriteLine("STDERR: $($e.Data)") } # Use a simple, thread-safe call to avoid process crashes.
-            }
-        }.GetNewClosure()
-
-        # Explicitly create the delegate types from the script blocks.
-        # This makes the intent clear and can provide better errors if the script block is incompatible.
-        $outputDelegate = [System.Diagnostics.DataReceivedEventHandler]$outputHandler
-        $errorDelegate = [System.Diagnostics.DataReceivedEventHandler]$errorHandler
-
-        # Use the add_EventName syntax to subscribe to the events using the created delegates.
-        $p.add_OutputDataReceived($outputDelegate)
-        $p.add_ErrorDataReceived($errorDelegate)
+        $sfcOutputText = ""
+        $exitCode = -1
 
         try {
+            $p = New-Object System.Diagnostics.Process
+            $p.StartInfo = $pinfo
+
             $p.Start() | Out-Null
-            $p.BeginOutputReadLine()
-            $p.BeginErrorReadLine()
+
+            # Synchronously read the output streams. This is simpler and more stable than async events.
+            # It sacrifices real-time console output for the sfc /verifyonly step, but ensures stability.
+            $output = $p.StandardOutput.ReadToEnd()
+            $errors = $p.StandardError.ReadToEnd()
 
             $p.WaitForExit()
             $exitCode = $p.ExitCode
+            $sfcOutputText = $output + $errors
         } finally {
-            # Unsubscribe from events to prevent potential memory leaks.
-            $p.remove_OutputDataReceived($outputDelegate)
-            $p.remove_ErrorDataReceived($errorDelegate)
+            if ($p) {
+                $p.Dispose()
+            }
         }
         Log "SFC /verifyonly process completed with exit code: $exitCode." "DEBUG"
-
-        $sfcOutputText = $outputLines -join [System.Environment]::NewLine
 
         # For troubleshooting, save the raw output to a more permanent temp file.
         $sfcLogPath = "$env:TEMP\SFC_VerifyOnly.log"
