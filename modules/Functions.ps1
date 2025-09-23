@@ -521,12 +521,22 @@ function Repair-SystemFiles {
             Invoke-Item -Path $sfcLogPath
         }
 
-        if ($sfcOutputText | Select-String -Pattern "Windows Resource Protection did not find any integrity violations." -SimpleMatch -Quiet) {
+        # Normalize the output to handle potential encoding issues from sfc.exe (e.g., extra spaces/nulls).
+        # We remove all non-alphanumeric characters and convert to lowercase for a reliable match.
+        $normalizedOutput = ($sfcOutputText -replace '[^a-zA-Z0-9]').ToLower()
+        Log "Normalized SFC output for parsing: $normalizedOutput" "DEBUG"
+
+        # Define spaceless, lowercase patterns for matching. These are robust against the encoding issues.
+        $successPattern = "windowsresourceprotectiondidnotfindanyintegrityviolations"
+        $foundPattern = "windowsresourceprotectionfoundintegrityviolations"
+        $couldnotPattern = "windowsresourceprotectioncouldnotperformtherequestedoperation"
+
+        if ($normalizedOutput -match $successPattern) {
             Log "SFC verification completed. No integrity violations found. System files are healthy." "INFO"
             return
-        } elseif ($sfcOutputText | Select-String -Pattern "Windows Resource Protection found integrity violations." -SimpleMatch -Quiet) {
+        } elseif ($normalizedOutput -match $foundPattern) {
             Log "SFC verification found integrity violations. A repair will be initiated." "WARN"
-        } elseif ($sfcOutputText | Select-String -Pattern "Windows Resource Protection could not perform the requested operation." -SimpleMatch -Quiet) {
+        } elseif ($normalizedOutput -match $couldnotPattern) {
             Log "SFC could not perform the requested operation. Proceeding with repair." "WARN"
         } else {
             # This catches other messages or errors, ensuring we proceed with repair as a safe default.
