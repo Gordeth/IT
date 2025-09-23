@@ -123,25 +123,25 @@ try {
 Log "Setting Execution Policy to Bypass..."
 Set-ExecutionPolicy Bypass -Scope Process -Force -ErrorAction SilentlyContinue
 
+# Helper function to wrap individual tasks with power plan management
+function Invoke-IndividualTask {
+    param(
+        [string]$TaskName,
+        [string]$ScriptName,
+        [hashtable]$ScriptParameters = @{}
+    )
+    Log "Individual Task: $TaskName"
+    $powerPlanInfo = Set-TemporaryMaxPerformancePlan
+    try {
+        Invoke-Script -ScriptName $ScriptName -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode -ScriptParameters $ScriptParameters
+    } finally {
+        Restore-PowerPlan -PowerPlanInfo $powerPlanInfo
+    }
+}
+
 # ================== MAIN MENU LOOP ==================
 :MainMenu while ($true) {
     Write-Host ""
-
-    # Helper function to wrap individual tasks with power plan management
-    function Invoke-IndividualTask {
-        param(
-            [string]$TaskName,
-            [string]$ScriptName,
-            [hashtable]$ScriptParameters = @{}
-        )
-        Log "Individual Task: $TaskName"
-        $powerPlanInfo = Set-TemporaryMaxPerformancePlan
-        try {
-            Invoke-Script -ScriptName $ScriptName -ScriptDir $ScriptDir -LogDir $LogDir -VerboseMode $VerboseMode -ScriptParameters $ScriptParameters
-        } finally {
-            Restore-PowerPlan -PowerPlanInfo $powerPlanInfo
-        }
-    }
 
     Write-Host "--- Main Menu ---"
     Write-Host "Select a task to perform:"
