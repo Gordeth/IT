@@ -6,6 +6,9 @@
 #
 # ================== Change Log ================== 
 #
+# V 1.0.19
+# - Moved the `Repair-SystemFiles` function to a new standalone script, `src/REPAIR.ps1`, to better handle reboots.
+#
 # V 1.0.18
 # - Updated `Invoke-Script` to accept a hashtable of parameters (`$ScriptParameters`) for more flexible child script execution.
 # V 1.0.17
@@ -635,125 +638,4 @@ function Confirm-OfficeInstalled {
         }
     }
     return $false # Return false if no Office paths are found
-}
-
-# ================== FUNCTION: REPAIR SYSTEM FILES (SFC & DISM) ==================
-# Runs SFC and DISM to check for and repair Windows system file corruption.
-function Repair-SystemFiles {
-    Log "Starting system file integrity check and repair process..." "INFO"
-
-    # Define paths to system executables. Assuming a 64-bit PowerShell environment.
-    # This simplifies the logic by removing the check for 32-bit PowerShell on 64-bit Windows (WoW64).
-    $sfcPath = "$env:windir\System32\sfc.exe"
-    $dismPath = "$env:windir\System32\dism.exe"
-
-    # --- Step 1: Run SFC in verification mode and parse console output ---
-    try {
-        Log "Running System File Checker (SFC) in verification-only mode..." "INFO"
-        # Use the .NET Process class for robust output handling and real-time display.
-        $pinfo = New-Object System.Diagnostics.ProcessStartInfo
-        $pinfo.FileName = $sfcPath
-        $pinfo.Arguments = "/verifyonly"
-        $pinfo.RedirectStandardError = $true
-        $pinfo.RedirectStandardOutput = $true
-        $pinfo.UseShellExecute = $false
-        $pinfo.CreateNoWindow = $true
-        # sfc.exe outputs Unicode, so we must specify the encoding to read it correctly.
-        $pinfo.StandardOutputEncoding = [System.Text.Encoding]::Unicode
-        $pinfo.StandardErrorEncoding = [System.Text.Encoding]::Unicode
-
-        $sfcOutputText = ""
-        $exitCode = -1
-
-        try {
-            $p = New-Object System.Diagnostics.Process
-            $p.StartInfo = $pinfo
-
-            $p.Start() | Out-Null
-
-            # Synchronously read the output streams. This is simpler and more stable than async events.
-            # It sacrifices real-time console output for the sfc /verifyonly step, but ensures stability.
-            $output = $p.StandardOutput.ReadToEnd()
-            $errors = $p.StandardError.ReadToEnd()
-
-            $p.WaitForExit()
-            $exitCode = $p.ExitCode
-            $sfcOutputText = $output + $errors
-        } finally {
-            if ($p) {
-                $p.Dispose()
-            }
-        }
-
-        # Normalize the output to handle potential encoding issues from sfc.exe (e.g., extra spaces/nulls).
-        # We remove all non-alphanumeric characters and convert to lowercase for a reliable match.
-        $normalizedOutput = ($sfcOutputText -replace '[^a-zA-Z0-9]').ToLower()
-
-        # Define spaceless, lowercase patterns for matching. These are robust against the encoding issues.
-        $successPattern = "windowsresourceprotectiondidnotfindanyintegrityviolations"
-        $foundPattern = "windowsresourceprotectionfoundintegrityviolations"
-        $couldnotPattern = "windowsresourceprotectioncouldnotperformtherequestedoperation"
-
-        if ($normalizedOutput -match $successPattern) {
-            Log "SFC verification completed. No integrity violations found. System files are healthy." "INFO"
-            return
-        } elseif ($normalizedOutput -match $foundPattern) {
-            Log "SFC verification found integrity violations. A repair will be initiated." "WARN"
-        } elseif ($normalizedOutput -match $couldnotPattern) {
-            Log "SFC could not perform the requested operation. Proceeding with repair." "WARN"
-        } else {
-            # This catches other messages or errors, ensuring we proceed with repair as a safe default.
-            Log "SFC output could not be parsed reliably. Proceeding with repair as a precaution. Full output: $sfcOutputText" "WARN"
-        }
-    } catch {
-        Log "An unexpected error occurred during SFC /verifyonly operation: $($_.Exception.Message)" "ERROR"
-        Log "Assuming a repair is needed due to the error." "WARN"
-    }
-
-    # --- Step 2: If we reached this point, a repair is needed. Confirm with user if in verbose mode. ---
-    $proceedWithRepair = $false
-    if ($VerboseMode) {
-        # Interactive mode: Ask the user.
-        $choice = Read-Host "SFC found potential issues. Do you wish to run a full repair (DISM & SFC /scannow)? (Y/N)"
-        if ($choice -match '^(?i)y(es)?$') {
-            $proceedWithRepair = $true
-        }
-    } else {
-        # Silent mode: Proceed automatically.
-        Log "Silent mode enabled. Proceeding with repair automatically." "INFO"
-        $proceedWithRepair = $true
-    }
-
-    if (-not $proceedWithRepair) {
-        Log "User chose not to proceed with the system file repair. Skipping." "INFO"
-        return
-    }
-
-    # --- Step 3: Create System Restore Point before repair ---
-    New-SystemRestorePoint -Description "Pre-System_Repair"
-
-    # --- Step 4: Run DISM to ensure the component store is healthy ---
-    try {
-        Log "Running DISM to check and repair the Windows Component Store. This may take a long time..." "INFO"
-        # Use the new robust command invocation function.
-        $dismExitCode = Invoke-CommandWithLogging -FilePath $dismPath -Arguments "/Online /Cleanup-Image /RestoreHealth" -LogName "DISM" -LogDir $LogDir -VerboseMode:$VerboseMode
-
-        if ($dismExitCode -eq 0) {
-            Log "DISM completed successfully. The component store is healthy." "INFO"
-        } else {
-            Log "DISM finished with a non-zero exit code ($dismExitCode). The component store may have issues. See DISM.log for details." "WARN"
-        }
-    } catch {
-        Log "An unexpected error occurred while running DISM: $($_.Exception.Message)" "ERROR"
-        Log "Proceeding to SFC despite DISM error." "WARN"
-    }
-
-    # --- Step 5: Run SFC in repair mode ---
-    try {
-        Log "Running System File Checker (SFC) in repair mode (scannow)..." "INFO"
-        Invoke-CommandWithLogging -FilePath $sfcPath -Arguments "/scannow" -LogName "SFC_Scan" -LogDir $LogDir -VerboseMode:$VerboseMode
-        Log "SFC /scannow process completed. Please review the SFC_Scan.log file for results." "INFO"
-    } catch {
-        Log "An unexpected error occurred during SFC /scannow operation: $($_.Exception.Message)" "ERROR"
-    }
 }
