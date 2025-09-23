@@ -12,10 +12,14 @@
     The full path to the log directory where all script actions will be recorded.
 .NOTES
     Script: REPAIR.ps1
-    Version: 1.0.0
+    Version: 1.2.0
     Dependencies:
         - PowerShell 5.1 or later.
     Changelog:
+        v1.2.0
+        - Expanded DISM repair sequence to include CheckHealth, ScanHealth, and StartComponentCleanup before RestoreHealth.
+        v1.1.0
+        - Added DISM repair logic when SFC /scannow fails to repair files.
         v1.0.0
         - Initial release. Logic moved from Functions.ps1/Repair-SystemFiles.
         - Added reboot handling.
@@ -45,7 +49,7 @@ if (-not (Test-Path $LogFile)) {
 }
 
 # ==================== Script Execution ====================
-Log "Starting REPAIR.ps1 script v1.0.0..." "INFO"
+Log "Starting REPAIR.ps1 script v1.2.0..." "INFO"
 
 Log "Starting system file integrity check and repair process..." "INFO"
 
@@ -118,30 +122,87 @@ New-SystemRestorePoint -Description "Pre-System_Repair"
 $rebootRequired = $false
 try {
     Log "Running System File Checker (SFC) in repair mode (scannow)..." "INFO"
-    Invoke-CommandWithLogging -FilePath $sfcPath -Arguments "/scannow" -LogName "SFC_Scan" -LogDir $LogDir -VerboseMode:$VerboseMode
+    # First SFC run
+    Invoke-CommandWithLogging -FilePath $sfcPath -Arguments "/scannow" -LogName "SFC_Scan_1" -LogDir $LogDir -VerboseMode:$VerboseMode
     
-    $sfcScanLog = Join-Path $LogDir "SFC_Scan.log"
-    if (Test-Path $sfcScanLog) {
-        $sfcScanOutput = Get-Content -Path $sfcScanLog -Raw
-        $normalizedOutput = ($sfcScanOutput -replace '[^a-zA-Z0-9]').ToLower()
+    $sfcScanLog1 = Join-Path $LogDir "SFC_Scan_1.log"
+    if (Test-Path $sfcScanLog1) {
+        $sfcScanOutput1 = Get-Content -Path $sfcScanLog1 -Raw
+        $normalizedOutput1 = ($sfcScanOutput1 -replace '[^a-zA-Z0-9]').ToLower()
 
-        if ($normalizedOutput -match "windowsresourceprotectionfoundintegrityviolationsandsuccessfullyrepairedthem") {
+        # Define patterns for different outcomes
+        $sfcSuccessRepairedPattern = "windowsresourceprotectionfoundintegrityviolationsandsuccessfullyrepairedthem"
+        $sfcFailureUnableToFixPattern = "windowsresourceprotectionfoundintegrityviolationsbutwasunabletofixsomeofthem"
+        $sfcFailureCouldNotPerformPattern = "windowsresourceprotectioncouldnotperformtherequestedoperation"
+        $sfcSuccessNoViolationsPattern = "windowsresourceprotectiondidnotfindanyintegrityviolations"
+        $sfcRebootRequiredPattern = "repairstotakeeffect"
+
+        if ($normalizedOutput1 -match $sfcSuccessRepairedPattern) {
             Log "SFC /scannow completed and successfully repaired system files." "INFO"
-        } elseif ($normalizedOutput -match "windowsresourceprotectionfoundintegrityviolationsbutwasunabletofixsomeofthem") {
-            Log "SFC /scannow found corrupt files but was UNABLE to fix them. Manual review of CBS.log is required (C:\Windows\Logs\CBS\CBS.log)." "ERROR"
-        } elseif ($normalizedOutput -match "windowsresourceprotectioncouldnotperformtherequestedoperation") {
-            Log "SFC /scannow could not perform the repair. Manual review of CBS.log is required." "ERROR"
+            $rebootRequired = $true
+        } elseif ($normalizedOutput1 -match $sfcFailureUnableToFixPattern -or $normalizedOutput1 -match $sfcFailureCouldNotPerformPattern) {
+            Log "SFC /scannow could not repair all files. Attempting to repair the Windows Component Store with DISM." "WARN"
+            $dismPath = "$env:windir\System32\dism.exe"
+            $dismFailed = $false
+
+            try {
+                Log "Running DISM /Online /Cleanup-Image /CheckHealth..." "INFO"
+                Invoke-CommandWithLogging -FilePath $dismPath -Arguments "/Online /Cleanup-Image /CheckHealth" -LogName "DISM_CheckHealth" -LogDir $LogDir -VerboseMode:$VerboseMode
+
+                Log "Running DISM /Online /Cleanup-Image /ScanHealth. This may take some time..." "INFO"
+                Invoke-CommandWithLogging -FilePath $dismPath -Arguments "/Online /Cleanup-Image /ScanHealth" -LogName "DISM_ScanHealth" -LogDir $LogDir -VerboseMode:$VerboseMode
+
+                Log "Running DISM /Online /Cleanup-Image /StartComponentCleanup. This may take some time..." "INFO"
+                Invoke-CommandWithLogging -FilePath $dismPath -Arguments "/Online /Cleanup-Image /StartComponentCleanup" -LogName "DISM_StartComponentCleanup" -LogDir $LogDir -VerboseMode:$VerboseMode
+
+                Log "Running DISM /Online /Cleanup-Image /RestoreHealth. This may take a long time..." "INFO"
+                $dismRestoreHealthExitCode = Invoke-CommandWithLogging -FilePath $dismPath -Arguments "/Online /Cleanup-Image /RestoreHealth" -LogName "DISM_RestoreHealth" -LogDir $LogDir -VerboseMode:$VerboseMode
+                if ($dismRestoreHealthExitCode -ne 0) {
+                    Log "DISM /RestoreHealth failed with exit code $dismRestoreHealthExitCode. Manual intervention may be required." "ERROR"
+                    $dismFailed = $true
+                }
+            } catch {
+                Log "A critical error occurred during the DISM repair sequence: $($_.Exception.Message)" "ERROR"
+                $dismFailed = $true
+            }
+
+            if (-not $dismFailed) {
+                Log "DISM repair sequence completed. Running SFC /scannow again to finalize repairs." "INFO"
+                # Second SFC run
+                Invoke-CommandWithLogging -FilePath $sfcPath -Arguments "/scannow" -LogName "SFC_Scan_2" -LogDir $LogDir -VerboseMode:$VerboseMode
+
+                $sfcScanLog2 = Join-Path $LogDir "SFC_Scan_2.log"
+                if (Test-Path $sfcScanLog2) {
+                    $sfcScanOutput2 = Get-Content -Path $sfcScanLog2 -Raw
+                    $normalizedOutput2 = ($sfcScanOutput2 -replace '[^a-zA-Z0-9]').ToLower()
+
+                    if ($normalizedOutput2 -match $sfcSuccessRepairedPattern) {
+                        Log "SFC (second run) successfully repaired remaining system files." "INFO"
+                        $rebootRequired = $true
+                    } elseif ($normalizedOutput2 -match $sfcSuccessNoViolationsPattern) {
+                        Log "SFC (second run) completed and found no integrity violations. The system is now healthy." "INFO"
+                    } else {
+                        Log "SFC (second run) still reports errors. Manual intervention is required. Review CBS.log and all DISM logs." "ERROR"
+                    }
+                    if ($normalizedOutput2 -match $sfcRebootRequiredPattern) { $rebootRequired = $true }
+                }
+            } else {
+                Log "The DISM repair process failed. Skipping the second SFC scan. Manual intervention is required. Review all DISM logs in '$LogDir'." "ERROR"
+            }
+        } elseif ($normalizedOutput1 -match $sfcSuccessNoViolationsPattern) {
+            Log "SFC /scannow completed and found no integrity violations." "INFO"
+        } else {
+            Log "SFC /scannow completed with an unparsed result. Review SFC_Scan_1.log for details." "WARN"
         }
 
-        if ($normalizedOutput -match "repairstotakeeffect") {
-            Log "A system reboot is required to complete the file repairs." "WARN"; $rebootRequired = $true
-        }
+        if ($normalizedOutput1 -match $sfcRebootRequiredPattern) { $rebootRequired = $true }
     }
 } catch {
-    Log "An unexpected error occurred during SFC /scannow operation: $($_.Exception.Message)" "ERROR"
+    Log "An unexpected error occurred during the repair process: $($_.Exception.Message)" "ERROR"
 }
 
 if ($rebootRequired) {
+    Log "A reboot is required to complete the repairs." "WARN"
     $proceedWithReboot = if ($VerboseMode) { (Read-Host "A reboot is required. Reboot now? (Y/N)").ToUpper() -eq 'Y' } else { $true }
     if ($proceedWithReboot) {
         Log "Initiating restart..."; Restart-Computer -Force
