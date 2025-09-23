@@ -75,6 +75,24 @@ if (-not (Test-Path $LogFile)) {
 Log "Running IUS script Version: 2.10.3" "INFO"
 Log "Starting UniFi Network Server installation process..." "INFO"
 
+# --- Helper function to find the UniFi installation directory ---
+function Get-UnifiDirectory {
+    $possiblePaths = @(
+        "$env:UserProfile\Ubiquiti UniFi",
+        "$env:ProgramData\Ubiquiti UniFi",
+        "C:\Windows\SysWOW64\config\systemprofile\Ubiquiti UniFi"
+    )
+
+    foreach ($path in $possiblePaths) {
+        if (Test-Path -Path (Join-Path -Path $path -ChildPath "lib\ace.jar")) {
+            return $path
+        }
+    }
+    # Return null if not found
+    return $null
+}
+
+
 # --- Step 1: Define Variables and Check for Existing Installation ---
 
 Log "Defining variables and checking for existing installation..." "INFO"
@@ -192,19 +210,7 @@ exit
 # --- Step 3.5: Start UniFi Network Application for the first time ---
 Log "Starting UniFi Network Application for the first time..." "INFO"
 
-$possiblePaths = @(
-    "$env:UserProfile\Ubiquiti UniFi",
-    "$env:ProgramData\Ubiquiti UniFi",
-    "C:\Windows\SysWOW64\config\systemprofile\Ubiquiti UniFi"
-)
-
-$unifiDir = $null
-foreach ($path in $possiblePaths) {
-    if (Test-Path -Path (Join-Path -Path $path -ChildPath "lib\ace.jar")) {
-        $unifiDir = $path
-        break
-    }
-}
+$unifiDir = Get-UnifiDirectory
 
 if ($unifiDir) {
     $javawExe = Join-Path -Path $unifiDir -ChildPath "jre\bin\javaw.exe"
@@ -247,13 +253,7 @@ foreach ($port in $ports) {
 # --- Step 4.5: Restart UniFi Network Application to apply new firewall rules ---
 Log "Restarting UniFi Network Application to apply new firewall rules..." "INFO"
 
-$unifiDir = $null
-foreach ($path in $possiblePaths) {
-    if (Test-Path -Path (Join-Path -Path $path -ChildPath "lib\ace.jar")) {
-        $unifiDir = $path
-        break
-    }
-}
+$unifiDir = Get-UnifiDirectory
 
 if ($unifiDir) {
     $javawExe = Join-Path -Path $unifiDir -ChildPath "jre\bin\javaw.exe"
@@ -279,13 +279,7 @@ if ($unifiDir) {
 # --- Step 5: Install and Start the Service ---
 Log "Installing UniFi as a Windows service..." "INFO"
 
-$unifiDir = $null
-foreach ($path in $possiblePaths) {
-    if (Test-Path -Path (Join-Path -Path $path -ChildPath "lib\ace.jar")) {
-        $unifiDir = $path
-        break
-    }
-}
+$unifiDir = Get-UnifiDirectory
 
 if ($unifiDir) {
     $aceJarPath = Join-Path -Path $unifiDir -ChildPath "lib\ace.jar"
