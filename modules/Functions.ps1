@@ -507,62 +507,48 @@ function Repair-SystemFiles {
     # --- Step 1: Run SFC in verification mode and parse console output ---
     try {
         Log "Running System File Checker (SFC) in verification-only mode..." "INFO"
-        # We need to both display output in real-time (in verbose mode) and capture it for parsing.
-        # We'll redirect the command's output to a temporary file and then read from it.
-        $tempSfcLog = New-TemporaryFile
-        $tailJob = $null
-        $sfcOutputText = ""
+        # Use the .NET Process class for robust output handling and real-time display.
+        $pinfo = New-Object System.Diagnostics.ProcessStartInfo
+        $pinfo.FileName = "sfc.exe"
+        $pinfo.Arguments = "/verifyonly"
+        $pinfo.RedirectStandardError = $true
+        $pinfo.RedirectStandardOutput = $true
+        $pinfo.UseShellExecute = $false
+        $pinfo.CreateNoWindow = $true
+        # sfc.exe outputs Unicode, so we must specify the encoding to read it correctly.
+        $pinfo.StandardOutputEncoding = [System.Text.Encoding]::Unicode
+        $pinfo.StandardErrorEncoding = [System.Text.Encoding]::Unicode
 
-        try {
-            # In verbose mode, start a background job to 'tail' the temp log file to the console.
-            if ($VerboseMode) {
-                Log "SFC output will be displayed in real-time." "INFO"
-                # The job now correctly specifies Unicode encoding to prevent garbled output.
-                $tailJob = Start-Job { Get-Content -Path $using:tempSfcLog.FullName -Wait -Encoding Unicode }
-            }
+        $p = New-Object System.Diagnostics.Process
+        $p.StartInfo = $pinfo
 
-            # Construct the command to be run inside cmd.exe, which can correctly redirect both stdout and stderr to the same file.
-            $commandToRun = "sfc.exe /verifyonly 1> ""$($tempSfcLog.FullName)"" 2>&1"
+        # Use a synchronized list to store output from multiple event handler threads.
+        $outputLines = [System.Collections.ArrayList]::Synchronized( (New-Object System.Collections.ArrayList) )
+        $verboseCapture = $VerboseMode # Capture value for use in event handler script block.
 
-            # Use Start-Process with cmd.exe to run the command and control window visibility.
-            $processArgs = @{
-                FilePath     = "cmd.exe"
-                ArgumentList = "/c $commandToRun"
-                PassThru     = $true
+        # Register event handlers to capture output data as it is generated.
+        $p.OutputDataReceived.add({
+            if ($_.Data) {
+                [void]$outputLines.Add($_.Data)
+                if ($verboseCapture) { Write-Host $_.Data } # Display in real-time if in verbose mode.
             }
-            if ($VerboseMode) {
-                $processArgs.NoNewWindow = $true
-                $processArgs.Wait = $false # Don't wait, so we can poll for output.
-                $process = Start-Process @processArgs
+        })
+        $p.ErrorDataReceived.add({
+            if ($_.Data) {
+                [void]$outputLines.Add($_.Data)
+                if ($verboseCapture) { Write-Host $_.Data -ForegroundColor Yellow } # Display errors in real-time.
+            }
+        })
 
-                # Poll the job for output while the process is running to provide real-time feedback.
-                while (-not $process.HasExited) {
-                    Receive-Job $tailJob | Out-Host
-                    Start-Sleep -Milliseconds 250
-                }
-                # Final check for any remaining output after the process exits.
-                Receive-Job $tailJob | Out-Host
-            } else {
-                $processArgs.WindowStyle = 'Hidden'
-                $processArgs.Wait = $true # In silent mode, just wait for it to finish.
-                $process = Start-Process @processArgs
-            }
-            Log "SFC /verifyonly process completed with exit code: $($process.ExitCode)." "DEBUG"
+        $p.Start() | Out-Null
+        $p.BeginOutputReadLine()
+        $p.BeginErrorReadLine()
 
-        } finally {
-            # Stop the tailing job if it was started.
-            if ($tailJob) {
-                Stop-Job $tailJob
-                # Receive output from job to display any remaining lines
-                Receive-Job $tailJob | Out-Null # Flush any remaining job output, already displayed by the loop.
-                Remove-Job $tailJob -Force
-            }
-            # Read the captured output from the temporary file for parsing.
-            if (Test-Path $tempSfcLog.FullName) {
-                $sfcOutputText = Get-Content -Path $tempSfcLog.FullName -Encoding Unicode | Out-String
-                Remove-Item $tempSfcLog.FullName -Force
-            }
-        }
+        $p.WaitForExit()
+        $exitCode = $p.ExitCode
+        Log "SFC /verifyonly process completed with exit code: $exitCode." "DEBUG"
+
+        $sfcOutputText = $outputLines -join [System.Environment]::NewLine
 
         # For troubleshooting, save the raw output to a more permanent temp file.
         $sfcLogPath = "$env:TEMP\SFC_VerifyOnly.log"
