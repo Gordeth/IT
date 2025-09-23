@@ -559,7 +559,7 @@ function Repair-SystemFiles {
             param($source, $e)
             if ($null -ne $e.Data) {
                 [void]$outputLines.Add($e.Data)
-                if ($VerboseMode) { $Host.UI.WriteLine([consolecolor]::Yellow, $Host.UI.RawUI.BackgroundColor, $e.Data) } # Use a thread-safe method for colored output.
+                if ($VerboseMode) { $Host.UI.WriteLine("STDERR: $($e.Data)") } # Use a simple, thread-safe call to avoid process crashes.
             }
         }.GetNewClosure()
 
