@@ -211,26 +211,37 @@ if ($UpdateList) {
             Log "No major updates (like Cumulative, Feature Packs, etc.) found. Skipping system restore point creation."
         }
 
-        Log "Installing updates..."
+        Log "Downloading updates... This may take some time."
         # Save the current $VerbosePreference to restore it later
         $originalVerbosePreference = $VerbosePreference
         try {
-            $InstallationResult = $null # Initialize variable to hold results
-            # Conditionally apply -Verbose and capture the output of Install-WindowsUpdate
+            # Step 1: Download updates. This will show a progress bar.
             if ($VerboseMode) {
-                # -IgnoreReboot prevents the module from prompting, allowing our custom logic below to handle it.
+                Download-WindowsUpdate -MicrosoftUpdate -AcceptAll -Verbose
+            } else {
+                $VerbosePreference = 'SilentlyContinue'
+                Download-WindowsUpdate -MicrosoftUpdate -AcceptAll
+            }
+        } finally {
+            $VerbosePreference = $originalVerbosePreference
+        }
+        Log "Update download completed."
+
+        Log "Installing downloaded updates..."
+        $originalVerbosePreference = $VerbosePreference
+        try {
+            $InstallationResult = $null # Initialize variable to hold results
+            # Step 2: Install the already downloaded updates.
+            if ($VerboseMode) {
                 $InstallationResult = Install-WindowsUpdate -MicrosoftUpdate -AcceptAll -Verbose -IgnoreReboot
             } else {
-                # Temporarily set $VerbosePreference to suppress verbose output
                 $VerbosePreference = 'SilentlyContinue'
-                # -IgnoreReboot prevents the module from prompting, allowing our custom logic below to handle it.
                 $InstallationResult = Install-WindowsUpdate -MicrosoftUpdate -AcceptAll -IgnoreReboot
             }
         } finally {
-            # Always restore the original $VerbosePreference
             $VerbosePreference = $originalVerbosePreference
         }
-        
+
         # --- Check for pending reboot after installation based on installation results ---
         Log "Update installation completed. Checking if a reboot is needed based on installation results..."
         
