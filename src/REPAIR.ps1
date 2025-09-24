@@ -16,6 +16,14 @@
     Dependencies:
         - PowerShell 5.1 or later.
     Changelog:
+        v1.3.5
+        - Replaced Media Creation Tool fallback with a fully automated process using 'Fido.ps1' to download the matching Windows ISO for offline repair.
+        v1.3.4
+        - Replaced ISO download fallback with logic to download and run the Media Creation Tool, prompting the user to create an ISO for a final, robust repair attempt.
+        v1.3.3
+        - Modified the ISO repair fallback to prompt for a download URL instead of a local path, then download, use, and clean up the ISO automatically.
+        v1.3.2
+        - Added a final repair step for interactive mode: if online DISM sources fail, prompt the user to provide a Windows ISO for offline repair.
         v1.3.1
         - Added logic to detect DISM error 0x800f081f and automatically retry with `/Source:WinPE` to use Windows Update as a repair source.
         v1.3.0
@@ -107,8 +115,65 @@ try {
              }
          }
 
-         if ($dismRestoreHealthExitCode -ne 0) { # Check the final exit code
-             Log "DISM /RestoreHealth failed after all attempts with final exit code $dismRestoreHealthExitCode. Manual intervention may be required." "ERROR"
+         # Check the final exit code after online attempts.
+         if ($dismRestoreHealthExitCode -ne 0) {
+             Log "DISM /RestoreHealth failed after all online attempts with final exit code $dismRestoreHealthExitCode." "ERROR"
+             
+             # --- Final Fallback: Use Fido.ps1 to download a matching ISO automatically ---
+             Log "Attempting final repair by downloading a matching Windows ISO using Fido.ps1..." "INFO"
+             $fidoUrl = "https://raw.githubusercontent.com/pbatard/Fido/master/Fido.ps1"
+             
+             # Create a dedicated directory for the Fido script at the project root
+             $fidoDir = Join-Path $PSScriptRoot "..\Fido"
+             New-Item -ItemType Directory -Path $fidoDir -Force | Out-Null
+             $fidoPath = Join-Path $fidoDir "Fido.ps1"
+
+             # Create a dedicated directory for the ISO inside the Fido folder
+             $isoDir = Join-Path $fidoDir "ISO"
+             New-Item -ItemType Directory -Path $isoDir -Force | Out-Null
+             $isoPath = Join-Path $isoDir "Windows.iso"
+             try {
+                 if (Save-File -Url $fidoUrl -OutputPath $fidoPath) {
+                     Log "Fido.ps1 downloaded. Running it to download the ISO..." "INFO"
+                     
+                     # Determine current Windows version to pass to Fido
+                     $osVersion = (Get-CimInstance Win32_OperatingSystem).Version
+                     $fidoArgs = if ($osVersion -like "10.0.22*") { "-Win11" } else { "-Win10" }
+                     
+                     # Execute Fido.ps1 to download the ISO. It will auto-select the latest build.
+                     # We pipe '1' to it to automatically select the first (latest) edition if prompted.
+                     "1" | & $fidoPath $fidoArgs -OutFile $isoPath
+
+                     Log "Attempting to repair using downloaded ISO: $isoPath" "INFO"
+                     $mountResult = $null
+                     try {
+                         $mountResult = Mount-DiskImage -ImagePath $isoPath -PassThru -ErrorAction Stop
+                         $driveLetter = ($mountResult | Get-Volume).DriveLetter
+                         $wimPath = Join-Path "${driveLetter}:\" "sources\install.wim"
+                         $esdPath = Join-Path "${driveLetter}:\" "sources\install.esd"
+                         $sourceFile = if (Test-Path $wimPath) { $wimPath } elseif (Test-Path $esdPath) { $esdPath } else { $null }
+
+                         if ($sourceFile) {
+                             $sourceType = if ($sourceFile -like "*.wim") { "wim" } else { "esd" }
+                             $dismArgs = "/Online /Cleanup-Image /RestoreHealth /Source:${sourceType}:${sourceFile}:1 /LimitAccess"
+                             Log "Running DISM with offline source: $dismArgs" "INFO"
+                             $dismRestoreHealthExitCode = Invoke-CommandWithLogging -FilePath $dismPath -Arguments $dismArgs -LogName "DISM_RestoreHealth_ISO" -LogDir $LogDir -VerboseMode:$VerboseMode
+                         } else {
+                             Log "Could not find install.wim or install.esd in the downloaded ISO. Skipping offline repair." "ERROR"
+                         }
+                     } finally {
+                         if ($mountResult) { Dismount-DiskImage -ImagePath $isoPath -ErrorAction SilentlyContinue }
+                     }
+                 }
+             } catch {
+                 Log "An error occurred during the Fido.ps1/ISO repair process: $_" "ERROR"
+             } finally {
+                 if (Test-Path $fidoPath) { Remove-Item $fidoPath -Force -ErrorAction SilentlyContinue; Log "Cleaned up Fido.ps1." "INFO" }
+                 if (Test-Path $isoPath) { Remove-Item $isoPath -Force -ErrorAction SilentlyContinue; Log "Cleaned up downloaded ISO file." "INFO" }
+             }
+         }
+         if ($dismRestoreHealthExitCode -ne 0) { # Final check after all possible attempts
+             Log "All DISM repair attempts have failed. Manual intervention is required." "ERROR"
              $dismFailed = $true
          }
      } catch {
