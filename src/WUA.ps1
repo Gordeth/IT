@@ -189,16 +189,18 @@ if ($UpdateList) {
         $majorUpdate = $UpdateList | Where-Object {
             # Get all category IDs for the current update.
             $updateCategories = $_.Categories.CategoryID
-            $updateCategoryNames = $_.Categories.Name
-            # Check if any of the update's categories match our list of major categories.
-            $isMajorByCategory = ($updateCategories | Where-Object { $majorUpdateCategoryIDs -contains $_ }) -ne $null
-            # Also check for non-optional software updates, but only if they are for the Windows OS itself.
-            # This prevents Office updates from being flagged as major.
-            $isWindowsOSUpdate = $updateCategoryNames -like "*Windows*"
-            $isMajorSoftwareUpdate = ($_.Type -eq 1 -and $_.IsHidden -eq $false -and $isWindowsOSUpdate)
 
-            # Return true if either condition is met.
-            $isMajorByCategory -or $isMajorSoftwareUpdate
+            # --- Check 1: Is it in a major category? ---
+            $isMajorByCategory = ($updateCategories | Where-Object { $majorUpdateCategoryIDs -contains $_ }) -ne $null
+            
+            # --- Check 2: Does the title explicitly say it's a cumulative update? (Language-independent) ---
+            $isCumulativeByTitle = $_.Title -like "*Cumulative Update*"
+
+            # --- Check 3: Is it a non-optional, non-hidden software update? (Broad safety net) ---
+            $isMajorSoftwareUpdate = ($_.Type -eq 1 -and $_.IsHidden -eq $false)
+
+            # Return true if ANY of the conditions are met.
+            $isMajorByCategory -or $isCumulativeByTitle -or $isMajorSoftwareUpdate
         } | Select-Object -First 1
 
         if ($majorUpdate) {
