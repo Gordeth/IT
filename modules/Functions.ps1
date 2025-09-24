@@ -525,7 +525,8 @@ function Test-FreeDiskSpace {
     )
 
     try {
-        $driveInfo = Get-PSDrive -Name $Drive -ErrorAction Stop
+        $driveLetter = $Drive.Trim(":")
+        $driveInfo = Get-PSDrive -Name $driveLetter -ErrorAction Stop
         $freeSpaceGB = [Math]::Round($driveInfo.Free / 1GB, 2)
 
         if ($freeSpaceGB -lt $MinimumFreeGB) {
