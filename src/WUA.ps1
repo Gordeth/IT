@@ -74,10 +74,17 @@ $ScriptPath = $MyInvocation.MyCommand.Path
 # can re-run automatically after a system reboot if updates require it.
 $StartupShortcut = "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\Startup\WUA.lnk"
 
-
-
 # Log the initial message indicating the script has started, using the Log function.
 Log "Starting Windows Update Automation script v1.1.1..." "INFO"
+
+# --- Cleanup from previous runs ---
+# Always attempt to remove the startup shortcut at the beginning of a run.
+# This ensures that if the script is running after a reboot, it cleans up after itself.
+if (Test-Path $StartupShortcut) {
+    Log "Found existing startup shortcut. Removing it to prevent re-execution loops."
+    Remove-Item $StartupShortcut -Force -ErrorAction SilentlyContinue
+}
+
 
 # ==================== Ensure PSWindowsUpdate Module ====================
 #
@@ -128,6 +135,14 @@ Log "PSWindowsUpdate module imported."
 #
 Log "Checking for Windows updates..."
 
+# --- Check for sufficient disk space before proceeding ---
+if (-not (Test-FreeDiskSpace -MinimumFreeGB 20)) {
+    Log "Insufficient disk space. Skipping Windows Updates. Please free up disk space and try again." -Level "WARN"
+    Log "==== WUA Script Completed ===="
+    exit # Exit the script if there is not enough disk space
+}
+
+
 # Save the current $VerbosePreference to restore it later
 $originalVerbosePreference = $VerbosePreference
 try {
@@ -174,13 +189,16 @@ if ($UpdateList) {
         $majorUpdate = $UpdateList | Where-Object {
             # Get all category IDs for the current update.
             $updateCategories = $_.Categories.CategoryID
+            $updateCategoryNames = $_.Categories.Name
             # Check if any of the update's categories match our list of major categories.
             $isMajorByCategory = ($updateCategories | Where-Object { $majorUpdateCategoryIDs -contains $_ }) -ne $null
-            # Also check for non-optional software updates, which is a reliable way to catch cumulative updates.
-            $isCumulativeSoftwareUpdate = ($_.Type -eq 1 -and $_.IsHidden -eq $false)
+            # Also check for non-optional software updates, but only if they are for the Windows OS itself.
+            # This prevents Office updates from being flagged as major.
+            $isWindowsOSUpdate = $updateCategoryNames -like "*Windows*"
+            $isMajorSoftwareUpdate = ($_.Type -eq 1 -and $_.IsHidden -eq $false -and $isWindowsOSUpdate)
 
             # Return true if either condition is met.
-            $isMajorByCategory -or $isCumulativeSoftwareUpdate
+            $isMajorByCategory -or $isMajorSoftwareUpdate
         } | Select-Object -First 1
 
         if ($majorUpdate) {
@@ -227,13 +245,11 @@ if ($UpdateList) {
                 Log "Adding script shortcut to Startup folder to continue after reboot."
                 $WScriptShell = New-Object -ComObject WScript.Shell
                 $Shortcut = $WScriptShell.CreateShortcut($StartupShortcut)
-                $Shortcut.TargetPath = "powershell.exe"
-                $argumentList = "-ExecutionPolicy Bypass -File \""$ScriptPath\"" -LogDir \""$LogDir\"""
-                $command = "Start-Process PowerShell.exe -ArgumentList '$argumentList' -Verb RunAs"
-                $bytes = [System.Text.Encoding]::Unicode.GetBytes($command)
-                $encodedCommand = [Convert]::ToBase64String($bytes)
-                $Shortcut.Arguments = "-NoProfile -EncodedCommand $encodedCommand"
+                $Shortcut.TargetPath = "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"
+                # Use -Command to wrap the execution. This is simpler and more reliable than Base64 encoding.
+                $Shortcut.Arguments = "-NoProfile -ExecutionPolicy Bypass -Command `"& { Start-Process powershell.exe -ArgumentList '-ExecutionPolicy Bypass -File `"$ScriptPath`" -LogDir `"$LogDir`"' -Verb RunAs }`""
                 $Shortcut.WorkingDirectory = Split-Path -Path $ScriptPath
+                $Shortcut.Description = "Continues Windows Update script after reboot."
                 $Shortcut.Save()
                 Log "Shortcut added successfully."
             }
@@ -260,27 +276,10 @@ if ($UpdateList) {
         
         Log "No reboot required. Script execution will continue to cleanup."
     } catch {
-        Log "An error occurred during the update process: $_" -Level "ERROR"
+        Log "An error occurred during the update installation or reboot handling: $_" -Level "ERROR"
     }
 } else {
     Log "No pending updates found."
-}
-
-# ==================== Script Completion and Cleanup ====================
-#
-# This final section is reached only if no updates were found, or if updates
-# were installed and no reboot was required. It removes the startup shortcut
-# as it is no longer needed.
-#
-if (Test-Path $StartupShortcut) {
-    try {
-        Log "Update process complete. Removing script shortcut from Startup folder."
-        Remove-Item $StartupShortcut -Force # Force removal without prompt.
-        Log "Shortcut removed successfully."
-    } catch {
-        # Log any errors encountered while trying to remove the shortcut.
-        Log "Failed to remove Startup shortcut: $_" -Level "ERROR"
-    }
 }
 
 # Log a final message indicating the script has finished its execution.
