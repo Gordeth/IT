@@ -158,19 +158,26 @@ if ($UpdateList) {
 
     # --- Create Restore Point (if needed) and Install Updates ---
     try {
-        # Define GUIDs for minor update categories that do not require a restore point.
+        # Define GUIDs for update categories.
         # This is language-independent and more robust than checking category names.
-        $minorUpdateCategoryIDs = @(
-            '0fa1201d-4330-4fa8-8ae9-b877473b6441', # Security Updates
-            'e0789628-ce08-4437-be74-2495b842f43b'  # Definition Updates
+        $majorUpdateCategoryIDs = @(
+            'e6cf1350-c01b-414d-a695-b0dfb59300f3', # Updates (includes Cumulative Updates)
+            'cd5ffd1e-e932-4e3a-bf74-18bf0b1bbd83', # Update Rollups
+            'b54e7d24-7add-428f-8b75-90a396fa584b', # Service Packs
+            '28bc880e-0592-4cbf-8f95-c79b17911d5f', # Feature Packs
+            'ebfc1fc5-a0a5-4add-a84a-65a443d2420f'  # Drivers
         )
 
         # Check if a restore point is needed. An update is considered "major" if it has at least one category
-        # that is NOT in our list of minor categories.
+        # that IS in our list of major categories.
         Log "Checking if updates include major changes requiring a restore point..."
         $majorUpdate = $UpdateList | Where-Object {
-            # Get all category IDs for the current update and check if any of them are NOT in our minor list.
-            ($_.Categories.CategoryID | Where-Object { $minorUpdateCategoryIDs -notcontains $_ })
+            # Get all category IDs for the current update.
+            $updateCategories = $_.Categories.CategoryID
+            # Check if any of the update's categories match our list of major categories.
+            $isMajor = $updateCategories | Where-Object { $majorUpdateCategoryIDs -contains $_ }
+            # Return true if a match was found.
+            $isMajor -ne $null
         } | Select-Object -First 1
 
         if ($majorUpdate) {
@@ -178,7 +185,7 @@ if ($UpdateList) {
             # Call the centralized function to create a restore point.
             New-SystemRestorePoint -Description "Pre-WUA_Script"
         } else {
-            Log "Only security or definition updates found. Skipping system restore point creation."
+            Log "No major updates (like Cumulative, Feature Packs, etc.) found. Skipping system restore point creation."
         }
 
         Log "Installing updates..."
