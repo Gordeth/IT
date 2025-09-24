@@ -576,7 +576,7 @@ function Invoke-CommandWithLogging {
         # Execute the command directly in the current console using the call operator (&).        
         # This ensures its output is captured by Start-Transcript.
         # We redirect stderr (2) to stdout (1) to capture everything.
-        & $FilePath $Arguments 2>&1 | Out-Null
+        & $FilePath $Arguments 2>&1
 
         # Capture the exit code of the last external command.
         $exitCode = $LASTEXITCODE
