@@ -573,13 +573,17 @@ function Invoke-CommandWithLogging {
         # Start-Transcript captures all console output to a file.
         Start-Transcript -Path $commandLogFile -Append -Force
 
-        # Execute the command directly in the current console using the call operator (&).        
-        # This ensures its output is captured by Start-Transcript.
-        # We redirect stderr (2) to stdout (1) to capture everything.
-        & $FilePath $Arguments 2>&1
+        # Use Start-Process to reliably execute external commands with arguments.
+        # The call operator (&) can misinterpret argument strings.
+        # -Wait ensures the script pauses until the command completes.
+        # -NoNewWindow keeps the output in the current console, which is necessary for Start-Transcript to capture it.
+        $process = Start-Process -FilePath $FilePath -ArgumentList $Arguments -Wait -NoNewWindow -PassThru
 
         # Capture the exit code of the last external command.
-        $exitCode = $LASTEXITCODE
+        # $LASTEXITCODE is not reliable with Start-Process, so we use the ExitCode property of the returned process object.
+        $exitCode = $process.ExitCode
+    } catch {
+        Log "A critical error occurred while trying to execute '$FilePath': $_" -Level "ERROR"
     } finally {
         # Stop the transcript to finalize the log file.
         Stop-Transcript
