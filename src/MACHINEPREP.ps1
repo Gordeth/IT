@@ -257,23 +257,19 @@ try {
     switch -Wildcard ($brand) {
         "*lenovo*" {
             Log "Found Lenovo brand. Checking for Lenovo Vantage..."
-            $lenovoVantage = winget list "Lenovo Vantage" | Where-Object { $_.Name -like "*Lenovo Vantage*" }
-            if ($lenovoVantage) {
+            # Use winget list with the known package ID for a more reliable check
+            $lenovoVantageInstalled = (winget list --id Lenovo.Vantage -e | Select-Object -First 1)
+
+            if ($lenovoVantageInstalled) {
                 Log "Lenovo Vantage is already installed. Skipping." "WARN"
             } else {
                 try {
                     Log "Lenovo Vantage not found. Attempting installation via winget..."
-                    $package = winget search "Lenovo Vantage" | Where-Object { $_.Name -like "*Lenovo Vantage*" } | Select-Object -First 1
-
-                    if ($package) {
-                        $packageId = $package.Id
-                        winget install --id=$packageId -e --silent --accept-package-agreements --accept-source-agreements
+                    # Directly install using the known package ID
+                    winget install --id Lenovo.Vantage -e --silent --accept-package-agreements --accept-source-agreements
                         if ($LASTEXITCODE -ne 0) {
-                            Log "Failed to install Lenovo Vantage. Winget exit code: $LASTEXITCODE." "ERROR"
+                            throw "Winget exited with code $LASTEXITCODE while installing Lenovo Vantage."
                         }
-                    } else {
-                        Log "Lenovo Vantage package not found in winget repository. Skipping installation." "WARN"
-                    }
                 } catch {
                     Log "An error occurred while trying to install Lenovo Vantage: $_" "ERROR"
                 }
@@ -432,22 +428,11 @@ try {
                 $installedDiskApps += "Crucial"
             }
             "*WesternDigital*" {
-                if (Install-Chocolatey) {
-                    try {
-                        Log "Installing Western Digital Dashboard via Chocolatey..." "INFO"
-                        choco install wd-dashboard --force -y
-                        if ($LASTEXITCODE -eq 1) {
-                            Log "Western Digital Dashboard installation via Chocolatey finished with a known issue. Check Chocolatey logs." "WARN"
-                        } elseif ($LASTEXITCODE -ne 0) {
-                            throw "Choco exited with code $LASTEXITCODE while installing WD Dashboard."
-                        }
-                    }
-                    catch {
-                        Log "Error during Western Digital Dashboard installation via Chocolatey: $_" -Level "ERROR"
-                    }
-                } else {
-                    Log "Chocolatey installation failed, skipping Western Digital Dashboard." "ERROR"
-                }
+                Log "Installing Western Digital Dashboard via winget..." "INFO"
+                winget install --id WesternDigital.Dashboard -e --silent --accept-package-agreements --accept-source-agreements
+                if ($LASTEXITCODE -ne 0) { throw "Winget exited with code $LASTEXITCODE while installing WD Dashboard." }
+                Log "Western Digital Dashboard installed successfully." "INFO"
+                $installedDiskApps += "WesternDigital"
             }
             "*Intel*" {
                 winget install --id=Intel.MemoryAndStorageTool -e --silent --accept-package-agreements --accept-source-agreements
