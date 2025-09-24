@@ -515,6 +515,37 @@ function New-SystemRestorePoint {
 }
 
 # =================================================================================
+# Test-FreeDiskSpace
+# Tests if there is a minimum amount of free disk space on a specified drive.
+# =================================================================================
+function Test-FreeDiskSpace {
+    param (
+        [string]$Drive = "$env:SystemDrive",
+        [int]$MinimumFreeGB = 20
+    )
+
+    try {
+        $driveInfo = Get-PSDrive -Name $Drive -ErrorAction Stop
+        $freeSpaceGB = [Math]::Round($driveInfo.Free / 1GB, 2)
+
+        if ($freeSpaceGB -lt $MinimumFreeGB) {
+            Log "WARNING: Low disk space on $($Drive): $($freeSpaceGB) GB free, less than $($MinimumFreeGB) GB required." "WARN"
+            return $false
+        } else {
+            Log "Sufficient disk space on $($Drive): $($freeSpaceGB) GB free." "INFO"
+            return $true
+        }
+    } catch {
+        Log "ERROR: Unable to check free disk space on $($Drive): $($_.Exception.Message)" "ERROR"
+        return $false
+    }
+}
+
+
+
+
+
+# =================================================================================
 # Invoke-CommandWithLogging
 # Executes an external command, captures all output to a log file, and optionally
 # displays it in real-time to the console. This is a robust replacement for
