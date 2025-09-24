@@ -59,30 +59,13 @@ $sfcPath = "$env:windir\System32\sfc.exe"
 # --- Step 1: Run SFC in verification mode and parse console output ---
 try {
     Log "Running System File Checker (SFC) in verification-only mode..." "INFO"
-    $pinfo = New-Object System.Diagnostics.ProcessStartInfo
-    $pinfo.FileName = $sfcPath
-    $pinfo.Arguments = "/verifyonly"
-    $pinfo.RedirectStandardError = $true
-    $pinfo.RedirectStandardOutput = $true
-    $pinfo.UseShellExecute = $false
-    $pinfo.CreateNoWindow = $true
-    $pinfo.StandardOutputEncoding = [System.Text.Encoding]::Unicode
-    $pinfo.StandardErrorEncoding = [System.Text.Encoding]::Unicode
-
-    $sfcOutputText = ""
-    try {
-        $p = New-Object System.Diagnostics.Process
-        $p.StartInfo = $pinfo
-        $p.Start() | Out-Null
-        $output = $p.StandardOutput.ReadToEnd()
-        $errors = $p.StandardError.ReadToEnd()
-        $p.WaitForExit()
-        $sfcOutputText = $output + $errors
-    } finally {
-        if ($p) { $p.Dispose() }
-    }
-
-    $normalizedOutput = ($sfcOutputText -replace '[^a-zA-Z0-9]').ToLower()
+    # Use the centralized logging function for consistent real-time output and logging.
+    Invoke-CommandWithLogging -FilePath $sfcPath -Arguments "/verifyonly" -LogName "SFC_Verify" -LogDir $LogDir -VerboseMode:$VerboseMode
+    
+    $sfcVerifyLog = Join-Path $LogDir "SFC_Verify.log"
+    $sfcVerifyOutput = Get-Content -Path $sfcVerifyLog -Raw
+    
+    $normalizedOutput = ($sfcVerifyOutput -replace '[^a-zA-Z0-9]').ToLower()
     $successPattern = "windowsresourceprotectiondidnotfindanyintegrityviolations"
     $foundPattern = "windowsresourceprotectionfoundintegrityviolations"
     $couldnotPattern = "windowsresourceprotectioncouldnotperformtherequestedoperation"
