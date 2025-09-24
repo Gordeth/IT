@@ -140,9 +140,13 @@ try {
                      $osVersion = (Get-CimInstance Win32_OperatingSystem).Version
                      $fidoArgs = if ($osVersion -like "10.0.22*") { "-Win11" } else { "-Win10" }
                      
-                     # Execute Fido.ps1 to download the ISO. It will auto-select the latest build.
-                     # We pipe '1' to it to automatically select the first (latest) edition if prompted.
-                     "1" | & $fidoPath $fidoArgs -OutFile $isoPath
+                     # Execute Fido.ps1 in a new process to prevent its 'exit' command from closing the main script.
+                     # We can't pipe input to Start-Process, so we rely on Fido's non-interactive parameters.
+                     # The -OutFile parameter makes Fido non-interactive and automatically downloads the latest version.
+                     $processArgs = "-NoProfile -ExecutionPolicy Bypass -File `"$fidoPath`" $fidoArgs -OutFile `"$isoPath`""
+                     Log "Launching Fido in a new process with arguments: $processArgs" "INFO"
+                     $fidoProcess = Start-Process powershell.exe -ArgumentList $processArgs -Wait -PassThru
+                     if ($fidoProcess.ExitCode -ne 0) { throw "Fido.ps1 process exited with non-zero code: $($fidoProcess.ExitCode)" }
 
                      Log "Attempting to repair using downloaded ISO: $isoPath" "INFO"
                      $mountResult = $null
