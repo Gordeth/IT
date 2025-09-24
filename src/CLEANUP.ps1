@@ -1,17 +1,17 @@
 <#
 .SYNOPSIS
-    Performs various system cleanup tasks to free up disk space.
+    Performs system cleanup using temporary file removal and the modern Storage Sense feature.
 .DESCRIPTION
     This script automates common system cleanup procedures. It clears temporary files
-    from the main Windows temp folder and the current user's temp folder. It also
-    empties the current user's Recycle Bin.
+    from the main Windows temp folder and the current user's temp folder. In 'Full' mode,
+    it also runs the built-in Windows Storage Sense cleanup for a more comprehensive cleanup.
 .PARAMETER VerboseMode
     If specified, enables detailed logging output to the console.
     Otherwise, only ERROR level messages are displayed on the console.
 .PARAMETER CleanupMode
     Specifies the intensity of the cleanup.
     'Light' performs quick cleanup of temp folders.
-    'Full' (default) performs all cleanup tasks, including the time-consuming Windows Disk Cleanup.
+    'Full' (default) performs all cleanup tasks, including running Storage Sense.
 .PARAMETER LogDir
     The full path to the log directory where all script actions will be recorded.
     This parameter is mandatory.
@@ -20,7 +20,12 @@
     Version: 1.1.0
     Dependencies:
         - PowerShell 5.1 or later.
+        - `Invoke-CommandWithLogging` function from `Functions.ps1`
     Changelog:
+        v1.2.3
+        - Replaced 'Full' mode logic with `Start-StorageSense` cmdlet to use the modern, built-in Windows cleanup feature.
+        v1.2.1
+        - Removed Downloads folder cleanup and DISM component cleanup from 'Full' mode to avoid deleting potentially important user files and to reduce script runtime.
         v1.1.0
         - Added `CleanupMode` parameter ('Light', 'Full') to differentiate between quick temp file cleaning and a full system cleanup including `cleanmgr.exe`.
         v1.0.5
@@ -120,69 +125,16 @@ try {
     Log "An error occurred while accessing the user temporary files directory: $_" -Level "WARN"
 }
 
-# ================== 3. Run Windows Disk Cleanup (cleanmgr.exe) ==================
+# ================== 3. Perform Full Cleanup (Storage Sense) ==================
 if ($CleanupMode -eq 'Full') {
     try {
-        Log "Configuring and running Windows Disk Cleanup utility (cleanmgr.exe)..." "INFO"
-        $sagesetNumber = 99
-        $sagesetRegValue = "StateFlags" + $sagesetNumber.ToString("0000")
-        $volumeCachesPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches"
-
-        # List of cleanup handlers to enable. These are the names of the registry keys.
-        $handlersToEnable = @(
-            "Active Setup Temp Folders",
-            "Downloaded Program Files",
-            "Internet Cache Files",
-            "Recycle Bin",
-            "Temporary Files",
-            "Thumbnails",
-            "Update Cleanup", # This is equivalent to Component Store Cleanup (WinSxS)
-            "Windows Error Reporting Files",
-            "Windows Upgrade Log Files",
-            "Delivery Optimization Files"
-        )
-
-        Log "Enabling the following cleanup handlers for sageset ${sagesetNumber}: $($handlersToEnable -join ', ')" "INFO"
-
-        foreach ($handler in $handlersToEnable) {
-            $handlerPath = Join-Path $volumeCachesPath $handler
-            if (Test-Path $handlerPath) {
-                try {
-                    Set-ItemProperty -Path $handlerPath -Name $sagesetRegValue -Value 2 -Type DWord -Force -ErrorAction Stop
-                    Log "Enabled handler: $handler" "INFO"
-                } catch {
-                    Log "Failed to enable handler '$handler'. Error: $_" "WARN"
-                }
-            } else {
-                Log "Cleanup handler key not found: $handler. Skipping." "WARN"
-            }
-        }
-
-        try {
-            Log "Running cleanmgr.exe with sageset $sagesetNumber. This may take a long time, especially the 'Update Cleanup'..." "INFO"
-            
-            # In verbose mode, show an indeterminate progress bar since cleanmgr can take a long time.
-            if ($VerboseMode) {
-                Write-Progress -Activity "Running Windows Disk Cleanup" -Status "This may take a long time..." -PercentComplete -1
-            }
-
-            # Use WScript.Shell for a more reliable hidden window.
-            # Start-Process -WindowStyle Hidden can be ignored by some applications like cleanmgr.exe.
-            $WshShell = New-Object -ComObject WScript.Shell
-            # The 'Run' method parameters are: (command, windowStyle, waitOnReturn)
-            # WindowStyle 7 runs the program minimized.
-            $exitCode = $WshShell.Run("cleanmgr.exe /sagerun:$sagesetNumber", 7, $true)
-
-            Log "Windows Disk Cleanup completed with exit code: $exitCode." "INFO"
-        } finally {
-            # Ensure the progress bar is always closed, even if the process is interrupted.
-            if ($VerboseMode) {
-                Write-Progress -Activity "Running Windows Disk Cleanup" -Status "Completed." -Completed
-            }
-        }
+        Log "Performing full system cleanup by running Storage Sense..." "INFO"
+        Log "This will use the current user's Storage Sense settings from the Windows Settings app." "INFO"
+        # This command runs the configured Storage Sense cleanup tasks immediately.
+        Start-StorageSense
+        Log "Storage Sense cleanup completed." "INFO"
     } catch {
-        # This outer catch will handle errors from the registry configuration part.
-        Log "An error occurred during the Windows Disk Cleanup process: $_" "ERROR"
+        Log "Failed to run Storage Sense. This command may not be available on older versions of Windows. Error: $_" -Level "ERROR"
     }
 }
 
