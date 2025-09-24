@@ -573,11 +573,13 @@ function Invoke-CommandWithLogging {
         # Start-Transcript captures all console output to a file.
         Start-Transcript -Path $commandLogFile -Append -Force
 
-        # Execute the command and wait for it to complete.
-        # The output will be displayed on the console and captured by the transcript.
-        $process = Start-Process -FilePath $FilePath -ArgumentList $Arguments -Wait -PassThru
-        $exitCode = $process.ExitCode
+        # Execute the command directly in the current console using the call operator (&).
+        # This ensures its output is captured by Start-Transcript.
+        # We redirect stderr (2) to stdout (1) to capture everything.
+        & $FilePath $Arguments 2>&1 | Out-Null
 
+        # Capture the exit code of the last external command.
+        $exitCode = $LASTEXITCODE
     } finally {
         # Stop the transcript to finalize the log file.
         Stop-Transcript
