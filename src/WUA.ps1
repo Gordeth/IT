@@ -126,14 +126,6 @@ Log "PSWindowsUpdate module imported."
 #
 Log "Checking for Windows updates..."
 
-# --- Check for sufficient disk space before proceeding ---
-if (-not (Test-FreeDiskSpace -MinimumFreeGB 20)) {
-    Log "Insufficient disk space. Skipping Windows Updates. Please free up disk space and try again." -Level "WARN"
-    Log "==== WUA Script Completed ===="
-    exit # Exit the script if there is not enough disk space
-}
-
-
 # Save the current $VerbosePreference to restore it later
 $originalVerbosePreference = $VerbosePreference
 try {
@@ -200,6 +192,14 @@ if ($UpdateList) {
             New-SystemRestorePoint -Description "Pre-WUA_Script"
         } else {
             Log "No major updates (like Cumulative, Feature Packs, etc.) found. Skipping system restore point creation."
+        }
+
+        # --- Check for sufficient disk space before proceeding with download ---
+        if (-not (Test-FreeDiskSpace -MinimumFreeGB 20)) {
+            Log "Insufficient disk space to download updates. Skipping Windows Updates. Please free up disk space and try again." -Level "WARN"
+            Log "==== WUA Script Completed ===="
+            # Using 'return' here to exit the script gracefully from within the try block.
+            return
         }
 
         Log "Downloading updates... This may take some time."
