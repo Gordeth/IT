@@ -394,7 +394,7 @@ try {
             "*Samsung*" {
                 Log "Samsung disk model detected: $($disk.Model). Attempting to install Samsung Magician." "INFO"
                 # Check for specific unsupported disk models
-                if (($disk.Model -eq "SAMSUNG MZALQ256HAJD-000L2") -or ($disk.Model -eq "SAMSUNG MZAL4512HBLU-00BL2")) {
+                if (($disk.Model -eq "SAMSUNG MZALQ256HAJD-000L2") -or ($disk.Model -eq "SAMSUNG MZAL4512HBLU-00BL2") -or ($disk.Model -eq "SAMSUNG MZVLB256HBHQ-000L7")) {
                     Log "Samsung disk model $($disk.Model) detected which is not supported by Samsung Magician. Skipping installation." "INFO"
                 } else {
                     if (Install-Chocolatey) {
