@@ -573,7 +573,7 @@ function Invoke-CommandWithLogging {
         # Start-Transcript captures all console output to a file.
         Start-Transcript -Path $commandLogFile -Append -Force
 
-        # Execute the command directly in the current console using the call operator (&).
+        # Execute the command directly in the current console using the call operator (&).        
         # This ensures its output is captured by Start-Transcript.
         # We redirect stderr (2) to stdout (1) to capture everything.
         & $FilePath $Arguments 2>&1 | Out-Null
