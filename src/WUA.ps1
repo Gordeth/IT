@@ -234,10 +234,11 @@ if ($UpdateList) {
         }
 
         # --- Verify that updates were actually installed ---
-        $successfullyInstalledCount = ($InstallationResult | Where-Object { $_.Status -eq 'Installed' }).Count
-        $totalUpdatesAttempted = $InstallationResult.Count
+        # We use the original $UpdateList to check status, as Install-WindowsUpdate may not return objects when installing pre-downloaded updates.
+        $successfullyInstalledCount = ($UpdateList | Where-Object { $_.IsInstalled }).Count
+        $totalUpdatesAttempted = $UpdateList.Count
 
-        # If some or all updates failed, attempt a repair and retry.
+        # If some or all updates failed to install, attempt a repair and retry.
         if ($successfullyInstalledCount -lt $totalUpdatesAttempted) {
             Log "Initial update installation failed for one or more updates. Attempting system repair before retrying." "WARN"
             
@@ -260,8 +261,9 @@ if ($UpdateList) {
 
         # --- Final check for pending reboot and installation status ---
         Log "Update installation process completed. Checking final status and if a reboot is needed..."
-        $successfullyInstalledCount = ($InstallationResult | Where-Object { $_.Status -eq 'Installed' }).Count
-        if ($successfullyInstalledCount -eq 0 -and $totalUpdatesAttempted -gt 0) {
+        # Re-check the count after a potential retry.
+        $finalInstalledCount = ($UpdateList | Where-Object { $_.IsInstalled }).Count
+        if ($finalInstalledCount -eq 0 -and $totalUpdatesAttempted -gt 0) {
             Log "The PSWindowsUpdate module reported that 0 updates were successfully installed. The installation may have failed silently." "ERROR"
             Log "Please check the Windows Update logs for more details (e.g., in Event Viewer or C:\Windows\WindowsUpdate.log)." "ERROR"
         }
