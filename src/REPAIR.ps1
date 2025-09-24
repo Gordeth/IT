@@ -39,8 +39,7 @@
 param (
   [switch]$VerboseMode = $false,
   [Parameter(Mandatory=$true)]
-  [string]$LogDir,
-  [switch]$TestFido = $false
+  [string]$LogDir
 )
 
 # ==================== Setup ====================
@@ -63,60 +62,6 @@ if (-not (Test-Path $LogFile)) {
 
 # ==================== Script Execution ====================
 Log "Starting REPAIR.ps1 script v1.2.0..." "INFO"
-
-# --- Fido Test Mode ---
-if ($TestFido) {
-    Log "Running in Fido Test Mode. This will only test the ISO download functionality." "INFO"
-    $fidoUrl = "https://raw.githubusercontent.com/pbatard/Fido/master/Fido.ps1"
-    
-    # Create a dedicated directory for the Fido script at the project root
-    $fidoDir = Join-Path $PSScriptRoot "..\Fido"
-    New-Item -ItemType Directory -Path $fidoDir -Force | Out-Null
-    $fidoPath = Join-Path $fidoDir "Fido.ps1"
-
-    # Create a dedicated directory for the ISO inside the Fido folder
-    $isoDir = Join-Path $fidoDir "ISO"
-    New-Item -ItemType Directory -Path $isoDir -Force | Out-Null
-    $isoPath = Join-Path $isoDir "Windows.iso"
-    try {
-        if (Save-File -Url $fidoUrl -OutputPath $fidoPath) {
-            Log "Fido.ps1 downloaded. Running it to download the ISO..." "INFO"
-            
-            # Determine current Windows version to pass to Fido
-            $osVersion = (Get-CimInstance Win32_OperatingSystem).Version
-            $osLang = (Get-Culture).Name
-            $osArch = if ((Get-CimInstance Win32_Processor).AddressWidth -eq 64) { "x64" } else { "x86" }
-
-            $fidoVersionArg = if ($osVersion -like "10.0.22*") { "-Win11" } else { "-Win10" }
-
-            # Construct fully non-interactive arguments for Fido.ps1
-            $fidoArgs = "$fidoVersionArg -Latest -Arch $osArch -Language `"$osLang`""
-            
-            # Execute Fido.ps1 in a new process to prevent its 'exit' command from closing the main script.
-            # We can't pipe input to Start-Process, so we rely on Fido's non-interactive parameters.
-            # The -OutFile parameter makes Fido non-interactive and automatically downloads the latest version.
-            $processArgs = "-NoProfile -ExecutionPolicy Bypass -File `"$fidoPath`" $fidoArgs -OutFile `"$isoPath`""
-            Log "Launching Fido in a new process with arguments: $processArgs" "INFO"
-            $fidoProcess = Start-Process powershell.exe -ArgumentList $processArgs -Wait -PassThru
-            if ($fidoProcess.ExitCode -ne 0) { throw "Fido.ps1 process exited with non-zero code: $($fidoProcess.ExitCode)" }
-
-            if (Test-Path $isoPath) {
-                Log "Fido ISO download test successful. ISO created at '$isoPath'." "INFO"
-            } else {
-                Log "Fido ISO download test failed. ISO file was not created." "ERROR"
-            }
-        }
-    } catch {
-        Log "An error occurred during the Fido.ps1 test process: $_" "ERROR"
-    } finally {
-        Log "Cleaning up Fido test files..." "INFO"
-        if (Test-Path $fidoPath) { Remove-Item $fidoPath -Force -ErrorAction SilentlyContinue; Log "Cleaned up Fido.ps1." "INFO" }
-        if (Test-Path $isoPath) { Remove-Item $isoPath -Force -ErrorAction SilentlyContinue; Log "Cleaned up downloaded ISO file." "INFO" }
-    }
-    Log "==== REPAIR Script (Fido Test Mode) Completed ===="
-    exit 0
-}
-
 
 Log "Starting system file integrity check and repair process..." "INFO"
 
