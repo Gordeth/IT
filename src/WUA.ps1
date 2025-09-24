@@ -258,9 +258,16 @@ if ($UpdateList) {
                 Log "Adding script shortcut to Startup folder to continue after reboot."
                 $WScriptShell = New-Object -ComObject WScript.Shell
                 $Shortcut = $WScriptShell.CreateShortcut($StartupShortcut)
+
+                # Build the argument list for the post-reboot script, including VerboseMode if it was originally set.
+                $postRebootArgs = "-ExecutionPolicy Bypass -File `"$ScriptPath`" -LogDir `"$LogDir`""
+                if ($VerboseMode) {
+                    $postRebootArgs += " -VerboseMode"
+                }
+
                 $Shortcut.TargetPath = "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"
                 # Use -Command to wrap the execution. This is simpler and more reliable than Base64 encoding.
-                $Shortcut.Arguments = "-NoProfile -ExecutionPolicy Bypass -Command `"& { Start-Process powershell.exe -ArgumentList '-ExecutionPolicy Bypass -File `"$ScriptPath`" -LogDir `"$LogDir`"' -Verb RunAs }`""
+                $Shortcut.Arguments = "-NoProfile -ExecutionPolicy Bypass -Command `"& { Start-Process powershell.exe -ArgumentList '$postRebootArgs' -Verb RunAs }`""
                 $Shortcut.WorkingDirectory = Split-Path -Path $ScriptPath
                 $Shortcut.Description = "Continues Windows Update script after reboot."
                 $Shortcut.Save()
