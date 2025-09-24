@@ -169,15 +169,18 @@ if ($UpdateList) {
         )
 
         # Check if a restore point is needed. An update is considered "major" if it has at least one category
-        # that IS in our list of major categories.
+        # that IS in our list of major categories OR if its title indicates it's a cumulative update.
         Log "Checking if updates include major changes requiring a restore point..."
         $majorUpdate = $UpdateList | Where-Object {
             # Get all category IDs for the current update.
             $updateCategories = $_.Categories.CategoryID
             # Check if any of the update's categories match our list of major categories.
-            $isMajor = $updateCategories | Where-Object { $majorUpdateCategoryIDs -contains $_ }
-            # Return true if a match was found.
-            $isMajor -ne $null
+            $isMajorByCategory = ($updateCategories | Where-Object { $majorUpdateCategoryIDs -contains $_ }) -ne $null
+            # Also check if the title explicitly says it's a cumulative update.
+            $isCumulative = $_.Title -like "*Cumulative Update*"
+
+            # Return true if either condition is met.
+            $isMajorByCategory -or $isCumulative
         } | Select-Object -First 1
 
         if ($majorUpdate) {
