@@ -138,7 +138,7 @@ try {
                      
                      # Determine current Windows version to pass to Fido
                      $osVersion = (Get-CimInstance Win32_OperatingSystem).Version
-                     $fidoArgs = if ($osVersion -like "10.0.22*") { "-Win11" } else { "-Win10" }
+                     $fidoArgs = if ($osVersion -like "10.0.22*") { "-Win11 -Latest" } else { "-Win10 -Latest" }
                      
                      # Execute Fido.ps1 in a new process to prevent its 'exit' command from closing the main script.
                      # We can't pipe input to Start-Process, so we rely on Fido's non-interactive parameters.
