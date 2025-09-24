@@ -176,11 +176,11 @@ if ($UpdateList) {
             $updateCategories = $_.Categories.CategoryID
             # Check if any of the update's categories match our list of major categories.
             $isMajorByCategory = ($updateCategories | Where-Object { $majorUpdateCategoryIDs -contains $_ }) -ne $null
-            # Also check if the title explicitly says it's a cumulative update.
-            $isCumulative = $_.Title -like "*Cumulative Update*"
+            # Also check for non-optional software updates, which is a reliable way to catch cumulative updates.
+            $isCumulativeSoftwareUpdate = ($_.Type -eq 1 -and $_.IsHidden -eq $false)
 
             # Return true if either condition is met.
-            $isMajorByCategory -or $isCumulative
+            $isMajorByCategory -or $isCumulativeSoftwareUpdate
         } | Select-Object -First 1
 
         if ($majorUpdate) {
