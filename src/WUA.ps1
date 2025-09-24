@@ -245,6 +245,13 @@ if ($UpdateList) {
         # --- Check for pending reboot after installation based on installation results ---
         Log "Update installation completed. Checking if a reboot is needed based on installation results..."
         
+        # --- Verify that updates were actually installed ---
+        $successfullyInstalledCount = ($InstallationResult | Where-Object { $_.Status -eq 'Installed' }).Count
+        if ($successfullyInstalledCount -eq 0) {
+            Log "The PSWindowsUpdate module reported that 0 updates were successfully installed. The installation may have failed silently." "ERROR"
+            Log "Please check the Windows Update logs for more details (e.g., in Event Viewer or C:\Windows\WindowsUpdate.log)." "ERROR"
+        }
+
         $rebootPending = $false
         # Check if any of the installation results require a reboot.
         if ($InstallationResult.RebootRequired -contains $true) {
