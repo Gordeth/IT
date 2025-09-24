@@ -16,6 +16,8 @@
     Dependencies:
         - PowerShell 5.1 or later.
     Changelog:
+        v1.3.1
+        - Added logic to detect DISM error 0x800f081f and automatically retry with `/Source:WinPE` to use Windows Update as a repair source.
         v1.3.0
         - Changed repair sequence to run the full DISM repair process first, followed by SFC /scannow, for a more robust repair strategy.
         v1.2.0
@@ -91,8 +93,22 @@ try {
  
          Log "Running DISM /Online /Cleanup-Image /RestoreHealth. This may take a long time..." "INFO"
          $dismRestoreHealthExitCode = Invoke-CommandWithLogging -FilePath $dismPath -Arguments "/Online /Cleanup-Image /RestoreHealth" -LogName "DISM_RestoreHealth" -LogDir $LogDir -VerboseMode:$VerboseMode
+         
+         # Check if the first attempt failed.
          if ($dismRestoreHealthExitCode -ne 0) {
-             Log "DISM /RestoreHealth failed with exit code $dismRestoreHealthExitCode. Manual intervention may be required." "ERROR"
+             Log "DISM /RestoreHealth failed with exit code $dismRestoreHealthExitCode. Checking for common source file error..." "WARN"
+             $dismLogPath = Join-Path $LogDir "DISM_RestoreHealth.log"
+             $dismLogContent = Get-Content -Path $dismLogPath -Raw
+
+             # If error 0x800f081f (source files not found) is detected, retry with an explicit online source.
+             if ($dismLogContent -match '0x800f081f') {
+                 Log "Error 0x800f081f detected. Retrying DISM with Windows Update as the source (/Source:WinPE)..." "INFO"
+                 $dismRestoreHealthExitCode = Invoke-CommandWithLogging -FilePath $dismPath -Arguments "/Online /Cleanup-Image /RestoreHealth /Source:WinPE" -LogName "DISM_RestoreHealth_Retry" -LogDir $LogDir -VerboseMode:$VerboseMode
+             }
+         }
+
+         if ($dismRestoreHealthExitCode -ne 0) { # Check the final exit code
+             Log "DISM /RestoreHealth failed after all attempts with final exit code $dismRestoreHealthExitCode. Manual intervention may be required." "ERROR"
              $dismFailed = $true
          }
      } catch {
