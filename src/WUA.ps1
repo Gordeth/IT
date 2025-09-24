@@ -92,17 +92,10 @@ if (Test-Path $StartupShortcut) {
 # for interacting with Windows Update services. If it's missing, the script attempts to install it.
 #
 Log "Checking for PSWindowsUpdate module..."
-$moduleExists = $false
-$originalGetModuleVerbosePreference = $VerbosePreference
-try {
-    $VerbosePreference = 'SilentlyContinue'
-    if (Get-Module -ListAvailable -Name PSWindowsUpdate) {
-        $moduleExists = $true
-    }
-} finally {
-    $VerbosePreference = $originalGetModuleVerbosePreference
-}
-if (-not $moduleExists) {
+# Use Get-Command for a much faster check. If a key command from the module exists, the module is installed.
+if (Get-Command Get-WindowsUpdate -ErrorAction SilentlyContinue) {
+    Log "PSWindowsUpdate module already installed."
+} else {
     Log "PSWindowsUpdate module not found. Installing..."
     try {
         Install-Module -Name PSWindowsUpdate -Force -SkipPublisherCheck
@@ -112,8 +105,6 @@ if (-not $moduleExists) {
         Log "Failed to install PSWindowsUpdate module: $_" -Level "ERROR"
         exit 1 # Exit with a non-zero code to indicate an error state.
     }
-} else {
-    Log "PSWindowsUpdate module already installed."
 }
 
 # Import the PSWindowsUpdate module into the current session, making its cmdlets available.
