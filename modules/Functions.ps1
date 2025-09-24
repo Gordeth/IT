@@ -568,59 +568,28 @@ function Invoke-CommandWithLogging {
         Log "The output of this command will be displayed directly in the console for real-time progress." "INFO"
     }
 
-    # Clear old log file if it exists
-    if (Test-Path $commandLogFile) {
-        Remove-Item $commandLogFile -Force
-    }
-
-    $pinfo = New-Object System.Diagnostics.ProcessStartInfo
-    $pinfo.FileName = $FilePath
-    $pinfo.Arguments = $Arguments
-    $pinfo.RedirectStandardError = $true
-    $pinfo.RedirectStandardOutput = $true
-    $pinfo.UseShellExecute = $false
-    $pinfo.CreateNoWindow = $true
-    # DISM and SFC both use Unicode for their progress output.
-    $pinfo.StandardOutputEncoding = [System.Text.Encoding]::Unicode
-    $pinfo.StandardErrorEncoding = [System.Text.Encoding]::Unicode
-
-    $p = New-Object System.Diagnostics.Process
-    $p.StartInfo = $pinfo
-
-    # Use .GetNewClosure() to ensure the event handlers can access variables from this scope.
-    $outputHandler = {
-        param($source, $e)
-        if ($null -ne $e.Data) {
-            $e.Data | Add-Content -Path $commandLogFile
-            if ($VerboseMode) { $Host.UI.WriteLine($e.Data) }
-        }
-    }.GetNewClosure()
-
-    $errorHandler = {
-        param($source, $e)
-        if ($null -ne $e.Data) {
-            "STDERR: $($e.Data)" | Add-Content -Path $commandLogFile
-            if ($VerboseMode) { $Host.UI.WriteLine("STDERR: $($e.Data)") }
-        }
-    }.GetNewClosure()
-
-    $outputDelegate = [System.Diagnostics.DataReceivedEventHandler]$outputHandler
-    $errorDelegate = [System.Diagnostics.DataReceivedEventHandler]$errorHandler
-
-    $p.add_OutputDataReceived($outputDelegate)
-    $p.add_ErrorDataReceived($errorDelegate)
-
     $exitCode = -1
     try {
-        $p.Start() | Out-Null
-        $p.BeginOutputReadLine()
-        $p.BeginErrorReadLine()
-        $p.WaitForExit()
-        $exitCode = $p.ExitCode
+        # Start-Transcript captures all console output to a file.
+        Start-Transcript -Path $commandLogFile -Append -Force
+
+        # Execute the command and wait for it to complete.
+        # The output will be displayed on the console and captured by the transcript.
+        $process = Start-Process -FilePath $FilePath -ArgumentList $Arguments -Wait -PassThru
+        $exitCode = $process.ExitCode
+
     } finally {
-        $p.remove_OutputDataReceived($outputDelegate)
-        $p.remove_ErrorDataReceived($errorDelegate)
-        if ($p) { $p.Dispose() }
+        # Stop the transcript to finalize the log file.
+        Stop-Transcript
+
+        # In non-verbose mode, the transcript includes PowerShell command prompts.
+        # This section cleans them up for a cleaner log file.
+        if (-not $VerboseMode) {
+            $content = Get-Content $commandLogFile -Raw
+            # Remove the PowerShell prompt lines and the Stop-Transcript line.
+            $cleanedContent = $content -replace '(?m)^PS .*>.*\r?\n' -replace '(?m)^\s*Transcript stopped.*\r?\n'
+            Set-Content -Path $commandLogFile -Value $cleanedContent.Trim()
+        }
     }
 
     Log "$LogName process finished with exit code: $exitCode." "INFO"
