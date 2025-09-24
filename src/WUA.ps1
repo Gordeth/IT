@@ -233,12 +233,35 @@ if ($UpdateList) {
             $VerbosePreference = $originalVerbosePreference
         }
 
-        # --- Check for pending reboot after installation based on installation results ---
-        Log "Update installation completed. Checking if a reboot is needed based on installation results..."
-        
         # --- Verify that updates were actually installed ---
         $successfullyInstalledCount = ($InstallationResult | Where-Object { $_.Status -eq 'Installed' }).Count
-        if ($successfullyInstalledCount -eq 0) {
+        $totalUpdatesAttempted = $InstallationResult.Count
+
+        # If some or all updates failed, attempt a repair and retry.
+        if ($successfullyInstalledCount -lt $totalUpdatesAttempted) {
+            Log "Initial update installation failed for one or more updates. Attempting system repair before retrying." "WARN"
+            
+            # Invoke the REPAIR.ps1 script.
+            Invoke-Script -ScriptName "REPAIR.ps1" -ScriptDir $PSScriptRoot -LogDir $LogDir -VerboseMode $VerboseMode -ScriptParameters @{}
+
+            Log "Retrying installation of downloaded updates after repair attempt..." "INFO"
+            $originalVerbosePreference = $VerbosePreference
+            try {
+                if ($VerboseMode) {
+                    $InstallationResult = Install-WindowsUpdate -MicrosoftUpdate -AcceptAll -Verbose -IgnoreReboot
+                } else {
+                    $VerbosePreference = 'SilentlyContinue'
+                    $InstallationResult = Install-WindowsUpdate -MicrosoftUpdate -AcceptAll -IgnoreReboot
+                }
+            } finally {
+                $VerbosePreference = $originalVerbosePreference
+            }
+        }
+
+        # --- Final check for pending reboot and installation status ---
+        Log "Update installation process completed. Checking final status and if a reboot is needed..."
+        $successfullyInstalledCount = ($InstallationResult | Where-Object { $_.Status -eq 'Installed' }).Count
+        if ($successfullyInstalledCount -eq 0 -and $totalUpdatesAttempted -gt 0) {
             Log "The PSWindowsUpdate module reported that 0 updates were successfully installed. The installation may have failed silently." "ERROR"
             Log "Please check the Windows Update logs for more details (e.g., in Event Viewer or C:\Windows\WindowsUpdate.log)." "ERROR"
         }
