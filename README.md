@@ -48,6 +48,7 @@ When you launch the bootstrapper, you'll be prompted to select a mode and a task
 | `src\WGET.ps1` | Handles the Winget update and cleanup routine. |
 | `src\REPAIR.ps1` | Handles system file integrity checks and repairs, including user prompts and reboot management. |
 | `src\MSO_UPDATE.ps1` | An optional routine for updating Microsoft Office (Click-to-Run). |
+| `src\CLEANUP.ps1` | Performs system cleanup using modern `StorageSense` cmdlets, avoiding legacy UI pop-ups. |
 | `src\IUS.ps1` | Handles the installation and upgrade of the UniFi Network Server. |
 
 ---
