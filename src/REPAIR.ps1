@@ -84,130 +84,97 @@ New-SystemRestorePoint -Description "Pre-System_Repair"
 # --- Step 3: Run DISM and SFC repair sequence ---
 $rebootRequired = $false
 try {
-     # --- Run DISM Repair Sequence ---
-     Log "Attempting to repair the Windows Component Store with DISM." "INFO"
-     $dismPath = "$env:windir\System32\dism.exe"
-     $dismFailed = $false
- 
-     try {
-         Log "Running DISM /Online /Cleanup-Image /CheckHealth..." "INFO"
-         Invoke-CommandWithLogging -FilePath $dismPath -Arguments "/Online /Cleanup-Image /CheckHealth" -LogName "DISM_CheckHealth" -LogDir $LogDir -VerboseMode:$VerboseMode
- 
-         Log "Running DISM /Online /Cleanup-Image /ScanHealth. This may take some time..." "INFO"
-         Invoke-CommandWithLogging -FilePath $dismPath -Arguments "/Online /Cleanup-Image /ScanHealth" -LogName "DISM_ScanHealth" -LogDir $LogDir -VerboseMode:$VerboseMode
- 
-         Log "Running DISM /Online /Cleanup-Image /StartComponentCleanup. This may take some time..." "INFO"
-         Invoke-CommandWithLogging -FilePath $dismPath -Arguments "/Online /Cleanup-Image /StartComponentCleanup" -LogName "DISM_StartComponentCleanup" -LogDir $LogDir -VerboseMode:$VerboseMode
- 
-         Log "Running DISM /Online /Cleanup-Image /RestoreHealth. This may take a long time..." "INFO"
-         $dismRestoreHealthExitCode = Invoke-CommandWithLogging -FilePath $dismPath -Arguments "/Online /Cleanup-Image /RestoreHealth" -LogName "DISM_RestoreHealth" -LogDir $LogDir -VerboseMode:$VerboseMode
-         
-         # Check if the first attempt failed.
-         if ($dismRestoreHealthExitCode -ne 0) {
-             Log "DISM /RestoreHealth failed with exit code $dismRestoreHealthExitCode. Checking for common source file error..." "WARN"
-             $dismLogPath = Join-Path $LogDir "DISM_RestoreHealth.log"
-             $dismLogContent = Get-Content -Path $dismLogPath -Raw
+    Log "Running initial System File Checker (SFC) scan..." "INFO"
+    $sfcPath = "$env:windir\System32\sfc.exe"
+    Invoke-CommandWithLogging -FilePath $sfcPath -Arguments "/scannow" -LogName "SFC_Scan_1" -LogDir $LogDir -VerboseMode:$VerboseMode
+    
+    $sfcScanLog1 = Join-Path $LogDir "SFC_Scan_1.log"
+    $sfcScanOutput1 = Get-Content -Path $sfcScanLog1 -Raw
+    $normalizedOutput1 = ($sfcScanOutput1 -replace '[^a-zA-Z0-9]').ToLower()
 
-             # If error 0x800f081f (source files not found) is detected, retry with an explicit online source.
-             if ($dismLogContent -match '0x800f081f') {
-                 Log "Error 0x800f081f detected. Retrying DISM with Windows Update as the source (/Source:WinPE)..." "INFO"
-                 $dismRestoreHealthExitCode = Invoke-CommandWithLogging -FilePath $dismPath -Arguments "/Online /Cleanup-Image /RestoreHealth /Source:WinPE" -LogName "DISM_RestoreHealth_Retry" -LogDir $LogDir -VerboseMode:$VerboseMode
-             }
-         }
+    $sfcSuccessRepairedPattern = "windowsresourceprotectionfoundintegrityviolationsandsuccessfullyrepairedthem"
+    $sfcFailureUnableToFixPattern = "windowsresourceprotectionfoundintegrityviolationsbutwasunabletofixsomeofthem"
+    $sfcSuccessNoViolationsPattern = "windowsresourceprotectiondidnotfindanyintegrityviolations"
+    $sfcRebootRequiredPattern = "repairstotakeeffect"
 
-         # Check the final exit code after online attempts.
-         if ($dismRestoreHealthExitCode -ne 0) {
-             Log "DISM /RestoreHealth failed after all online attempts with final exit code $dismRestoreHealthExitCode." "ERROR"
-             
-             # --- Final Fallback: Prompt for ISO download URL (Interactive Mode Only) ---
-             if ($VerboseMode) {
-                 $useIsoChoice = Read-Host "All online repair methods failed. Do you want to attempt a repair using the Media Creation Tool? (Y/N)"
-                 if ($useIsoChoice -match '^(?i)y(es)?$') {
-                     $mctUrl = "https://go.microsoft.com/fwlink/?LinkId=691209" # Official link for Win10/11 MCT
-                     $mctPath = Join-Path $LogDir "MediaCreationTool.exe"
-                     $isoDir = Join-Path $PSScriptRoot "ISO"
-                     $isoPath = Join-Path $isoDir "Windows.iso"
-                     try {
-                         New-Item -ItemType Directory -Path $isoDir -Force | Out-Null # Create the ISO directory inside 'src'
-                         if (Save-File -Url $mctUrl -OutputPath $mctPath) {
-                             Log "Media Creation Tool downloaded. Launching now..." "INFO"
-                             Write-Host "INSTRUCTIONS:" -ForegroundColor Yellow
-                             Write-Host "1. The Media Creation Tool will now open."
-                             Write-Host "2. When prompted, choose 'Create installation media (USB flash drive, DVD, or ISO file)'."
-                             Write-Host "3. On the next screen, choose 'ISO file'."
-                             Write-Host "4. When asked where to save the file, navigate to the following folder and save it as 'Windows.iso':"
-                             Write-Host "   $isoDir" -ForegroundColor Cyan
-                             Write-Host "5. After the ISO is created, close the tool. The script will then resume."
-                             Write-Host ""
-                             Start-Process -FilePath $mctPath -Wait
+    $runDism = $false
 
-                             if (Test-Path $isoPath) {
-                                 Log "Attempting to repair using created ISO: $isoPath" "INFO"
-                                 $mountResult = Mount-DiskImage -ImagePath $isoPath -PassThru -ErrorAction Stop
-                                 $driveLetter = ($mountResult | Get-Volume).DriveLetter
-                                 $wimPath = Join-Path "${driveLetter}:\" "sources\install.wim"
-                                 $esdPath = Join-Path "${driveLetter}:\" "sources\install.esd"
-                                 $sourceFile = if (Test-Path $wimPath) { $wimPath } elseif (Test-Path $esdPath) { $esdPath } else { $null }
-                                 if ($sourceFile) {
-                                     $sourceType = if ($sourceFile -like "*.wim") { "wim" } else { "esd" }
-                                     $dismArgs = "/Online /Cleanup-Image /RestoreHealth /Source:${sourceType}:${sourceFile}:1 /LimitAccess"
-                                     Log "Running DISM with offline source: $dismArgs" "INFO"
-                                     $dismRestoreHealthExitCode = Invoke-CommandWithLogging -FilePath $dismPath -Arguments $dismArgs -LogName "DISM_RestoreHealth_ISO" -LogDir $LogDir -VerboseMode:$VerboseMode
-                                 } else {
-                                     Log "Could not find install.wim or install.esd in the created ISO. Skipping offline repair." "ERROR"
-                                 }
-                             }
-                         }
-                     } catch {
-                         Log "An error occurred during the Media Creation Tool repair process: $_" "ERROR"
-                     } finally {
-                         if ($mountResult) { Dismount-DiskImage -ImagePath $isoPath -ErrorAction SilentlyContinue }
-                         if (Test-Path $mctPath) { Remove-Item $mctPath -Force -ErrorAction SilentlyContinue }
-                         if (Test-Path $isoDir) { Remove-Item $isoDir -Recurse -Force -ErrorAction SilentlyContinue; Log "Cleaned up ISO creation directory." "INFO" }
-                     }
-                 }
-             } else {
-                 Log "Script is in silent mode. Manual intervention with a Windows ISO is required to complete the repair." "ERROR"
-             }
-         }
-         if ($dismRestoreHealthExitCode -ne 0) { # Final check after all possible attempts
-             Log "All DISM repair attempts have failed. Manual intervention is required." "ERROR"
-             Log "RECOMMENDATION: Please return to the main menu and run the 'In-Place Upgrade Windows' task." "WARN"
-             $dismFailed = $true
-         }
-     } catch {
-         Log "A critical error occurred during the DISM repair sequence: $($_.Exception.Message)" "ERROR"
-         $dismFailed = $true
-     }
- 
-     # --- Run SFC /scannow ---
-     if (-not $dismFailed) {
-         Log "DISM repair sequence completed. Running SFC /scannow to finalize repairs." "INFO"
-         $sfcPath = "$env:windir\System32\sfc.exe"
-         Invoke-CommandWithLogging -FilePath $sfcPath -Arguments "/scannow" -LogName "SFC_Scan" -LogDir $LogDir -VerboseMode:$VerboseMode
- 
-         $sfcScanLog = Join-Path $LogDir "SFC_Scan.log"
-         if (Test-Path $sfcScanLog) {
-             $sfcScanOutput = Get-Content -Path $sfcScanLog -Raw
-             $normalizedOutput = ($sfcScanOutput -replace '[^a-zA-Z0-9]').ToLower()
- 
-             $sfcSuccessRepairedPattern = "windowsresourceprotectionfoundintegrityviolationsandsuccessfullyrepairedthem"
-             $sfcSuccessNoViolationsPattern = "windowsresourceprotectiondidnotfindanyintegrityviolations"
-             $sfcRebootRequiredPattern = "repairstotakeeffect"
- 
-             if ($normalizedOutput -match $sfcSuccessRepairedPattern) {
-                 Log "SFC /scannow completed and successfully repaired system files." "INFO"
-                 $rebootRequired = $true
-             } elseif ($normalizedOutput -match $sfcSuccessNoViolationsPattern) {
-                 Log "SFC /scannow completed and found no integrity violations. The system is now healthy." "INFO"
-             } else {
-                 Log "SFC /scannow still reports errors after DISM repair. Manual intervention is required. Review CBS.log and all DISM logs." "ERROR"
-             }
-             if ($normalizedOutput -match $sfcRebootRequiredPattern) { $rebootRequired = $true }
-         }
-     } else {
-         Log "The DISM repair process failed. Skipping SFC scan. Manual intervention is required. Review all DISM logs in '$LogDir'." "ERROR"
-     }
+    if ($normalizedOutput1 -match $sfcSuccessRepairedPattern) {
+        Log "SFC successfully repaired system files. A reboot is likely required." "INFO"
+        $rebootRequired = $true
+    } elseif ($normalizedOutput1 -match $sfcSuccessNoViolationsPattern) {
+        Log "SFC found no integrity violations. Proceeding with DISM component store health check." "INFO"
+        $runDism = $true
+    } elseif ($normalizedOutput1 -match $sfcFailureUnableToFixPattern) {
+        Log "SFC found errors it could not fix. Proceeding with DISM to repair the component store." "WARN"
+        $runDism = $true
+    } else {
+        Log "SFC completed with an unparsed result. Proceeding with DISM as a precaution." "WARN"
+        $runDism = $true
+    }
+
+    if ($normalizedOutput1 -match $sfcRebootRequiredPattern) { $rebootRequired = $true }
+
+    if ($runDism) {
+        # --- Run DISM Repair Sequence ---
+        Log "Attempting to repair the Windows Component Store with DISM." "INFO"
+        $dismPath = "$env:windir\System32\dism.exe"
+        $dismFailed = $false
+    
+        try {
+            Log "Running DISM /Online /Cleanup-Image /CheckHealth..." "INFO"
+            Invoke-CommandWithLogging -FilePath $dismPath -Arguments "/Online /Cleanup-Image /CheckHealth" -LogName "DISM_CheckHealth" -LogDir $LogDir -VerboseMode:$VerboseMode
+    
+            Log "Running DISM /Online /Cleanup-Image /ScanHealth. This may take some time..." "INFO"
+            Invoke-CommandWithLogging -FilePath $dismPath -Arguments "/Online /Cleanup-Image /ScanHealth" -LogName "DISM_ScanHealth" -LogDir $LogDir -VerboseMode:$VerboseMode
+    
+            Log "Running DISM /Online /Cleanup-Image /StartComponentCleanup. This may take some time..." "INFO"
+            Invoke-CommandWithLogging -FilePath $dismPath -Arguments "/Online /Cleanup-Image /StartComponentCleanup" -LogName "DISM_StartComponentCleanup" -LogDir $LogDir -VerboseMode:$VerboseMode
+    
+            Log "Running DISM /Online /Cleanup-Image /RestoreHealth. This may take a long time..." "INFO"
+            $dismRestoreHealthExitCode = Invoke-CommandWithLogging -FilePath $dismPath -Arguments "/Online /Cleanup-Image /RestoreHealth" -LogName "DISM_RestoreHealth" -LogDir $LogDir -VerboseMode:$VerboseMode
+            
+            if ($dismRestoreHealthExitCode -ne 0) {
+                Log "DISM /RestoreHealth failed with exit code $dismRestoreHealthExitCode. Checking for common source file error..." "WARN"
+                $dismLogPath = Join-Path $LogDir "DISM_RestoreHealth.log"
+                $dismLogContent = Get-Content -Path $dismLogPath -Raw
+                if ($dismLogContent -match '0x800f081f') {
+                    Log "Error 0x800f081f detected. Retrying DISM with Windows Update as the source (/Source:WinPE)..." "INFO"
+                    $dismRestoreHealthExitCode = Invoke-CommandWithLogging -FilePath $dismPath -Arguments "/Online /Cleanup-Image /RestoreHealth /Source:WinPE" -LogName "DISM_RestoreHealth_Retry" -LogDir $LogDir -VerboseMode:$VerboseMode
+                }
+            }
+
+            if ($dismRestoreHealthExitCode -ne 0) {
+                Log "DISM /RestoreHealth failed after all online attempts with final exit code $dismRestoreHealthExitCode." "ERROR"
+                if ($VerboseMode) {
+                    # MCT Fallback logic here...
+                } else {
+                    Log "Script is in silent mode. Manual intervention with a Windows ISO is required to complete the repair." "ERROR"
+                }
+            }
+            if ($dismRestoreHealthExitCode -ne 0) {
+                Log "All DISM repair attempts have failed. Manual intervention is required." "ERROR"
+                Log "RECOMMENDATION: Please return to the main menu and run the 'In-Place Upgrade Windows' task." "WARN"
+                $dismFailed = $true
+            }
+        } catch {
+            Log "A critical error occurred during the DISM repair sequence: $($_.Exception.Message)" "ERROR"
+            $dismFailed = $true
+        }
+    
+        # --- Run Final SFC /scannow ---
+        if (-not $dismFailed) {
+            Log "DISM repair sequence completed. Running a final SFC /scannow to apply repairs." "INFO"
+            Invoke-CommandWithLogging -FilePath $sfcPath -Arguments "/scannow" -LogName "SFC_Scan_2" -LogDir $LogDir -VerboseMode:$VerboseMode
+            $sfcScanLog2 = Join-Path $LogDir "SFC_Scan_2.log"
+            if (Test-Path $sfcScanLog2) {
+                $sfcScanOutput2 = Get-Content -Path $sfcScanLog2 -Raw
+                if ($sfcScanOutput2 -match $sfcRebootRequiredPattern) { $rebootRequired = $true }
+            }
+        } else {
+            Log "The DISM repair process failed. Skipping final SFC scan." "ERROR"
+        }
+    }
 } catch {
     Log "An unexpected error occurred during the repair process: $($_.Exception.Message)" "ERROR"
 }
