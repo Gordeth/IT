@@ -48,53 +48,40 @@ if (-not (Test-Path $LogFile)) {
 # ==================== Script Execution ====================
 Log "Starting TEST_ISO_DOWNLOAD.ps1 script..." "INFO"
 
-$uupDumpDir = Join-Path $PSScriptRoot "..\UUP_Dump"
-$uupScriptPath = Join-Path $uupDumpDir "uup-dump-get-windows-iso.ps1"
-$isoDir = Join-Path $uupDumpDir "ISO"
+$isoDir = Join-Path $LogDir "ISO_Creation"
+$isoPath = Join-Path $isoDir "Windows.iso"
+$mctPath = Join-Path $LogDir "MediaCreationTool.exe"
 
 try {
-    Log "Testing fully automated ISO download via UUP Dump API..." "INFO"
-    New-Item -ItemType Directory -Path $uupDumpDir -Force | Out-Null
     New-Item -ItemType Directory -Path $isoDir -Force | Out-Null
 
-    $uupScriptUrl = "https://raw.githubusercontent.com/rgl/uup-dump-get-windows-iso/master/uup-dump-get-windows-iso.ps1"
-    Log "Downloading UUP Dump script from '$uupScriptUrl'..." "INFO"
-    Invoke-WebRequest -Uri $uupScriptUrl -OutFile $uupScriptPath
+    $mctUrl = "https://go.microsoft.com/fwlink/?LinkId=691209" # Official link for Win10/11 MCT
+    Log "Downloading Media Creation Tool..." "INFO"
+    if (Save-File -Url $mctUrl -OutputPath $mctPath) {
+        Log "Media Creation Tool downloaded. Launching now..." "INFO"
+        Write-Host "INSTRUCTIONS:" -ForegroundColor Yellow
+        Write-Host "1. The Media Creation Tool will now open."
+        Write-Host "2. When prompted, choose 'Create installation media (USB flash drive, DVD, or ISO file)'."
+        Write-Host "3. On the next screen, choose 'ISO file'."
+        Write-Host "4. When asked where to save the file, navigate to the following folder and save it as 'Windows.iso':"
+        Write-Host "   $isoDir" -ForegroundColor Cyan
+        Write-Host "5. After the ISO is created, close the tool. The script will then resume."
+        Write-Host ""
 
-    if (Test-Path $uupScriptPath) {
-        Log "UUP Dump script downloaded. Determining OS target..." "INFO"
-        $osVersion = (Get-CimInstance Win32_OperatingSystem).Version
-        $osLang = (Get-Culture).Name
-        $targetName = if ($osVersion -like "10.0.22*") { "windows-11" } else { "windows-10" }
-        Log "OS target set to '$targetName'." "INFO"
-        Log "OS language set to '$osLang'." "INFO"
+        Start-Process -FilePath $mctPath -Wait
 
-        # Add the language parameter to create a fully-specified, non-interactive command.
-        $commandString = "& `"$uupScriptPath`" -windowsTargetName `"$targetName`" -windowsEditionName `"Pro`" -windowsLanguageName `"$osLang`" -destinationDirectory `"$isoDir`""
-        $scriptBlock = [scriptblock]::Create($commandString)
-        $encodedCommand = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($scriptBlock.ToString()))
-        
-        Log "Executing UUP Dump script. This will take a long time as it downloads and builds the ISO..." "INFO"
-        $process = Start-Process powershell.exe -ArgumentList "-NoProfile -EncodedCommand $encodedCommand" -Wait -PassThru -NoNewWindow
-
-        if ($process.ExitCode -ne 0) {
-            throw "UUP Dump script process exited with non-zero code: $($process.ExitCode)"
-        }
-
-        $isoFile = Get-ChildItem -Path $isoDir -Filter "*.iso" | Select-Object -First 1
-        if ($isoFile) {
-            Log "Test successful. ISO created at '$($isoFile.FullName)'." "INFO"
+        if (Test-Path $isoPath) {
+            Log "Test successful. ISO was created at the specified path: '$isoPath'." "INFO"
         } else {
-            Log "Test failed. UUP Dump script completed but no ISO file was found in '$isoDir'." "ERROR"
+            Log "Test failed. ISO file was not found at the expected path: '$isoPath'." "ERROR"
         }
-    } else {
-        Log "Failed to download the UUP Dump script. Aborting test." "ERROR"
     }
 } catch {
     Log "An error occurred during the ISO download test process: $_" "ERROR"
 } finally {
     Log "Cleaning up test files..." "INFO"
-    if (Test-Path $uupDumpDir) { Remove-Item $uupDumpDir -Recurse -Force -ErrorAction SilentlyContinue; Log "Cleaned up UUP Dump directory and its contents." "INFO" }
+    if (Test-Path $mctPath) { Remove-Item $mctPath -Force -ErrorAction SilentlyContinue }
+    if (Test-Path $isoDir) { Remove-Item $isoDir -Recurse -Force -ErrorAction SilentlyContinue; Log "Cleaned up ISO creation directory." "INFO" }
 }
 
 Log "==== TEST_ISO_DOWNLOAD Script Completed ===="
