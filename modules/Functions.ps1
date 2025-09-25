@@ -578,15 +578,14 @@ function Invoke-CommandWithLogging {
         # -Wait ensures the script pauses until the command completes.
         # -NoNewWindow keeps the output in the current console, which is necessary for Start-Transcript to capture it.
         $process = Start-Process -FilePath $FilePath -ArgumentList $Arguments -Wait -NoNewWindow -PassThru
-
-        # Capture the exit code of the last external command.
-        # $LASTEXITCODE is not reliable with Start-Process, so we use the ExitCode property of the returned process object.
-        $exitCode = $process.ExitCode
-    } catch {
-        Log "A critical error occurred while trying to execute '$FilePath': $_" -Level "ERROR"
     } finally {
+        # Capture the exit code *after* the process has run but *before* stopping the transcript.
+        # This prevents the transcript messages from polluting the exit code variable.
+        $exitCode = if ($process) { $process.ExitCode } else { -1 }
+
         # Stop the transcript to finalize the log file.
         Stop-Transcript
+    }
 
         # In non-verbose mode, the transcript includes PowerShell command prompts.
         # This section cleans them up for a cleaner log file.
@@ -596,7 +595,6 @@ function Invoke-CommandWithLogging {
             $cleanedContent = $content -replace '(?m)^PS .*>.*\r?\n' -replace '(?m)^\s*Transcript stopped.*\r?\n'
             Set-Content -Path $commandLogFile -Value $cleanedContent.Trim()
         }
-    }
 
     Log "$LogName process finished with exit code: $exitCode." "INFO"
     return $exitCode
