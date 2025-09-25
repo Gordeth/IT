@@ -57,7 +57,7 @@ try {
     New-Item -ItemType Directory -Path $uupDumpDir -Force | Out-Null
     New-Item -ItemType Directory -Path $isoDir -Force | Out-Null
 
-    $uupScriptUrl = "https://raw.githubusercontent.com/rgl/uup-dump-get-windows-iso.ps1/master/uup-dump-get-windows-iso.ps1"
+    $uupScriptUrl = "https://raw.githubusercontent.com/rgl/uup-dump-get-windows-iso/master/uup-dump-get-windows-iso.ps1"
     Log "Downloading UUP Dump script from '$uupScriptUrl'..." "INFO"
     Invoke-WebRequest -Uri $uupScriptUrl -OutFile $uupScriptPath
 
