@@ -126,47 +126,78 @@ try {
             $dismCheckHealthResult = Invoke-CommandWithLogging -FilePath $dismPath -Arguments "/Online /Cleanup-Image /CheckHealth" -LogName "DISM_CheckHealth" -LogDir $LogDir -VerboseMode:$VerboseMode
             $normalizedDismCheckHealthOutput = ($dismCheckHealthResult.Content -replace '[^a-zA-Z0-9]').ToLower()
             Log "Normalized DISM CheckHealth output for parsing: $normalizedDismCheckHealthOutput" "DEBUG"
+
+            if ($normalizedDismCheckHealthOutput -match 'nocomponentstorecorruptiondetected') {
+                Log "DISM CheckHealth found no component store corruption." "INFO"
+            } elseif ($normalizedDismCheckHealthOutput -match 'thecomponentstoreisrepairable') {
+                Log "DISM CheckHealth reports that the component store is repairable." "WARN"
+            } else {
+                Log "DISM CheckHealth completed with an unparsed result." "WARN"
+            }
     
             Log "Running DISM /Online /Cleanup-Image /ScanHealth. This may take some time..." "INFO"
             $dismScanHealthResult = Invoke-CommandWithLogging -FilePath $dismPath -Arguments "/Online /Cleanup-Image /ScanHealth" -LogName "DISM_ScanHealth" -LogDir $LogDir -VerboseMode:$VerboseMode
             $normalizedDismScanHealthOutput = ($dismScanHealthResult.Content -replace '[^a-zA-Z0-9]').ToLower()
             Log "Normalized DISM ScanHealth output for parsing: $normalizedDismScanHealthOutput" "DEBUG"
-    
+
+            if ($normalizedDismScanHealthOutput -match 'nocomponentstorecorruptiondetected') {
+                Log "DISM ScanHealth found no component store corruption." "INFO"
+            } elseif ($normalizedDismScanHealthOutput -match 'thecomponentstoreisrepairable') {
+                Log "DISM ScanHealth found corruption and it is repairable." "WARN"
+            } else {
+                Log "DISM ScanHealth completed with an unparsed result." "WARN"
+            }
+
             Log "Running DISM /Online /Cleanup-Image /StartComponentCleanup. This may take some time..." "INFO"
             $dismCleanupResult = Invoke-CommandWithLogging -FilePath $dismPath -Arguments "/Online /Cleanup-Image /StartComponentCleanup" -LogName "DISM_StartComponentCleanup" -LogDir $LogDir -VerboseMode:$VerboseMode
             $normalizedDismCleanupOutput = ($dismCleanupResult.Content -replace '[^a-zA-Z0-9]').ToLower()
             Log "Normalized DISM StartComponentCleanup output for parsing: $normalizedDismCleanupOutput" "DEBUG"
-    
-            Log "Running DISM /Online /Cleanup-Image /RestoreHealth. This may take a long time..." "INFO"
-            $dismResult1 = Invoke-CommandWithLogging -FilePath $dismPath -Arguments "/Online /Cleanup-Image /RestoreHealth" -LogName "DISM_RestoreHealth" -LogDir $LogDir -VerboseMode:$VerboseMode
-            $dismRestoreHealthExitCode = $dismResult1.ExitCode
-            
-            if ($dismRestoreHealthExitCode -ne 0) {
-                Log "DISM /RestoreHealth failed with exit code $dismRestoreHealthExitCode. Checking for common source file error..." "WARN"
-                $dismOutput = $dismResult1.Content
-                $normalizedDismOutput = ($dismOutput -replace '[^a-zA-Z0-9]').ToLower()
-                Log "Normalized DISM RestoreHealth output for parsing: $normalizedDismOutput" "DEBUG"
-                if ($normalizedDismOutput -match '0x800f081f'.ToLower()) {
-                    Log "Error 0x800f081f detected. Retrying DISM with Windows Update as the source (/Source:WinPE)..." "INFO"
-                    $dismResult2 = Invoke-CommandWithLogging -FilePath $dismPath -Arguments "/Online /Cleanup-Image /RestoreHealth /Source:WinPE" -LogName "DISM_RestoreHealth_Retry" -LogDir $LogDir -VerboseMode:$VerboseMode
-                    $normalizedDismRetryOutput = ($dismResult2.Content -replace '[^a-zA-Z0-9]').ToLower()
-                    Log "Normalized DISM RestoreHealth (Retry) output for parsing: $normalizedDismRetryOutput" "DEBUG"
-                    $dismRestoreHealthExitCode = $dismResult2.ExitCode
-                }
+
+            if ($normalizedDismCleanupOutput -match 'theoperationcompletedsuccessfully') {
+                Log "DISM StartComponentCleanup completed successfully." "INFO"
+            } else {
+                Log "DISM StartComponentCleanup completed with an unparsed result." "WARN"
             }
 
-            if ($dismRestoreHealthExitCode -ne 0) {
-                Log "DISM /RestoreHealth failed after all online attempts with final exit code $dismRestoreHealthExitCode." "ERROR"
+            Log "Running DISM /Online /Cleanup-Image /RestoreHealth. This may take a long time..." "INFO"
+            $dismResult1 = Invoke-CommandWithLogging -FilePath $dismPath -Arguments "/Online /Cleanup-Image /RestoreHealth" -LogName "DISM_RestoreHealth" -LogDir $LogDir -VerboseMode:$VerboseMode
+            $dismOutput = $dismResult1.Content
+            $normalizedDismOutput = ($dismOutput -replace '[^a-zA-Z0-9]').ToLower()
+            Log "Normalized DISM RestoreHealth output for parsing: $normalizedDismOutput" "DEBUG"
+            
+            # Define patterns for parsing DISM RestoreHealth output.
+            $dismSuccessPattern = "therestoreoperationcompletedsuccessfully"
+            $dismSourceNotFoundPattern = "thesourcefilescouldnotbefound" # Corresponds to 0x800f081f
+
+            # Check if the first attempt was successful.
+            if ($normalizedDismOutput -match $dismSuccessPattern) {
+                Log "DISM /RestoreHealth reported successful completion on the first attempt." "INFO"
+                $dismFailed = $false
+            } elseif ($normalizedDismOutput -match $dismSourceNotFoundPattern) {
+                Log "DISM /RestoreHealth failed to find source files. Retrying with Windows Update as the source (/Source:WinPE)..." "INFO"
+                $dismResult2 = Invoke-CommandWithLogging -FilePath $dismPath -Arguments "/Online /Cleanup-Image /RestoreHealth /Source:WinPE" -LogName "DISM_RestoreHealth_Retry" -LogDir $LogDir -VerboseMode:$VerboseMode
+                $dismRetryOutput = $dismResult2.Content
+                $normalizedDismRetryOutput = ($dismRetryOutput -replace '[^a-zA-Z0-9]').ToLower()
+                Log "Normalized DISM RestoreHealth (Retry) output for parsing: $normalizedDismRetryOutput" "DEBUG"
+
+                if ($normalizedDismRetryOutput -match $dismSuccessPattern) {
+                    Log "DISM /RestoreHealth reported successful completion on the second attempt (using WinPE source)." "INFO"
+                    $dismFailed = $false
+                } else {
+                    Log "DISM /RestoreHealth failed after all online attempts." "ERROR"
+                    $dismFailed = $true
+                }
+            } else {
+                Log "DISM /RestoreHealth failed with an unparsed result. Assuming failure." "ERROR"
+                $dismFailed = $true
+            }
+
+            if ($dismFailed) {
                 if ($VerboseMode) {
                     # MCT Fallback logic here...
                 } else {
                     Log "Script is in silent mode. Manual intervention with a Windows ISO is required to complete the repair." "ERROR"
                 }
-            }
-            if ($dismRestoreHealthExitCode -ne 0) {
-                Log "All DISM repair attempts have failed. Manual intervention is required." "ERROR"
-                Log "RECOMMENDATION: Please return to the main menu and run the 'In-Place Upgrade Windows' task." "WARN"
-                $dismFailed = $true
             }
         } catch {
             Log "A critical error occurred during the DISM repair sequence: $($_.Exception.Message)" "ERROR"
