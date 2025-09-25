@@ -569,18 +569,17 @@ function Invoke-CommandWithLogging {
     }
 
     $exitCode = -1
+    $process = $null
     try {
         # Start-Transcript captures all console output to a file.
         Start-Transcript -Path $commandLogFile -Append -Force
 
-        # Use Start-Process to reliably execute external commands with arguments.
-        # The call operator (&) can misinterpret argument strings.
-        # -Wait ensures the script pauses until the command completes.
-        # -NoNewWindow keeps the output in the current console, which is necessary for Start-Transcript to capture it.
         $process = Start-Process -FilePath $FilePath -ArgumentList $Arguments -Wait -NoNewWindow -PassThru
+    } catch {
+        Log "A critical error occurred while trying to execute '$FilePath': $_" -Level "ERROR"
     } finally {
-        # Capture the exit code *after* the process has run but *before* stopping the transcript.
-        # This prevents the transcript messages from polluting the exit code variable.
+        # Capture the exit code directly from the process object before stopping the transcript.
+        # This is the most reliable way to get a clean integer value.
         $exitCode = if ($process) { $process.ExitCode } else { -1 }
 
         # Stop the transcript to finalize the log file.
@@ -591,9 +590,24 @@ function Invoke-CommandWithLogging {
         # This section cleans them up for a cleaner log file.
         if (-not $VerboseMode) {
             $content = Get-Content $commandLogFile -Raw
-            # Remove the PowerShell prompt lines and the Stop-Transcript line.
-            $cleanedContent = $content -replace '(?m)^PS .*>.*\r?\n' -replace '(?m)^\s*Transcript stopped.*\r?\n'
-            Set-Content -Path $commandLogFile -Value $cleanedContent.Trim()
+            # Using regex for multi-line content can be unreliable. A line-by-line parsing
+            # approach is more robust for removing the transcript header and footer.
+            $lines = Get-Content $commandLogFile
+            $cleanedLines = New-Object System.Collections.Generic.List[string]
+            $inHeaderOrFooter = $false
+
+            foreach ($line in $lines) {
+                if ($line -like '**********************') {
+                    $inHeaderOrFooter = -not $inHeaderOrFooter
+                    continue # Skip the separator line itself
+                }
+                if (-not $inHeaderOrFooter) {
+                    $cleanedLines.Add($line)
+                }
+            }
+            
+            # Overwrite the log file with only the cleaned content.
+            Set-Content -Path $commandLogFile -Value ($cleanedLines -join "`r`n").Trim()
         }
 
     Log "$LogName process finished with exit code: $exitCode." "INFO"
