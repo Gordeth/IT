@@ -86,10 +86,9 @@ $rebootRequired = $false
 try {
     Log "Running initial System File Checker (SFC) scan..." "INFO"
     $sfcPath = "$env:windir\System32\sfc.exe"
-    Invoke-CommandWithLogging -FilePath $sfcPath -Arguments "/scannow" -LogName "SFC_Scan_1" -LogDir $LogDir -VerboseMode:$VerboseMode
+    $sfcResult1 = Invoke-CommandWithLogging -FilePath $sfcPath -Arguments "/scannow" -LogName "SFC_Scan_1" -LogDir $LogDir -VerboseMode:$VerboseMode
     
-    $sfcScanLog1 = Join-Path $LogDir "SFC_Scan_1.log"
-    $sfcScanOutput1 = Get-Content -Path $sfcScanLog1 -Raw
+    $sfcScanOutput1 = $sfcResult1.Content
     $normalizedOutput1 = ($sfcScanOutput1 -replace '[^a-zA-Z0-9]').ToLower()
 
     $sfcSuccessRepairedPattern = "windowsresourceprotectionfoundintegrityviolationsandsuccessfullyrepairedthem"
@@ -165,10 +164,9 @@ try {
         # --- Run Final SFC /scannow ---
         if (-not $dismFailed) {
             Log "DISM repair sequence completed. Running a final SFC /scannow to apply repairs." "INFO"
-            Invoke-CommandWithLogging -FilePath $sfcPath -Arguments "/scannow" -LogName "SFC_Scan_2" -LogDir $LogDir -VerboseMode:$VerboseMode
-            $sfcScanLog2 = Join-Path $LogDir "SFC_Scan_2.log"
-            if (Test-Path $sfcScanLog2) {
-                $sfcScanOutput2 = Get-Content -Path $sfcScanLog2 -Raw
+            $sfcResult2 = Invoke-CommandWithLogging -FilePath $sfcPath -Arguments "/scannow" -LogName "SFC_Scan_2" -LogDir $LogDir -VerboseMode:$VerboseMode
+            if ($sfcResult2) {
+                $sfcScanOutput2 = $sfcResult2.Content
                 if ($sfcScanOutput2 -match $sfcRebootRequiredPattern) { $rebootRequired = $true }
             }
         } else {
