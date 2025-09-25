@@ -569,50 +569,53 @@ function Invoke-CommandWithLogging {
     }
 
     $exitCode = -1
-    try {
-        # Start-Transcript captures all console output to a file.
-        Start-Transcript -Path $commandLogFile -Append -Force
+    $fullContent = ""
+    $p = $null
 
-        # Use the call operator (&) with stream redirection. This is the most reliable
-        # way to ensure all console output is captured by Start-Transcript.
-        & $FilePath $Arguments 2>&1
-        $exitCode = $LASTEXITCODE
+    try {
+        # Use the .NET Process class for robust, direct output capturing, bypassing Start-Transcript.
+        $pinfo = New-Object System.Diagnostics.ProcessStartInfo
+        $pinfo.FileName = $FilePath
+        $pinfo.Arguments = $Arguments
+        $pinfo.RedirectStandardError = $true
+        $pinfo.RedirectStandardOutput = $true
+        $pinfo.UseShellExecute = $false
+        $pinfo.CreateNoWindow = $true
+        # Use the default OEM encoding, which is most common for Windows console applications.
+        $pinfo.StandardOutputEncoding = [System.Text.Encoding]::Default
+        $pinfo.StandardErrorEncoding = [System.Text.Encoding]::Default
+
+        $p = New-Object System.Diagnostics.Process
+        $p.StartInfo = $pinfo
+        $p.Start() | Out-Null
+
+        # Synchronously read the output streams.
+        $output = $p.StandardOutput.ReadToEnd()
+        $errors = $p.StandardError.ReadToEnd()
+
+        $p.WaitForExit()
+        $exitCode = $p.ExitCode
+        $fullContent = ($output + $errors).Trim()
+
+        # Write the captured content to the log file.
+        Set-Content -Path $commandLogFile -Value $fullContent
+
+        # If in verbose mode, write the captured content to the console.
+        if ($VerboseMode) {
+            Write-Host $fullContent
+        }
     } catch {
         Log "A critical error occurred while trying to execute '$FilePath': $_" -Level "ERROR"
     } finally {
-        # Stop the transcript to finalize the log file.
-        Stop-Transcript
-    }
-
-        # In non-verbose mode, the transcript includes PowerShell command prompts.
-        # This section cleans them up for a cleaner log file.
-        if (-not $VerboseMode) {
-            # Using regex for multi-line content can be unreliable. A line-by-line parsing
-            # approach is more robust for removing the transcript header and footer.
-            $lines = Get-Content $commandLogFile
-            $cleanedLines = New-Object System.Collections.Generic.List[string]
-            $inHeaderOrFooter = $false
-
-            foreach ($line in $lines) {
-                if ($line -like '**********************') {
-                    $inHeaderOrFooter = -not $inHeaderOrFooter
-                    continue # Skip the separator line itself
-                }
-                if (-not $inHeaderOrFooter) {
-                    $cleanedLines.Add($line)
-                }
-            }
-            
-            # Overwrite the log file with only the cleaned content.
-            $cleanedContent = ($cleanedLines -join "`r`n").Trim()
-            Set-Content -Path $commandLogFile -Value $cleanedContent
+        if ($p) {
+            $p.Dispose()
         }
-
+    }
     Log "$LogName process finished with exit code: $exitCode." "INFO"
     # Return a hashtable containing both the exit code and the cleaned log content.
     return @{
         ExitCode = $exitCode
-        Content  = if ($cleanedContent) { $cleanedContent } else { Get-Content $commandLogFile -Raw }
+        Content  = $fullContent
     }
 }
 
