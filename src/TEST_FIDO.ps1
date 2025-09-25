@@ -59,19 +59,14 @@ New-Item -ItemType Directory -Path $isoDir -Force | Out-Null
 $isoPath = Join-Path $isoDir "Windows.iso"
 
 try {
-    # Attempt to download Fido.ps1. If the primary Save-File (curl) fails,
-    # it might be due to User-Agent blocking. We'll add a fallback.
-    $fidoDownloaded = Save-File -Url $fidoUrl -OutputPath $fidoPath
-    if (-not $fidoDownloaded) {
-        Log "Primary download method (curl) failed. Retrying with a basic WebClient..." "WARN"
-        try {
-            (New-Object System.Net.WebClient).DownloadFile($fidoUrl, $fidoPath)
-            $fidoDownloaded = $true
-        } catch {
-            Log "Fallback download method also failed. Error: $_" "ERROR"
-        }
+    # Download Fido.ps1 using a browser-like User-Agent to avoid being blocked.
+    $headers = @{
+        "User-Agent" = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36"
     }
-    if ($fidoDownloaded) {
+    Invoke-WebRequest -Uri $fidoUrl -OutFile $fidoPath -Headers $headers
+    
+    # Check if the file was downloaded successfully before proceeding.
+    if (Test-Path $fidoPath) {
         Log "Fido.ps1 downloaded. Running it to download the ISO..." "INFO"
         
         $osVersion = (Get-CimInstance Win32_OperatingSystem).Version
@@ -84,7 +79,6 @@ try {
             $osLang = 'pt-br'
         }
         $fidoVersionArg = if ($osVersion -like "10.0.22*") { "-Win11" } else { "-Win10" }
-        $fidoArgs = "$fidoVersionArg -Latest -Arch $osArch -Language `"$osLang`""
         
         # Reverting to the -OutFile method as it's more resilient to Microsoft's server-side blocking.
         # We will run the command directly in a new process and wait for it to complete.
@@ -92,7 +86,9 @@ try {
         
         # To avoid complex quoting issues, we build a script block and pass it as a Base64 encoded command.
         # This is the most reliable way to run complex commands in a new process.
-        $scriptBlock = [scriptblock]::Create("& `"$fidoPath`" $fidoArgs -OutFile `"$isoPath`"")
+        # The command string must be constructed carefully to ensure arguments are parsed correctly.
+        $commandString = "& `"$fidoPath`" $fidoVersionArg -Latest -Arch $osArch -Language `"$osLang`" -OutFile `"$isoPath`""
+        $scriptBlock = [scriptblock]::Create($commandString)
         $encodedCommand = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($scriptBlock.ToString()))
         
         $fidoProcess = Start-Process powershell.exe -ArgumentList "-NoProfile -EncodedCommand $encodedCommand" -Wait -PassThru -NoNewWindow
@@ -105,6 +101,8 @@ try {
         } else {
             Log "Fido ISO download test failed. ISO file was not created." "ERROR"
         }
+    } else {
+        Log "Fido.ps1 could not be downloaded. Skipping ISO download test." "ERROR"
     }
 } catch {
     Log "An error occurred during the Fido.ps1 test process: $_" "ERROR"
