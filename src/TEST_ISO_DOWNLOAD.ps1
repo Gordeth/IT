@@ -48,42 +48,50 @@ if (-not (Test-Path $LogFile)) {
 # ==================== Script Execution ====================
 Log "Starting TEST_ISO_DOWNLOAD.ps1 script..." "INFO"
 
-$isoPath = Join-Path $LogDir "Windows_Test.iso"
+$uupDumpDir = Join-Path $PSScriptRoot "..\UUP_Dump"
+$uupScriptPath = Join-Path $uupDumpDir "uup-dump-get-windows-iso.ps1"
+$isoDir = Join-Path $uupDumpDir "ISO"
 
 try {
-    # Determine which download page to open based on the OS version and language.
-    $osVersion = (Get-CimInstance Win32_OperatingSystem).Version
-    $osLang = (Get-Culture).Name.ToLower() # e.g., 'en-us', 'pt-pt'
+    Log "Testing fully automated ISO download via UUP Dump API..." "INFO"
+    New-Item -ItemType Directory -Path $uupDumpDir -Force | Out-Null
+    New-Item -ItemType Directory -Path $isoDir -Force | Out-Null
 
-    $downloadPageUrl = if ($osVersion -like "10.0.22*") {
-        "https://www.microsoft.com/$osLang/software-download/windows11?ua=mac"
-    } else {
-        "https://www.microsoft.com/$osLang/software-download/windows10?ua=mac"
-    }
+    $uupScriptUrl = "https://raw.githubusercontent.com/rgl/uup-dump-get-windows-iso.ps1/master/uup-dump-get-windows-iso.ps1"
+    Log "Downloading UUP Dump script from '$uupScriptUrl'..." "INFO"
+    Invoke-WebRequest -Uri $uupScriptUrl -OutFile $uupScriptPath
 
-    Log "Opening the Microsoft ISO download page in your browser..." "INFO"
-    Write-Host "INSTRUCTIONS:" -ForegroundColor Yellow
-    Write-Host "1. A browser window will open to the Microsoft download page."
-    Write-Host "2. Select your Windows edition, language, and architecture (64-bit)."
-    Write-Host "3. After you confirm, the page will generate a direct download link."
-    Write-Host "4. Right-click the 'Download' button and select 'Copy link'."
-    Write-Host "5. Paste the copied link into the prompt below and press Enter."
-    Start-Process "msedge.exe" $downloadPageUrl
+    if (Test-Path $uupScriptPath) {
+        Log "UUP Dump script downloaded. Determining OS target..." "INFO"
+        $osVersion = (Get-CimInstance Win32_OperatingSystem).Version
+        $targetName = if ($osVersion -like "10.0.22*") { "windows-11" } else { "windows-10" }
+        Log "OS target set to '$targetName'." "INFO"
 
-    $isoUrl = Read-Host "Please paste the direct download link for the Windows ISO file here"
-    if ($isoUrl -match '^https?://') {
-        Log "Downloading ISO to temporary path: $isoPath..." "INFO"
-        if (Save-File -Url $isoUrl -OutputPath $isoPath) {
-            Log "Test download successful. ISO created at '$isoPath'." "INFO"
+        $commandString = "& `"$uupScriptPath`" -windowsTargetName `"$targetName`" -destinationDirectory `"$isoDir`""
+        $scriptBlock = [scriptblock]::Create($commandString)
+        $encodedCommand = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($scriptBlock.ToString()))
+        
+        Log "Executing UUP Dump script. This will take a long time as it downloads and builds the ISO..." "INFO"
+        $process = Start-Process powershell.exe -ArgumentList "-NoProfile -EncodedCommand $encodedCommand" -Wait -PassThru -NoNewWindow
+
+        if ($process.ExitCode -ne 0) {
+            throw "UUP Dump script process exited with non-zero code: $($process.ExitCode)"
+        }
+
+        $isoFile = Get-ChildItem -Path $isoDir -Filter "*.iso" | Select-Object -First 1
+        if ($isoFile) {
+            Log "Test successful. ISO created at '$($isoFile.FullName)'." "INFO"
+        } else {
+            Log "Test failed. UUP Dump script completed but no ISO file was found in '$isoDir'." "ERROR"
         }
     } else {
-        Log "Invalid URL provided. Skipping download." "ERROR"
+        Log "Failed to download the UUP Dump script. Aborting test." "ERROR"
     }
 } catch {
     Log "An error occurred during the ISO download test process: $_" "ERROR"
 } finally {
     Log "Cleaning up test files..." "INFO"
-    if (Test-Path $isoPath) { Remove-Item $isoPath -Force -ErrorAction SilentlyContinue; Log "Cleaned up downloaded test ISO file." "INFO" }
+    if (Test-Path $uupDumpDir) { Remove-Item $uupDumpDir -Recurse -Force -ErrorAction SilentlyContinue; Log "Cleaned up UUP Dump directory and its contents." "INFO" }
 }
 
 Log "==== TEST_ISO_DOWNLOAD Script Completed ===="
