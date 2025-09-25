@@ -67,7 +67,7 @@ try {
         $targetName = if ($osVersion -like "10.0.22*") { "windows-11" } else { "windows-10" }
         Log "OS target set to '$targetName'." "INFO"
 
-        $commandString = "& `"$uupScriptPath`" -windowsTargetName `"$targetName`" -destinationDirectory `"$isoDir`""
+        $commandString = "& `"$uupScriptPath`" -windowsTargetName `"$targetName`" -windowsEditionName `"Pro`" -destinationDirectory `"$isoDir`""
         $scriptBlock = [scriptblock]::Create($commandString)
         $encodedCommand = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($scriptBlock.ToString()))
         
