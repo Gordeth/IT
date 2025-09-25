@@ -76,11 +76,11 @@ try {
         
         # To avoid complex quoting issues, we build a script block and pass it as a Base64 encoded command.
         # This is the most reliable way to run complex commands in a new process.
-        $scriptBlock = [scriptblock]::Create("& `"$fidoPath`" $fidoArgs -GetUrl")
+        # The output redirection (>) is now *inside* the script block.
+        $scriptBlock = [scriptblock]::Create("& `"$fidoPath`" $fidoArgs -GetUrl > `"$tempUrlFile`"")
         $encodedCommand = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($scriptBlock.ToString()))
         
-        # We still redirect the output of the new process to a temp file.
-        $fidoProcess = Start-Process powershell.exe -ArgumentList "-NoProfile -EncodedCommand $encodedCommand > `"$tempUrlFile`"" -Wait -PassThru
+        $fidoProcess = Start-Process powershell.exe -ArgumentList "-NoProfile -EncodedCommand $encodedCommand" -Wait -PassThru
         if ($fidoProcess.ExitCode -ne 0) { throw "Fido.ps1 process exited with non-zero code: $($fidoProcess.ExitCode)" }
         $isoUrl = Get-Content $tempUrlFile | Select-Object -First 1
         Remove-Item $tempUrlFile -Force
