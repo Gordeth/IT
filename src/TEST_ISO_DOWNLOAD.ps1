@@ -51,12 +51,14 @@ Log "Starting TEST_ISO_DOWNLOAD.ps1 script..." "INFO"
 $isoPath = Join-Path $LogDir "Windows_Test.iso"
 
 try {
-    # Determine which download page to open based on the OS version.
+    # Determine which download page to open based on the OS version and language.
     $osVersion = (Get-CimInstance Win32_OperatingSystem).Version
+    $osLang = (Get-Culture).Name.ToLower() # e.g., 'en-us', 'pt-pt'
+
     $downloadPageUrl = if ($osVersion -like "10.0.22*") {
-        "https://www.microsoft.com/en-us/software-download/windows11?ua=mac"
+        "https://www.microsoft.com/$osLang/software-download/windows11?ua=mac"
     } else {
-        "https://www.microsoft.com/en-us/software-download/windows10?ua=mac"
+        "https://www.microsoft.com/$osLang/software-download/windows10?ua=mac"
     }
 
     Log "Opening the Microsoft ISO download page in your browser..." "INFO"
