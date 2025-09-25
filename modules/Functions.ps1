@@ -589,7 +589,6 @@ function Invoke-CommandWithLogging {
         # In non-verbose mode, the transcript includes PowerShell command prompts.
         # This section cleans them up for a cleaner log file.
         if (-not $VerboseMode) {
-            $content = Get-Content $commandLogFile -Raw
             # Using regex for multi-line content can be unreliable. A line-by-line parsing
             # approach is more robust for removing the transcript header and footer.
             $lines = Get-Content $commandLogFile
