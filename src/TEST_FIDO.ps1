@@ -86,42 +86,20 @@ try {
         $fidoVersionArg = if ($osVersion -like "10.0.22*") { "-Win11" } else { "-Win10" }
         $fidoArgs = "$fidoVersionArg -Latest -Arch $osArch -Language `"$osLang`""
         
-        # Use Fido to get the download URL, then use our own robust download function.
-        # This avoids issues where Fido exits before its background download completes.
+        # Reverting to the -OutFile method as it's more resilient to Microsoft's server-side blocking.
+        # We will run the command directly in a new process and wait for it to complete.
         Log "Launching Fido to retrieve ISO download URL..." "INFO"
-        # We redirect the output to a temporary file because capturing StandardOutput from a new PowerShell process can be unreliable.
-        $tempUrlFile = Join-Path $LogDir "fido_url.tmp"
         
         # To avoid complex quoting issues, we build a script block and pass it as a Base64 encoded command.
         # This is the most reliable way to run complex commands in a new process.
-        # The output redirection (*>) is now *inside* the script block to capture ALL streams (stdout, stderr, etc.).
-        $scriptBlock = [scriptblock]::Create("& `"$fidoPath`" $fidoArgs -GetUrl *> `"$tempUrlFile`"")
+        $scriptBlock = [scriptblock]::Create("& `"$fidoPath`" $fidoArgs -OutFile `"$isoPath`"")
         $encodedCommand = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($scriptBlock.ToString()))
         
         $fidoProcess = Start-Process powershell.exe -ArgumentList "-NoProfile -EncodedCommand $encodedCommand" -Wait -PassThru
-        
-        # Read the entire output from the temp file, then clean it up.
-        $fidoOutput = Get-Content $tempUrlFile -Raw
-        Remove-Item $tempUrlFile -Force
-
-        # Check the exit code *after* capturing the output for logging purposes.
         if ($fidoProcess.ExitCode -ne 0) {
-            Log "Fido.ps1 failed. Full output:`n$fidoOutput" -Level "ERROR"
             throw "Fido.ps1 process exited with non-zero code: $($fidoProcess.ExitCode)"
         }
 
-        # Parse the captured output to find the URL.
-        $isoUrl = ($fidoOutput -split "`r?`n" | Where-Object { $_ -match '^https?://' } | Select-Object -First 1).Trim()
-
-        if ($isoUrl -match '^https?://') {
-            Log "ISO URL retrieved successfully. Starting download..." "INFO"
-            if (-not (Save-File -Url $isoUrl -OutputPath $isoPath)) {
-                throw "Failed to download the ISO file from the retrieved URL."
-            }
-        } else {
-            Log "Fido.ps1 ran successfully but did not return a valid URL. Full output:`n$fidoOutput" -Level "ERROR"
-            throw "Failed to retrieve a valid download URL from Fido.ps1."
-        }
         if (Test-Path $isoPath) {
             Log "Fido ISO download test successful. ISO created at '$isoPath'." "INFO"
         } else {
