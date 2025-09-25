@@ -569,19 +569,17 @@ function Invoke-CommandWithLogging {
     }
 
     $exitCode = -1
-    $process = $null
     try {
         # Start-Transcript captures all console output to a file.
         Start-Transcript -Path $commandLogFile -Append -Force
 
-        $process = Start-Process -FilePath $FilePath -ArgumentList $Arguments -Wait -NoNewWindow -PassThru
+        # Use the call operator (&) with stream redirection. This is the most reliable
+        # way to ensure all console output is captured by Start-Transcript.
+        & $FilePath $Arguments 2>&1
+        $exitCode = $LASTEXITCODE
     } catch {
         Log "A critical error occurred while trying to execute '$FilePath': $_" -Level "ERROR"
     } finally {
-        # Capture the exit code directly from the process object before stopping the transcript.
-        # This is the most reliable way to get a clean integer value.
-        $exitCode = if ($process) { $process.ExitCode } else { -1 }
-
         # Stop the transcript to finalize the log file.
         Stop-Transcript
     }
