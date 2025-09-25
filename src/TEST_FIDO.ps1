@@ -67,12 +67,21 @@ try {
         $osArch = if ((Get-CimInstance Win32_Processor).AddressWidth -eq 64) { "x64" } else { "x86" }
         $fidoVersionArg = if ($osVersion -like "10.0.22*") { "-Win11" } else { "-Win10" }
         $fidoArgs = "$fidoVersionArg -Latest -Arch $osArch -Language `"$osLang`""
-        
-        $processArgs = "-NoProfile -ExecutionPolicy Bypass -File `"$fidoPath`" $fidoArgs -OutFile `"$isoPath`""
-        Log "Launching Fido in a new process with arguments: $processArgs" "INFO"
-        $fidoProcess = Start-Process powershell.exe -ArgumentList $processArgs -Wait -PassThru
-        if ($fidoProcess.ExitCode -ne 0) { throw "Fido.ps1 process exited with non-zero code: $($fidoProcess.ExitCode)" }
 
+        # Use Fido to get the download URL, then use our own robust download function.
+        # This avoids issues where Fido exits before its background download completes.
+        $processArgs = "-NoProfile -ExecutionPolicy Bypass -File `"$fidoPath`" $fidoArgs -GetUrl"
+        Log "Launching Fido to retrieve ISO download URL..." "INFO"
+        $isoUrl = (Start-Process powershell.exe -ArgumentList $processArgs -Wait -NoNewWindow -PassThru | Get-Process).StandardOutput.ReadToEnd().Trim()
+
+        if ($isoUrl -match '^https?://') {
+            Log "ISO URL retrieved successfully. Starting download..." "INFO"
+            if (-not (Save-File -Url $isoUrl -OutputPath $isoPath)) {
+                throw "Failed to download the ISO file from the retrieved URL."
+            }
+        } else {
+            throw "Failed to retrieve a valid download URL from Fido.ps1. Output: $isoUrl"
+        }
         if (Test-Path $isoPath) {
             Log "Fido ISO download test successful. ISO created at '$isoPath'." "INFO"
         } else {
