@@ -65,6 +65,12 @@ try {
         $osVersion = (Get-CimInstance Win32_OperatingSystem).Version
         $osLang = (Get-Culture).Name
         $osArch = if ((Get-CimInstance Win32_Processor).AddressWidth -eq 64) { "x64" } else { "x86" }
+
+        # Fido.ps1 compatibility fix: it expects 'pt-br' for Portuguese, not 'pt-PT'.
+        if ($osLang -eq 'pt-PT') {
+            Log "OS language is 'pt-PT'. Using 'pt-br' for Fido.ps1 compatibility." "INFO"
+            $osLang = 'pt-br'
+        }
         $fidoVersionArg = if ($osVersion -like "10.0.22*") { "-Win11" } else { "-Win10" }
         $fidoArgs = "$fidoVersionArg -Latest -Arch $osArch -Language `"$osLang`""
         
@@ -76,14 +82,24 @@ try {
         
         # To avoid complex quoting issues, we build a script block and pass it as a Base64 encoded command.
         # This is the most reliable way to run complex commands in a new process.
-        # The output redirection (>) is now *inside* the script block.
-        $scriptBlock = [scriptblock]::Create("& `"$fidoPath`" $fidoArgs -GetUrl > `"$tempUrlFile`"")
+        # The output redirection (*>) is now *inside* the script block to capture ALL streams (stdout, stderr, etc.).
+        $scriptBlock = [scriptblock]::Create("& `"$fidoPath`" $fidoArgs -GetUrl *> `"$tempUrlFile`"")
         $encodedCommand = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($scriptBlock.ToString()))
         
         $fidoProcess = Start-Process powershell.exe -ArgumentList "-NoProfile -EncodedCommand $encodedCommand" -Wait -PassThru
-        if ($fidoProcess.ExitCode -ne 0) { throw "Fido.ps1 process exited with non-zero code: $($fidoProcess.ExitCode)" }
-        $isoUrl = Get-Content $tempUrlFile | Select-Object -First 1
+        
+        # Read the entire output from the temp file, then clean it up.
+        $fidoOutput = Get-Content $tempUrlFile -Raw
         Remove-Item $tempUrlFile -Force
+
+        # Check the exit code *after* capturing the output for logging purposes.
+        if ($fidoProcess.ExitCode -ne 0) {
+            Log "Fido.ps1 failed. Full output:`n$fidoOutput" -Level "ERROR"
+            throw "Fido.ps1 process exited with non-zero code: $($fidoProcess.ExitCode)"
+        }
+
+        # Parse the captured output to find the URL.
+        $isoUrl = ($fidoOutput -split "`r?`n" | Where-Object { $_ -match '^https?://' } | Select-Object -First 1).Trim()
 
         if ($isoUrl -match '^https?://') {
             Log "ISO URL retrieved successfully. Starting download..." "INFO"
@@ -91,7 +107,8 @@ try {
                 throw "Failed to download the ISO file from the retrieved URL."
             }
         } else {
-            throw "Failed to retrieve a valid download URL from Fido.ps1. Output: $isoUrl"
+            Log "Fido.ps1 ran successfully but did not return a valid URL. Full output:`n$fidoOutput" -Level "ERROR"
+            throw "Failed to retrieve a valid download URL from Fido.ps1."
         }
         if (Test-Path $isoPath) {
             Log "Fido ISO download test successful. ISO created at '$isoPath'." "INFO"
