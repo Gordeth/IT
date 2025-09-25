@@ -565,7 +565,7 @@ function Invoke-CommandWithLogging {
     $commandLogFile = Join-Path $LogDir "$LogName.log"
     Log "Output for this command will be logged to '$($commandLogFile)'" "INFO"
     if ($VerboseMode) {
-        Log "The output of this command will be displayed directly in the console for real-time progress." "INFO"
+        Log "The output of this command will be displayed in the console after it completes." "INFO"
     }
 
     $exitCode = -1
