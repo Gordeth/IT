@@ -606,11 +606,16 @@ function Invoke-CommandWithLogging {
             }
             
             # Overwrite the log file with only the cleaned content.
-            Set-Content -Path $commandLogFile -Value ($cleanedLines -join "`r`n").Trim()
+            $cleanedContent = ($cleanedLines -join "`r`n").Trim()
+            Set-Content -Path $commandLogFile -Value $cleanedContent
         }
 
     Log "$LogName process finished with exit code: $exitCode." "INFO"
-    return $exitCode
+    # Return a hashtable containing both the exit code and the cleaned log content.
+    return @{
+        ExitCode = $exitCode
+        Content  = if ($cleanedContent) { $cleanedContent } else { Get-Content $commandLogFile -Raw }
+    }
 }
 
 # ================== INVOKE SCRIPT FUNCTION ==================
