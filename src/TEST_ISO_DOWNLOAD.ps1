@@ -64,10 +64,13 @@ try {
     if (Test-Path $uupScriptPath) {
         Log "UUP Dump script downloaded. Determining OS target..." "INFO"
         $osVersion = (Get-CimInstance Win32_OperatingSystem).Version
+        $osLang = (Get-Culture).Name
         $targetName = if ($osVersion -like "10.0.22*") { "windows-11" } else { "windows-10" }
         Log "OS target set to '$targetName'." "INFO"
+        Log "OS language set to '$osLang'." "INFO"
 
-        $commandString = "& `"$uupScriptPath`" -windowsTargetName `"$targetName`" -windowsEditionName `"Pro`" -destinationDirectory `"$isoDir`""
+        # Add the language parameter to create a fully-specified, non-interactive command.
+        $commandString = "& `"$uupScriptPath`" -windowsTargetName `"$targetName`" -windowsEditionName `"Pro`" -windowsLanguageName `"$osLang`" -destinationDirectory `"$isoDir`""
         $scriptBlock = [scriptblock]::Create($commandString)
         $encodedCommand = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($scriptBlock.ToString()))
         
