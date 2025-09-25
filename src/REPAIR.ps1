@@ -151,11 +151,12 @@ try {
                      Log "Launching Fido to retrieve ISO download URL..." "INFO"
                      # We redirect the output to a temporary file because capturing StandardOutput from a new PowerShell process can be unreliable.
                      $tempUrlFile = Join-Path $LogDir "fido_url.tmp"
-                     $scriptBlock = [scriptblock]::Create("& `"$fidoPath`" $fidoArgs -GetUrl")
+                     # To avoid complex quoting issues, we build a script block and pass it as a Base64 encoded command.
+                     # The output redirection (>) is now *inside* the script block.
+                     $scriptBlock = [scriptblock]::Create("& `"$fidoPath`" $fidoArgs -GetUrl > `"$tempUrlFile`"")
                      $encodedCommand = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($scriptBlock.ToString()))
 
-                     # We still redirect the output of the new process to a temp file.
-                     $fidoProcess = Start-Process powershell.exe -ArgumentList "-NoProfile -EncodedCommand $encodedCommand > `"$tempUrlFile`"" -Wait -PassThru
+                     $fidoProcess = Start-Process powershell.exe -ArgumentList "-NoProfile -EncodedCommand $encodedCommand" -Wait -PassThru
                      if ($fidoProcess.ExitCode -ne 0) { throw "Fido.ps1 process exited with non-zero code: $($fidoProcess.ExitCode)" }
                      $isoUrl = Get-Content $tempUrlFile | Select-Object -First 1
                      Remove-Item $tempUrlFile -Force
