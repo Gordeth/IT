@@ -146,13 +146,26 @@ try {
                      # Construct fully non-interactive arguments for Fido.ps1
                      $fidoArgs = "$fidoVersionArg -Latest -Arch $osArch -Language `"$osLang`""
                      
-                     # Execute Fido.ps1 in a new process to prevent its 'exit' command from closing the main script.
-                     # We can't pipe input to Start-Process, so we rely on Fido's non-interactive parameters.
-                     # The -OutFile parameter makes Fido non-interactive and automatically downloads the latest version.
-                     $processArgs = "-NoProfile -ExecutionPolicy Bypass -File `"$fidoPath`" $fidoArgs -OutFile `"$isoPath`""
-                     Log "Launching Fido in a new process with arguments: $processArgs" "INFO"
-                     $fidoProcess = Start-Process powershell.exe -ArgumentList $processArgs -Wait -PassThru
+                     # Use Fido to get the download URL, then use our own robust download function.
+                     # This avoids issues where Fido exits before its background download completes.
+                     Log "Launching Fido to retrieve ISO download URL..." "INFO"
+                     # We redirect the output to a temporary file because capturing StandardOutput from a new PowerShell process can be unreliable.
+                     $tempUrlFile = Join-Path $LogDir "fido_url.tmp"
+                     # The arguments must be crafted carefully to handle redirection within the new process.
+                     $fullProcessArgs = "-NoProfile -ExecutionPolicy Bypass -Command `"`& '$fidoPath' $fidoArgs -GetUrl | Out-File -FilePath '$tempUrlFile' -Encoding ascii`""
+                     $fidoProcess = Start-Process powershell.exe -ArgumentList $fullProcessArgs -Wait -PassThru
                      if ($fidoProcess.ExitCode -ne 0) { throw "Fido.ps1 process exited with non-zero code: $($fidoProcess.ExitCode)" }
+                     $isoUrl = Get-Content $tempUrlFile | Select-Object -First 1
+                     Remove-Item $tempUrlFile -Force
+
+                     if ($isoUrl -match '^https?://') {
+                         Log "ISO URL retrieved successfully. Starting download..." "INFO"
+                         if (-not (Save-File -Url $isoUrl -OutputPath $isoPath)) {
+                             throw "Failed to download the ISO file from the retrieved URL."
+                         }
+                     } else {
+                         throw "Failed to retrieve a valid download URL from Fido.ps1. Output: $isoUrl"
+                     }
 
                      Log "Attempting to repair using downloaded ISO: $isoPath" "INFO"
                      $mountResult = $null
