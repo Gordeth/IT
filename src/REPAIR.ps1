@@ -90,6 +90,7 @@ try {
     
     $sfcScanOutput1 = $sfcResult1.Content
     $normalizedOutput1 = ($sfcScanOutput1 -replace '[^a-zA-Z0-9]').ToLower()
+    Log "Normalized SFC output for parsing: $normalizedOutput1" "DEBUG"
 
     $sfcSuccessRepairedPattern = "windowsresourceprotectionfoundintegrityviolationsandsuccessfullyrepairedthem"
     $sfcFailureUnableToFixPattern = "windowsresourceprotectionfoundintegrityviolationsbutwasunabletofixsomeofthem"
@@ -122,24 +123,35 @@ try {
     
         try {
             Log "Running DISM /Online /Cleanup-Image /CheckHealth..." "INFO"
-            Invoke-CommandWithLogging -FilePath $dismPath -Arguments "/Online /Cleanup-Image /CheckHealth" -LogName "DISM_CheckHealth" -LogDir $LogDir -VerboseMode:$VerboseMode
+            $dismCheckHealthResult = Invoke-CommandWithLogging -FilePath $dismPath -Arguments "/Online /Cleanup-Image /CheckHealth" -LogName "DISM_CheckHealth" -LogDir $LogDir -VerboseMode:$VerboseMode
+            $normalizedDismCheckHealthOutput = ($dismCheckHealthResult.Content -replace '[^a-zA-Z0-9]').ToLower()
+            Log "Normalized DISM CheckHealth output for parsing: $normalizedDismCheckHealthOutput" "DEBUG"
     
             Log "Running DISM /Online /Cleanup-Image /ScanHealth. This may take some time..." "INFO"
-            Invoke-CommandWithLogging -FilePath $dismPath -Arguments "/Online /Cleanup-Image /ScanHealth" -LogName "DISM_ScanHealth" -LogDir $LogDir -VerboseMode:$VerboseMode
+            $dismScanHealthResult = Invoke-CommandWithLogging -FilePath $dismPath -Arguments "/Online /Cleanup-Image /ScanHealth" -LogName "DISM_ScanHealth" -LogDir $LogDir -VerboseMode:$VerboseMode
+            $normalizedDismScanHealthOutput = ($dismScanHealthResult.Content -replace '[^a-zA-Z0-9]').ToLower()
+            Log "Normalized DISM ScanHealth output for parsing: $normalizedDismScanHealthOutput" "DEBUG"
     
             Log "Running DISM /Online /Cleanup-Image /StartComponentCleanup. This may take some time..." "INFO"
-            Invoke-CommandWithLogging -FilePath $dismPath -Arguments "/Online /Cleanup-Image /StartComponentCleanup" -LogName "DISM_StartComponentCleanup" -LogDir $LogDir -VerboseMode:$VerboseMode
+            $dismCleanupResult = Invoke-CommandWithLogging -FilePath $dismPath -Arguments "/Online /Cleanup-Image /StartComponentCleanup" -LogName "DISM_StartComponentCleanup" -LogDir $LogDir -VerboseMode:$VerboseMode
+            $normalizedDismCleanupOutput = ($dismCleanupResult.Content -replace '[^a-zA-Z0-9]').ToLower()
+            Log "Normalized DISM StartComponentCleanup output for parsing: $normalizedDismCleanupOutput" "DEBUG"
     
             Log "Running DISM /Online /Cleanup-Image /RestoreHealth. This may take a long time..." "INFO"
-            $dismRestoreHealthExitCode = Invoke-CommandWithLogging -FilePath $dismPath -Arguments "/Online /Cleanup-Image /RestoreHealth" -LogName "DISM_RestoreHealth" -LogDir $LogDir -VerboseMode:$VerboseMode
+            $dismResult1 = Invoke-CommandWithLogging -FilePath $dismPath -Arguments "/Online /Cleanup-Image /RestoreHealth" -LogName "DISM_RestoreHealth" -LogDir $LogDir -VerboseMode:$VerboseMode
+            $dismRestoreHealthExitCode = $dismResult1.ExitCode
             
             if ($dismRestoreHealthExitCode -ne 0) {
                 Log "DISM /RestoreHealth failed with exit code $dismRestoreHealthExitCode. Checking for common source file error..." "WARN"
-                $dismLogPath = Join-Path $LogDir "DISM_RestoreHealth.log"
-                $dismLogContent = Get-Content -Path $dismLogPath -Raw
-                if ($dismLogContent -match '0x800f081f') {
+                $dismOutput = $dismResult1.Content
+                $normalizedDismOutput = ($dismOutput -replace '[^a-zA-Z0-9]').ToLower()
+                Log "Normalized DISM RestoreHealth output for parsing: $normalizedDismOutput" "DEBUG"
+                if ($normalizedDismOutput -match '0x800f081f'.ToLower()) {
                     Log "Error 0x800f081f detected. Retrying DISM with Windows Update as the source (/Source:WinPE)..." "INFO"
-                    $dismRestoreHealthExitCode = Invoke-CommandWithLogging -FilePath $dismPath -Arguments "/Online /Cleanup-Image /RestoreHealth /Source:WinPE" -LogName "DISM_RestoreHealth_Retry" -LogDir $LogDir -VerboseMode:$VerboseMode
+                    $dismResult2 = Invoke-CommandWithLogging -FilePath $dismPath -Arguments "/Online /Cleanup-Image /RestoreHealth /Source:WinPE" -LogName "DISM_RestoreHealth_Retry" -LogDir $LogDir -VerboseMode:$VerboseMode
+                    $normalizedDismRetryOutput = ($dismResult2.Content -replace '[^a-zA-Z0-9]').ToLower()
+                    Log "Normalized DISM RestoreHealth (Retry) output for parsing: $normalizedDismRetryOutput" "DEBUG"
+                    $dismRestoreHealthExitCode = $dismResult2.ExitCode
                 }
             }
 
