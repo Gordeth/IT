@@ -261,7 +261,7 @@ function Invoke-IndividualTask {
                         Invoke-IndividualTask -TaskName "System Cleanup" -ScriptName "CLEANUP.ps1" -ScriptParameters @{ CleanupMode = $cleanupMode }
                     }
                     'H' {
-                        Invoke-IndividualTask -TaskName "In-Place Upgrade Windows" -ScriptName "UPGRADE_WIN.ps1"
+                        Invoke-IndividualTask -TaskName "In-Place Upgrade Windows" -ScriptName "UW.ps1"
                     }
                     'M' { Log "Returning to Main Menu..."; break SubMenu }
                     default { Write-Host "Invalid input. Please choose a valid option." -ForegroundColor Red }
