@@ -121,40 +121,49 @@ try {
              
              # --- Final Fallback: Prompt for ISO download URL (Interactive Mode Only) ---
              if ($VerboseMode) {
-                 $useIsoChoice = Read-Host "All online repair methods failed. Do you want to attempt a repair by downloading a Windows installation ISO? (Y/N)"
+                 $useIsoChoice = Read-Host "All online repair methods failed. Do you want to attempt a repair using the Media Creation Tool? (Y/N)"
                  if ($useIsoChoice -match '^(?i)y(es)?$') {
-                     $isoUrl = Read-Host "Please enter the direct download URL for the Windows installation ISO file"
-                     if ($isoUrl -match '^https?://') {
-                         $isoPath = Join-Path $LogDir "Windows.iso" # Save to temp log dir for easy cleanup
-                         Log "Downloading ISO to temporary path: $isoPath..." "INFO"
-                         try {
-                             if (Save-File -Url $isoUrl -OutputPath $isoPath) {
-                                 Log "Attempting to repair using downloaded ISO: $isoPath" "INFO"
+                     $mctUrl = "https://go.microsoft.com/fwlink/?LinkId=691209" # Official link for Win10/11 MCT
+                     $mctPath = Join-Path $LogDir "MediaCreationTool.exe"
+                     $isoDir = Join-Path $PSScriptRoot "ISO"
+                     $isoPath = Join-Path $isoDir "Windows.iso"
+                     try {
+                         New-Item -ItemType Directory -Path $isoDir -Force | Out-Null # Create the ISO directory inside 'src'
+                         if (Save-File -Url $mctUrl -OutputPath $mctPath) {
+                             Log "Media Creation Tool downloaded. Launching now..." "INFO"
+                             Write-Host "INSTRUCTIONS:" -ForegroundColor Yellow
+                             Write-Host "1. The Media Creation Tool will now open."
+                             Write-Host "2. When prompted, choose 'Create installation media (USB flash drive, DVD, or ISO file)'."
+                             Write-Host "3. On the next screen, choose 'ISO file'."
+                             Write-Host "4. When asked where to save the file, navigate to the following folder and save it as 'Windows.iso':"
+                             Write-Host "   $isoDir" -ForegroundColor Cyan
+                             Write-Host "5. After the ISO is created, close the tool. The script will then resume."
+                             Write-Host ""
+                             Start-Process -FilePath $mctPath -Wait
+
+                             if (Test-Path $isoPath) {
+                                 Log "Attempting to repair using created ISO: $isoPath" "INFO"
                                  $mountResult = Mount-DiskImage -ImagePath $isoPath -PassThru -ErrorAction Stop
                                  $driveLetter = ($mountResult | Get-Volume).DriveLetter
                                  $wimPath = Join-Path "${driveLetter}:\" "sources\install.wim"
                                  $esdPath = Join-Path "${driveLetter}:\" "sources\install.esd"
                                  $sourceFile = if (Test-Path $wimPath) { $wimPath } elseif (Test-Path $esdPath) { $esdPath } else { $null }
-    
                                  if ($sourceFile) {
                                      $sourceType = if ($sourceFile -like "*.wim") { "wim" } else { "esd" }
                                      $dismArgs = "/Online /Cleanup-Image /RestoreHealth /Source:${sourceType}:${sourceFile}:1 /LimitAccess"
                                      Log "Running DISM with offline source: $dismArgs" "INFO"
                                      $dismRestoreHealthExitCode = Invoke-CommandWithLogging -FilePath $dismPath -Arguments $dismArgs -LogName "DISM_RestoreHealth_ISO" -LogDir $LogDir -VerboseMode:$VerboseMode
                                  } else {
-                                     Log "Could not find install.wim or install.esd in the downloaded ISO. Skipping offline repair." "ERROR"
+                                     Log "Could not find install.wim or install.esd in the created ISO. Skipping offline repair." "ERROR"
                                  }
-                             } else {
-                                 Log "Failed to download the ISO file. Skipping offline repair." "ERROR"
                              }
-                         } catch {
-                             Log "An error occurred while using the ISO for repair: $_" "ERROR"
-                         } finally {
-                             if ($mountResult) { Dismount-DiskImage -ImagePath $isoPath -ErrorAction SilentlyContinue }
-                             if (Test-Path $isoPath) { Remove-Item $isoPath -Force -ErrorAction SilentlyContinue; Log "Cleaned up downloaded ISO file." "INFO" }
                          }
-                     } else {
-                         Log "Invalid URL provided. Skipping offline repair." "ERROR"
+                     } catch {
+                         Log "An error occurred during the Media Creation Tool repair process: $_" "ERROR"
+                     } finally {
+                         if ($mountResult) { Dismount-DiskImage -ImagePath $isoPath -ErrorAction SilentlyContinue }
+                         if (Test-Path $mctPath) { Remove-Item $mctPath -Force -ErrorAction SilentlyContinue }
+                         if (Test-Path $isoDir) { Remove-Item $isoDir -Recurse -Force -ErrorAction SilentlyContinue; Log "Cleaned up ISO creation directory." "INFO" }
                      }
                  }
              } else {
