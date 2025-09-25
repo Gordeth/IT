@@ -265,11 +265,17 @@ try {
             } else {
                 try {
                     Log "Lenovo Vantage not found. Attempting installation via winget..."
-                    # Directly install using the known package ID
-                    winget install --id Lenovo.Vantage -e --silent --accept-package-agreements --accept-source-agreements
-                        if ($LASTEXITCODE -ne 0) {
-                            throw "Winget exited with code $LASTEXITCODE while installing Lenovo Vantage."
-                        }
+                    # Search for the package by name to get the most current ID, which is more robust than hardcoding.
+                    $package = winget search "Lenovo Vantage" | Where-Object { $_.Name -like "*Lenovo Vantage*" } | Select-Object -First 1
+
+                    if ($package) {
+                        $packageId = $package.Id
+                        Log "Found Lenovo Vantage with ID '$packageId'. Installing..."
+                        winget install --id=$packageId -e --silent --accept-package-agreements --accept-source-agreements
+                        if ($LASTEXITCODE -ne 0) { throw "Winget exited with code $LASTEXITCODE while installing Lenovo Vantage." }
+                    } else {
+                        Log "Lenovo Vantage package not found in winget repository. Skipping installation." "WARN"
+                    }
                 } catch {
                     Log "An error occurred while trying to install Lenovo Vantage: $_" "ERROR"
                 }
