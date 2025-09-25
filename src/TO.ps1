@@ -211,8 +211,7 @@ function Invoke-IndividualTask {
                 Write-Host "[D] Repair System Files (SFC & DISM)"
                 Write-Host "[E] Install Chocolatey"
                 Write-Host "[F] Uninstall Chocolatey"
-                Write-Host "[G] System Cleanup"
-                Write-Host "[H] Test Fido ISO Download"
+                Write-Host "[G] System Cleanup"                
                 Write-Host "[M] Back to Main Menu"
                 Write-Host ""
 
@@ -259,9 +258,6 @@ function Invoke-IndividualTask {
                         $cleanupMode = if ($cleanupChoice.ToUpper() -eq 'L') { 'Light' } else { 'Full' }
                         Log "Selected cleanup mode: $cleanupMode"
                         Invoke-IndividualTask -TaskName "System Cleanup" -ScriptName "CLEANUP.ps1" -ScriptParameters @{ CleanupMode = $cleanupMode }
-                    }
-                    'H' {
-                        Invoke-IndividualTask -TaskName "Test Fido ISO Download" -ScriptName "TEST_FIDO.ps1"
                     }
                     'M' { Log "Returning to Main Menu..."; break SubMenu }
                     default { Write-Host "Invalid input. Please choose a valid option." -ForegroundColor Red }
