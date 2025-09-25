@@ -172,6 +172,7 @@ try {
          }
          if ($dismRestoreHealthExitCode -ne 0) { # Final check after all possible attempts
              Log "All DISM repair attempts have failed. Manual intervention is required." "ERROR"
+             Log "RECOMMENDATION: Please return to the main menu and run the 'In-Place Upgrade Windows' task." "WARN"
              $dismFailed = $true
          }
      } catch {
