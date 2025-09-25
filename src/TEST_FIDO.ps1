@@ -95,7 +95,7 @@ try {
         $scriptBlock = [scriptblock]::Create("& `"$fidoPath`" $fidoArgs -OutFile `"$isoPath`"")
         $encodedCommand = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($scriptBlock.ToString()))
         
-        $fidoProcess = Start-Process powershell.exe -ArgumentList "-NoProfile -EncodedCommand $encodedCommand" -Wait -PassThru
+        $fidoProcess = Start-Process powershell.exe -ArgumentList "-NoProfile -EncodedCommand $encodedCommand" -Wait -PassThru -NoNewWindow
         if ($fidoProcess.ExitCode -ne 0) {
             throw "Fido.ps1 process exited with non-zero code: $($fidoProcess.ExitCode)"
         }
