@@ -163,7 +163,13 @@ if ($UpdateList) {
             'cd5ffd1e-e932-4e3a-bf74-18bf0b1bbd83', # Update Rollups
             'b54e7d24-7add-428f-8b75-90a396fa584b', # Service Packs
             '28bc880e-0592-4cbf-8f95-c79b17911d5f', # Feature Packs
-            'ebfc1fc5-a0a5-4add-a84a-65a443d2420f'  # Drivers
+            'ebfc1fc5-a0a5-4add-a84a-65a443d2420f', # Drivers
+            'f183b99b-5587-4282-928c-a24351336e68'  # Firmware
+        )
+
+        $minorUpdateCategoryIDs = @(
+            'e0789628-ce08-4437-be74-2495b842f43b', # Definition Updates
+            '0fa1201d-4330-4fa8-8ae9-b877473b6441'  # Security Intelligence Updates
         )
 
         # Check if a restore point is needed. An update is considered "major" if it has at least one category
@@ -173,17 +179,18 @@ if ($UpdateList) {
             # Get all category IDs for the current update.
             $updateCategories = $_.Categories.CategoryID
 
-            # --- Check 1: Is it in a major category? ---
+            # --- Check 1: Exclude if it's explicitly a minor update category ---
+            $isMinorUpdate = ($updateCategories | Where-Object { $minorUpdateCategoryIDs -contains $_ }) -ne $null
+            if ($isMinorUpdate) { return $false } # Immediately exclude definition/security intelligence updates
+
+            # --- Check 2: Is it in a major category? ---
             $isMajorByCategory = ($updateCategories | Where-Object { $majorUpdateCategoryIDs -contains $_ }) -ne $null
             
-            # --- Check 2: Does the title explicitly say it's a cumulative update? (Language-independent) ---
+            # --- Check 3: Does the title explicitly say it's a cumulative update? (Language-independent) ---
             $isCumulativeByTitle = $_.Title -like "*Cumulative Update*"
 
-            # --- Check 3: Is it a non-optional, non-hidden software update? (Broad safety net) ---
-            $isMajorSoftwareUpdate = ($_.Type -eq 1 -and $_.IsHidden -eq $false)
-
-            # Return true if ANY of the conditions are met.
-            $isMajorByCategory -or $isCumulativeByTitle -or $isMajorSoftwareUpdate
+            # Return true if it's a major category or explicitly a cumulative update.
+            $isMajorByCategory -or $isCumulativeByTitle
         } | Select-Object -First 1
 
         if ($majorUpdate) {
@@ -240,6 +247,14 @@ if ($UpdateList) {
 
         # If some or all updates failed to install, attempt a repair and retry.
         if ($successfullyInstalledCount -lt $totalUpdatesAttempted) {
+            $failedUpdates = $UpdateList | Where-Object { -not $_.IsInstalled }
+            if ($failedUpdates) {
+                Log "The following updates failed to install on the first attempt:" "WARN"
+                foreach ($update in $failedUpdates) {
+                    Log "  - $($update.Title)" "WARN"
+                }
+            }
+
             Log "Initial update installation failed for one or more updates. Attempting system repair before retrying." "WARN"
             
             # Invoke the REPAIR.ps1 script.
