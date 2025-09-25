@@ -93,7 +93,14 @@ try {
         
         $fidoProcess = Start-Process powershell.exe -ArgumentList "-NoProfile -EncodedCommand $encodedCommand" -Wait -PassThru -NoNewWindow
         if ($fidoProcess.ExitCode -ne 0) {
-            throw "Fido.ps1 process exited with non-zero code: $($fidoProcess.ExitCode)"
+            Log "Automated Fido.ps1 download failed with exit code: $($fidoProcess.ExitCode). Falling back to interactive mode." "WARN"
+            Log "Please use the Fido menu to download the ISO manually. Save it to the default location when prompted." "INFO"
+            # Launch Fido again, but this time without arguments to trigger its interactive menu.
+            $interactiveProcess = Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$fidoPath`"" -Wait -PassThru
+            if ($interactiveProcess.ExitCode -ne 0) {
+                # This will throw if the interactive mode also fails or is cancelled.
+                throw "Interactive Fido.ps1 process also failed or was cancelled, exit code: $($interactiveProcess.ExitCode)"
+            }
         }
 
         if (Test-Path $isoPath) {
