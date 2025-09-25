@@ -48,12 +48,12 @@ if (-not (Test-Path $LogFile)) {
 # ==================== Script Execution ====================
 Log "Starting TEST_ISO_DOWNLOAD.ps1 script..." "INFO"
 
-$isoDir = Join-Path $LogDir "ISO_Creation"
+$isoDir = Join-Path $PSScriptRoot "ISO"
 $isoPath = Join-Path $isoDir "Windows.iso"
 $mctPath = Join-Path $LogDir "MediaCreationTool.exe"
 
 try {
-    New-Item -ItemType Directory -Path $isoDir -Force | Out-Null
+    New-Item -ItemType Directory -Path $isoDir -Force | Out-Null # Create the ISO directory inside 'src'
 
     $mctUrl = "https://go.microsoft.com/fwlink/?LinkId=691209" # Official link for Win10/11 MCT
     Log "Downloading Media Creation Tool..." "INFO"
