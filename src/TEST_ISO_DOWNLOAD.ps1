@@ -50,69 +50,33 @@ Log "Starting TEST_ISO_DOWNLOAD.ps1 script..." "INFO"
 
 $isoDownloaded = $false
 $isoPath = Join-Path $LogDir "Windows_Test.iso" # Default to temp folder for API download
-
 try {
-    # --- Tier 1: Attempt automated download via TechBench API ---
-    Log "Attempting automated ISO download via TechBench API..." "INFO"
+    # --- Guided manual download via Media Creation Tool ---
+    # This is the most reliable method when automated downloads fail.
+    $mctPath = Join-Path $LogDir "MediaCreationTool.exe"
+    $isoDir = Join-Path $PSScriptRoot "ISO"
+    $isoPath = Join-Path $isoDir "Windows.iso" # Overwrite path to the correct final location for MCT
     try {
-        $edition = (Get-CimInstance -Class Win32_OperatingSystem).Caption -replace "Microsoft Windows ", ""
-        $language = (Get-Culture).Name
-        $arch = if ([Environment]::Is64BitOperatingSystem) { "x64" } else { "x86" }
-        $version = if ($edition -like "*11*") { "Windows 11" } else { "Windows 10" }
-
-        $params = @{
-            type     = "Windows"
-            version  = $version
-            edition  = $edition
-            language = $language
-            arch     = $arch
-        }
-        $query = ($params.GetEnumerator() | ForEach-Object { "$($_.Key)=$([uri]::EscapeDataString($_.Value))" }) -join "&"
-        $apiUrl = "https://tb.rg-adguard.net/api/GetFiles?$query"
-
-        Log "Querying TechBench API: $apiUrl" "INFO"
-        $response = Invoke-WebRequest -Uri $apiUrl -UseBasicParsing -ErrorAction Stop
-        $isoLinks = ($response.Content | ConvertFrom-Json).files | Where-Object { $_.url -like "*.iso" }
-        $isoUrl = $isoLinks[0].url
-
-        if ($isoUrl -match '^https?://') {
-            Log "API returned a valid URL. Starting download..." "INFO"
-            if (Save-File -Url $isoUrl -OutputPath $isoPath) {
+        New-Item -ItemType Directory -Path $isoDir -Force | Out-Null
+        $mctUrl = "https://go.microsoft.com/fwlink/?LinkId=691209"
+        if (Save-File -Url $mctUrl -OutputPath $mctPath) {
+            Log "Media Creation Tool downloaded. Launching now..." "INFO"
+            Write-Host "INSTRUCTIONS:" -ForegroundColor Yellow
+            Write-Host "1. The Media Creation Tool will now open."
+            Write-Host "2. When prompted, choose 'Create installation media (USB flash drive, DVD, or ISO file)'."
+            Write-Host "3. On the next screen, choose 'ISO file'."
+            Write-Host "4. When asked where to save the file, navigate to the following folder and save it as 'Windows.iso':"
+            Write-Host "   $isoDir" -ForegroundColor Cyan
+            Write-Host "5. After the ISO is created, close the tool. The script will then resume."
+            Write-Host ""
+            Start-Process -FilePath $mctPath -Wait
+            if (Test-Path $isoPath) {
                 $isoDownloaded = $true
-                Log "Test successful. ISO downloaded via API to '$isoPath'." "INFO"
+                Log "Test successful. ISO was created via MCT at '$isoPath'." "INFO"
             }
         }
-    } catch {
-        Log "Automated ISO download via TechBench API failed: $_. Falling back to manual method." "WARN"
-    }
-
-    # --- Tier 2: Guided manual download via Media Creation Tool ---
-    if (-not $isoDownloaded) {
-        $mctPath = Join-Path $LogDir "MediaCreationTool.exe"
-        $isoDir = Join-Path $PSScriptRoot "ISO"
-        $isoPath = Join-Path $isoDir "Windows.iso" # Overwrite path to the correct final location for MCT
-        try {
-            New-Item -ItemType Directory -Path $isoDir -Force | Out-Null
-            $mctUrl = "https://go.microsoft.com/fwlink/?LinkId=691209"
-            if (Save-File -Url $mctUrl -OutputPath $mctPath) {
-                Log "Media Creation Tool downloaded. Launching now..." "INFO"
-                Write-Host "INSTRUCTIONS:" -ForegroundColor Yellow
-                Write-Host "1. The Media Creation Tool will now open."
-                Write-Host "2. When prompted, choose 'Create installation media (USB flash drive, DVD, or ISO file)'."
-                Write-Host "3. On the next screen, choose 'ISO file'."
-                Write-Host "4. When asked where to save the file, navigate to the following folder and save it as 'Windows.iso':"
-                Write-Host "   $isoDir" -ForegroundColor Cyan
-                Write-Host "5. After the ISO is created, close the tool. The script will then resume."
-                Write-Host ""
-                Start-Process -FilePath $mctPath -Wait
-                if (Test-Path $isoPath) {
-                    $isoDownloaded = $true
-                    Log "Test successful. ISO was created via MCT at '$isoPath'." "INFO"
-                }
-            }
-        } finally {
-            if (Test-Path $mctPath) { Remove-Item $mctPath -Force -ErrorAction SilentlyContinue }
-        }
+    } finally {
+        if (Test-Path $mctPath) { Remove-Item $mctPath -Force -ErrorAction SilentlyContinue }
     }
 } catch {
     Log "An error occurred during the ISO download test process: $_" "ERROR"
