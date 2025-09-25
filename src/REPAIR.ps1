@@ -141,6 +141,12 @@ try {
                      $osLang = (Get-Culture).Name
                      $osArch = if ((Get-CimInstance Win32_Processor).AddressWidth -eq 64) { "x64" } else { "x86" }
 
+                     # Fido.ps1 compatibility fix: it expects 'pt-br' for Portuguese, not 'pt-PT'.
+                     if ($osLang -eq 'pt-PT') {
+                         Log "OS language is 'pt-PT'. Using 'pt-br' for Fido.ps1 compatibility." "INFO"
+                         $osLang = 'pt-br'
+                     }
+
                      $fidoVersionArg = if ($osVersion -like "10.0.22*") { "-Win11" } else { "-Win10" }
 
                      # Construct fully non-interactive arguments for Fido.ps1
@@ -167,7 +173,8 @@ try {
                              throw "Failed to download the ISO file from the retrieved URL."
                          }
                      } else {
-                         throw "Failed to retrieve a valid download URL from Fido.ps1. Output: $isoUrl"
+                         Log "Fido.ps1 ran successfully but did not return a valid URL. Full output:`n$fidoOutput" -Level "ERROR"
+                         throw "Failed to retrieve a valid download URL from Fido.ps1."
                      }
 
                      Log "Attempting to repair using downloaded ISO: $isoPath" "INFO"
