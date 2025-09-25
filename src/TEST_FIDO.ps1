@@ -59,7 +59,19 @@ New-Item -ItemType Directory -Path $isoDir -Force | Out-Null
 $isoPath = Join-Path $isoDir "Windows.iso"
 
 try {
-    if (Save-File -Url $fidoUrl -OutputPath $fidoPath) {
+    # Attempt to download Fido.ps1. If the primary Save-File (curl) fails,
+    # it might be due to User-Agent blocking. We'll add a fallback.
+    $fidoDownloaded = Save-File -Url $fidoUrl -OutputPath $fidoPath
+    if (-not $fidoDownloaded) {
+        Log "Primary download method (curl) failed. Retrying with a basic WebClient..." "WARN"
+        try {
+            (New-Object System.Net.WebClient).DownloadFile($fidoUrl, $fidoPath)
+            $fidoDownloaded = $true
+        } catch {
+            Log "Fallback download method also failed. Error: $_" "ERROR"
+        }
+    }
+    if ($fidoDownloaded) {
         Log "Fido.ps1 downloaded. Running it to download the ISO..." "INFO"
         
         $osVersion = (Get-CimInstance Win32_OperatingSystem).Version
