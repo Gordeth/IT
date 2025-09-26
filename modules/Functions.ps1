@@ -735,7 +735,9 @@ function Invoke-TaskWithSpinner {
     if (-not $VerboseMode) {
         # Execute the scriptblock with the provided arguments and return its output directly.
         # This ensures non-verbose mode works the same as verbose mode, just without the spinner.
-        return & $ScriptBlock @ArgumentList
+        # We must check if ArgumentList was provided before splatting.
+        if ($PSBoundParameters.ContainsKey('ArgumentList')) { return & $ScriptBlock @ArgumentList }
+        else { return & $ScriptBlock }
     }
 
     $job = $null
