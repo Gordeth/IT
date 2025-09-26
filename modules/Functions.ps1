@@ -741,13 +741,16 @@ function Invoke-TaskWithSpinner {
     try {
         # Start the long-running task in a background job.
         # -InitializationScript passes the functions to the new session.
-        # We use splatting for clarity and to avoid syntax errors.
+        # We must resolve the absolute path to Functions.ps1 here, because $PSScriptRoot
+        # is not available inside the background job's session.
+        $modulePath = Join-Path (Split-Path -Path $MyInvocation.MyCommand.Path -Parent) "Functions.ps1"
+
         $jobParams = @{
             ScriptBlock = $ScriptBlock
             # Pass the entire functions module to the job's session.
             # This is more robust as it includes all helper functions (like Log).
             InitializationScript = {
-                . "$PSScriptRoot/../modules/Functions.ps1"
+                . $using:modulePath
             }
             # Pass required variables to the job.
             ArgumentList = @($LogDir, $VerboseMode, $LogFile)
