@@ -222,7 +222,7 @@ if ($UpdateList) {
                 $downloadProgress = $DownloadJob.GetProgress()
                 $currentUpdateIndex = $downloadProgress.CurrentUpdateIndex + 1
                 $currentUpdate = $UpdateList[$downloadProgress.CurrentUpdateIndex]
-                $percentComplete = $downloadProgress.PercentComplete
+                $percentComplete = [int]$downloadProgress.PercentComplete
 
                 # Calculate progress for the current update
                 $currentUpdateBytesDownloaded = $downloadProgress.CurrentUpdateBytesDownloaded / 1MB
