@@ -767,8 +767,11 @@ function Invoke-TaskWithSpinner {
         $jobParams = @{
             ScriptBlock = $ScriptBlock
             InitializationScript = $initScript
-            ArgumentList = @($LogFile, $VerboseMode) + $ArgumentList
+            # Pass arguments for the InitializationScript separately from the main ScriptBlock's arguments.
+            # This prevents argument list misalignment.
+            ArgumentList = @($LogFile, $VerboseMode)
         }
+        if ($PSBoundParameters.ContainsKey('ArgumentList')) { $jobParams.ScriptBlock.Ast.ParamBlock.Parameters | ForEach-Object { $jobParams.ArgumentList += $ArgumentList[$i++] } }
         $job = Start-Job @jobParams
 
         $spinner = @('|', '/', '-', '\')
