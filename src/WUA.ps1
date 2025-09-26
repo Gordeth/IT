@@ -190,7 +190,7 @@ if ($UpdateList) {
             $isCumulativeByTitle = $_.Title -like "*Cumulative Update*"
 
             # Return true if it's a major category or explicitly a cumulative update.
-            $isMajorByCategory -or $isCumulativeByTitle
+            $isMajorByCategory -or $isCumulativeByTitle }
         } | Select-Object -First 1
 
         if ($majorUpdate) {
