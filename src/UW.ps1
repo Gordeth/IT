@@ -49,49 +49,31 @@ if (-not (Test-Path $LogFile)) {
 # ==================== Script Execution ====================
 Log "Starting UW.ps1 script..." "INFO"
 
-$mctPath = Join-Path $LogDir "MediaCreationTool.exe"
-$isoDir = Join-Path $PSScriptRoot "ISO"
-$isoPath = Join-Path $isoDir "Windows.iso"
+$isoDir = Join-Path $PSScriptRoot "ISO_UPGRADE"
 $mountResult = $null
 
 try {
-    New-Item -ItemType Directory -Path $isoDir -Force | Out-Null
+    # Use the centralized function to create the ISO. It handles download, user prompts, and cleanup.
+    $isoPath = Invoke-IsoCreationProcess -IsoDirectory $isoDir -LogDir $LogDir
 
-    $mctUrl = "https://go.microsoft.com/fwlink/?LinkId=691209"
-    Log "Downloading Media Creation Tool..." "INFO"
-    if (Save-File -Url $mctUrl -OutputPath $mctPath) {
-        Log "Media Creation Tool downloaded. Launching now..." "INFO"
-        Write-Host "INSTRUCTIONS:" -ForegroundColor Yellow
-        Write-Host "1. The Media Creation Tool will now open."
-        Write-Host "2. When prompted, choose 'Create installation media (USB flash drive, DVD, or ISO file)'."
-        Write-Host "3. On the next screen, choose 'ISO file'."
-        Write-Host "4. When asked where to save the file, navigate to the following folder and save it as 'Windows.iso':"
-        Write-Host "   $isoDir" -ForegroundColor Cyan
-        Write-Host "5. After the ISO is created, close the tool. The script will then resume to start the upgrade."
-        Write-Host ""
-        Start-Process -FilePath $mctPath -Wait
-
-        if (Test-Path $isoPath) {
-            Log "ISO created. Mounting it to begin the in-place upgrade..." "INFO"
-            $mountResult = Mount-DiskImage -ImagePath $isoPath -PassThru -ErrorAction Stop
-            $driveLetter = ($mountResult | Get-Volume).DriveLetter
-            $setupPath = Join-Path "${driveLetter}:\" "setup.exe"
-            if (Test-Path $setupPath) {
-                Log "Starting Windows in-place upgrade. This will take a significant amount of time and the system will reboot." "INFO"
-                $upgradeArgs = "/auto upgrade /quiet /compat IgnoreWarning /showoobe none /noreboot"
-                Invoke-CommandWithLogging -FilePath $setupPath -Arguments $upgradeArgs -LogName "InPlace_Upgrade" -LogDir $LogDir -VerboseMode:$VerboseMode
-            }
-        } else {
-            Log "ISO file was not found at the expected path. Aborting upgrade." "ERROR"
+    if ($isoPath) {
+        Log "ISO created. Mounting it to begin the in-place upgrade..." "INFO"
+        $mountResult = Mount-DiskImage -ImagePath $isoPath -PassThru -ErrorAction Stop
+        $driveLetter = ($mountResult | Get-Volume).DriveLetter
+        $setupPath = Join-Path "${driveLetter}:\" "setup.exe"
+        if (Test-Path $setupPath) {
+            Log "Starting Windows in-place upgrade. This will take a significant amount of time and the system will reboot." "INFO"
+            $upgradeArgs = "/auto upgrade /quiet /compat IgnoreWarning /showoobe none /noreboot"
+            Invoke-CommandWithLogging -FilePath $setupPath -Arguments $upgradeArgs -LogName "InPlace_Upgrade" -LogDir $LogDir -VerboseMode:$VerboseMode
         }
+    } else {
+        Log "ISO creation process failed or was cancelled. Aborting in-place upgrade." "ERROR"
     }
 } catch {
     Log "An error occurred during the in-place upgrade process: $_" "ERROR"
 } finally {
     Log "Cleaning up..." "INFO"
     if ($mountResult) { Dismount-DiskImage -ImagePath $isoPath -ErrorAction SilentlyContinue }
-    if (Test-Path $mctPath) { Remove-Item $mctPath -Force -ErrorAction SilentlyContinue }
-    if (Test-Path $isoDir) { Remove-Item $isoDir -Recurse -Force -ErrorAction SilentlyContinue; Log "Cleaned up ISO creation directory." "INFO" }
 }
 
 Log "==== UW Script Completed ===="
