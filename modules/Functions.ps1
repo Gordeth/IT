@@ -663,3 +663,55 @@ function Confirm-OfficeInstalled {
     }
     return $false # Return false if no Office paths are found
 }
+
+# =================================================================================
+# Invoke-IsoCreationProcess
+# Manages the download of the Media Creation Tool and guides the user to create an ISO.
+# =================================================================================
+function Invoke-IsoCreationProcess {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$IsoDirectory,
+        [Parameter(Mandatory=$true)]
+        [string]$LogDir
+    )
+
+    $isoPath = Join-Path $IsoDirectory "Windows.iso"
+    $mctPath = Join-Path $IsoDirectory "MediaCreationTool.exe"
+    $cleanupItems = @{ Path = $IsoDirectory; Recurse = $true; Force = $true }
+
+    try {
+        Log "Starting ISO creation process in directory: $IsoDirectory" "INFO"
+        New-Item -ItemType Directory -Path $IsoDirectory -Force | Out-Null
+
+        $mctUrl = "https://go.microsoft.com/fwlink/?LinkId=691209"
+        Log "Downloading Media Creation Tool..." "INFO"
+        if (-not (Save-File -Url $mctUrl -OutputPath $mctPath)) {
+            throw "Failed to download Media Creation Tool."
+        }
+
+        Log "Media Creation Tool downloaded. Please follow the on-screen instructions." "INFO"
+        Write-Host "INSTRUCTIONS:" -ForegroundColor Yellow
+        Write-Host "1. When prompted, choose 'Create installation media (USB flash drive, DVD, or ISO file)'."
+        Write-Host "2. On the next screen, choose 'ISO file'."
+        Write-Host "3. When asked where to save the file, navigate to the following folder and save it as 'Windows.iso':"
+        Write-Host "   $IsoDirectory" -ForegroundColor Cyan
+        Write-Host "4. After the ISO is created, close the tool. The script will then resume automatically."
+        Write-Host ""
+        Start-Process -FilePath $mctPath -Wait
+
+        if (Test-Path $isoPath) {
+            Log "ISO file created successfully at '$isoPath'." "INFO"
+            return $isoPath # Return the path to the created ISO
+        } else {
+            Log "ISO file was not found at the expected path after running the tool. Aborting." "ERROR"
+            return $null
+        }
+    } catch {
+        Log "An error occurred during the ISO creation process: $_" "ERROR"
+        return $null
+    } finally {
+        Log "Cleaning up ISO creation directory: $IsoDirectory" "INFO"
+        if (Test-Path $IsoDirectory) { Remove-Item @cleanupItems -ErrorAction SilentlyContinue }
+    }
+}
