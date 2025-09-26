@@ -211,50 +211,39 @@ if ($UpdateList) {
         }
 
         Log "Downloading updates... This may take some time."
-        if ($VerboseMode) {
-            Log "Verbose mode enabled. Displaying detailed download progress." "INFO"
-            $UpdateSession = New-Object -ComObject "Microsoft.Update.Session"
-            $UpdateDownloader = $UpdateSession.CreateUpdateDownloader()
-            $UpdateDownloader.Updates = $UpdateList
-            $DownloadJob = $UpdateDownloader.BeginDownload({ Write-Host "Download callback invoked." }, { Write-Host "Download state changed." }, $null)
+        # Use the robust custom download logic for both verbose and silent modes to avoid culture-related errors
+        # in the PSWindowsUpdate module's own download command. In silent mode, Write-Progress is automatically suppressed.
+        Log "Using custom download handler to ensure culture-invariant progress reporting." "INFO"
+        $UpdateSession = New-Object -ComObject "Microsoft.Update.Session"
+        $UpdateDownloader = $UpdateSession.CreateUpdateDownloader()
+        $UpdateDownloader.Updates = $UpdateList
+        $DownloadJob = $UpdateDownloader.BeginDownload({ }, { }, $null) # Use empty callbacks
 
-            while (-not $DownloadJob.IsCompleted) {
-                $downloadProgress = $DownloadJob.GetProgress()
-                $currentUpdateIndex = $downloadProgress.CurrentUpdateIndex + 1
-                $currentUpdate = $UpdateList[$downloadProgress.CurrentUpdateIndex]
+        while (-not $DownloadJob.IsCompleted) {
+            $downloadProgress = $DownloadJob.GetProgress()
+            $currentUpdateIndex = $downloadProgress.CurrentUpdateIndex + 1
+            $currentUpdate = $UpdateList[$downloadProgress.CurrentUpdateIndex]
 
-                # --- Robust, Culture-Invariant Type Conversion ---
-                # The COM object returns [System.Decimal], which is culture-sensitive.
-                # We must convert it to a culture-invariant string and then to a standard PowerShell type.
-                $percentComplete = [int][double]::Parse($downloadProgress.PercentComplete.ToString([System.Globalization.CultureInfo]::InvariantCulture))
-                $bytesDownloaded = [double]::Parse($downloadProgress.CurrentUpdateBytesDownloaded.ToString([System.Globalization.CultureInfo]::InvariantCulture))
-                $bytesToDownload = [double]::Parse($downloadProgress.CurrentUpdateBytesToDownload.ToString([System.Globalization.CultureInfo]::InvariantCulture))
+            # --- Robust, Culture-Invariant Type Conversion ---
+            $percentComplete = [int][double]::Parse($downloadProgress.PercentComplete.ToString([System.Globalization.CultureInfo]::InvariantCulture))
+            $bytesDownloaded = [double]::Parse($downloadProgress.CurrentUpdateBytesDownloaded.ToString([System.Globalization.CultureInfo]::InvariantCulture))
+            $bytesToDownload = [double]::Parse($downloadProgress.CurrentUpdateBytesToDownload.ToString([System.Globalization.CultureInfo]::InvariantCulture))
 
-                # Calculate progress for the current update
-                $currentUpdatePercent = 0
-                if ($bytesToDownload -gt 0) {
-                    $currentUpdatePercent = [int](($bytesDownloaded / $bytesToDownload) * 100)
-                }
-
-                # Display a single, comprehensive progress bar to avoid nested Write-Progress issues.
-                $activity = "Downloading Update $currentUpdateIndex of $($UpdateList.Count): $($currentUpdate.Title)"
-                $status = "Overall: $percentComplete% | Current: $currentUpdatePercent% ({0:N2} MB / {1:N2} MB)" -f ($bytesDownloaded / 1MB), ($bytesToDownload / 1MB)
-                Write-Progress -Activity $activity -Status $status -PercentComplete $percentComplete
-                Start-Sleep -Milliseconds 500
+            # Calculate progress for the current update
+            $currentUpdatePercent = 0
+            if ($bytesToDownload -gt 0) {
+                $currentUpdatePercent = [int](($bytesDownloaded / $bytesToDownload) * 100)
             }
-            # Finalize the download job
-            $UpdateDownloader.EndDownload($DownloadJob) | Out-Null
-            Write-Progress -Activity "Downloading Windows Updates" -Completed -Id 1
-        } else {
-            # Original behavior for silent mode
-            $originalVerbosePreference = $VerbosePreference
-            try {
-                $VerbosePreference = 'SilentlyContinue'
-                Download-WindowsUpdate -MicrosoftUpdate -AcceptAll
-            } finally {
-                $VerbosePreference = $originalVerbosePreference
-            }
+
+            # Display a single, comprehensive progress bar. This will be automatically hidden in silent mode.
+            $activity = "Downloading Update $currentUpdateIndex of $($UpdateList.Count): $($currentUpdate.Title)"
+            $status = "Overall: $percentComplete% | Current: $currentUpdatePercent% ({0:N2} MB / {1:N2} MB)" -f ($bytesDownloaded / 1MB), ($bytesToDownload / 1MB)
+            Write-Progress -Activity $activity -Status $status -PercentComplete $percentComplete
+            Start-Sleep -Milliseconds 500
         }
+        # Finalize the download job
+        $UpdateDownloader.EndDownload($DownloadJob) | Out-Null
+        Write-Progress -Activity "Downloading Windows Updates" -Completed
         Log "Update download completed."
 
         Log "Installing downloaded updates..."
