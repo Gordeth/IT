@@ -729,16 +729,13 @@ function Invoke-TaskWithSpinner {
         [Parameter(Mandatory=$true)]
         [string]$Activity,
         [switch]$VerboseMode,
-        [array]$ArgumentList
+        [array]$ArgumentList = @()
     )
 
     # If not in verbose mode, just execute the block and return. No spinner needed.
     if (-not $VerboseMode) {
         # Execute the scriptblock with the provided arguments and return its output directly.
-        # This ensures non-verbose mode works the same as verbose mode, just without the spinner.
-        # We must check if ArgumentList was provided before splatting.
-        if ($PSBoundParameters.ContainsKey('ArgumentList')) { return & $ScriptBlock @ArgumentList }
-        else { return & $ScriptBlock } # Execute without arguments if none are passed
+        return & $ScriptBlock @ArgumentList
     }
 
     $job = $null
@@ -765,13 +762,12 @@ function Invoke-TaskWithSpinner {
         ")
 
         $jobParams = @{
-            ScriptBlock = $ScriptBlock
+            # The script block is executed with arguments passed via the $using scope.
+            # This is the standard and most reliable way to pass variables to a job's scriptblock.
+            ScriptBlock = { & $using:ScriptBlock @using:ArgumentList }
             InitializationScript = $initScript
-            # Pass arguments for the InitializationScript separately from the main ScriptBlock's arguments.
-            # This prevents argument list misalignment.
-            ArgumentList = @($LogFile, $VerboseMode)
+            ArgumentList = @($LogFile, $VerboseMode) # These are for the InitializationScript
         }
-        if ($PSBoundParameters.ContainsKey('ArgumentList')) { $jobParams.ScriptBlock.Ast.ParamBlock.Parameters | ForEach-Object { $jobParams.ArgumentList += $ArgumentList[$i++] } }
         $job = Start-Job @jobParams
 
         $spinner = @('|', '/', '-', '\')
