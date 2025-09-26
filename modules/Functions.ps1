@@ -729,13 +729,13 @@ function Invoke-TaskWithSpinner {
         [Parameter(Mandatory=$true)]
         [string]$Activity,
         [switch]$VerboseMode
-    ) -ArgumentList @() # Add ArgumentList parameter to accept variables for the job
-
+    )
 
     # If not in verbose mode, just execute the block and return. No spinner needed.
     if (-not $VerboseMode) {
-        # Execute the scriptblock and return its output directly.
-        return & $ScriptBlock
+        # Execute the scriptblock with the provided arguments and return its output directly.
+        # This ensures non-verbose mode works the same as verbose mode, just without the spinner.
+        return & $ScriptBlock @ArgumentList
     }
 
     $job = $null
