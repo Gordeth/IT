@@ -225,8 +225,8 @@ if ($UpdateList) {
                 $percentComplete = [int]$downloadProgress.PercentComplete
 
                 # Calculate progress for the current update
-                $currentUpdateBytesDownloaded = $downloadProgress.CurrentUpdateBytesDownloaded / 1MB
-                $currentUpdateBytesToDownload = $downloadProgress.CurrentUpdateBytesToDownload / 1MB
+                $currentUpdateBytesDownloaded = [Math]::Round([double]$downloadProgress.CurrentUpdateBytesDownloaded / 1MB, 2)
+                $currentUpdateBytesToDownload = [Math]::Round([double]$downloadProgress.CurrentUpdateBytesToDownload / 1MB, 2)
                 $currentUpdatePercent = 0
                 if ($currentUpdateBytesToDownload -gt 0) {
                     $currentUpdatePercent = [int](($currentUpdateBytesDownloaded / $currentUpdateBytesToDownload) * 100)
