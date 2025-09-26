@@ -87,11 +87,10 @@ try {
     Log "Running initial System File Checker (SFC) scan..." "INFO"
     $sfcPath = "$env:windir\System32\sfc.exe"
     $sfcResult1 = Invoke-TaskWithSpinner -Activity "Running System File Checker (SFC)" -VerboseMode:$VerboseMode -ScriptBlock {
-        # The variables are now passed in via ArgumentList from Start-Job.
-        param($functions, $LogDir, $VerboseMode, $LogFile)
-        # The LogFile is now passed in, no need to redefine it.
-        Invoke-CommandWithLogging -FilePath $using:sfcPath -Arguments "/scannow" -LogName "SFC_Scan_1" -LogDir $LogDir -VerboseMode:$VerboseMode
-    }
+        param($sfcPath, $LogDir, $VerboseMode, $LogFile)
+        Invoke-CommandWithLogging -FilePath $sfcPath -Arguments "/scannow" -LogName "SFC_Scan_1" -LogDir $LogDir -VerboseMode:$VerboseMode
+    } -ArgumentList @($sfcPath, $LogDir, $VerboseMode, $LogFile)
+
     
     $sfcScanOutput1 = $sfcResult1.Content
     $normalizedOutput1 = ($sfcScanOutput1 -replace '[^a-zA-Z0-9]').ToLower()
@@ -129,10 +128,10 @@ try {
         try {
             Log "Running DISM /Online /Cleanup-Image /CheckHealth..." "INFO"
             $dismCheckHealthResult = Invoke-TaskWithSpinner -Activity "Running DISM CheckHealth" -VerboseMode:$VerboseMode -ScriptBlock {
-                param($functions, $LogDir, $VerboseMode, $LogFile)
+                param($dismPath, $LogDir, $VerboseMode, $LogFile)
+                Invoke-CommandWithLogging -FilePath $dismPath -Arguments "/Online /Cleanup-Image /CheckHealth" -LogName "DISM_CheckHealth" -LogDir $LogDir -VerboseMode:$VerboseMode
+            } -ArgumentList @($dismPath, $LogDir, $VerboseMode, $LogFile)
 
-                Invoke-CommandWithLogging -FilePath $using:dismPath -Arguments "/Online /Cleanup-Image /CheckHealth" -LogName "DISM_CheckHealth" -LogDir $LogDir -VerboseMode:$VerboseMode
-            }
             $normalizedDismCheckHealthOutput = ($dismCheckHealthResult.Content -replace '[^a-zA-Z0-9]').ToLower()
             Log "Normalized DISM CheckHealth output for parsing: $normalizedDismCheckHealthOutput" "DEBUG"
 
@@ -146,10 +145,10 @@ try {
     
             Log "Running DISM /Online /Cleanup-Image /ScanHealth. This may take some time..." "INFO"
             $dismScanHealthResult = Invoke-TaskWithSpinner -Activity "Running DISM ScanHealth" -VerboseMode:$VerboseMode -ScriptBlock {
-                param($functions, $LogDir, $VerboseMode, $LogFile)
+                param($dismPath, $LogDir, $VerboseMode, $LogFile)
+                Invoke-CommandWithLogging -FilePath $dismPath -Arguments "/Online /Cleanup-Image /ScanHealth" -LogName "DISM_ScanHealth" -LogDir $LogDir -VerboseMode:$VerboseMode
+            } -ArgumentList @($dismPath, $LogDir, $VerboseMode, $LogFile)
 
-                Invoke-CommandWithLogging -FilePath $using:dismPath -Arguments "/Online /Cleanup-Image /ScanHealth" -LogName "DISM_ScanHealth" -LogDir $LogDir -VerboseMode:$VerboseMode
-            }
             $normalizedDismScanHealthOutput = ($dismScanHealthResult.Content -replace '[^a-zA-Z0-9]').ToLower()
             Log "Normalized DISM ScanHealth output for parsing: $normalizedDismScanHealthOutput" "DEBUG"
 
@@ -163,10 +162,10 @@ try {
 
             Log "Running DISM /Online /Cleanup-Image /StartComponentCleanup. This may take some time..." "INFO"
             $dismCleanupResult = Invoke-TaskWithSpinner -Activity "Running DISM Component Cleanup" -VerboseMode:$VerboseMode -ScriptBlock {
-                param($functions, $LogDir, $VerboseMode, $LogFile)
+                param($dismPath, $LogDir, $VerboseMode, $LogFile)
+                Invoke-CommandWithLogging -FilePath $dismPath -Arguments "/Online /Cleanup-Image /StartComponentCleanup" -LogName "DISM_StartComponentCleanup" -LogDir $LogDir -VerboseMode:$VerboseMode
+            } -ArgumentList @($dismPath, $LogDir, $VerboseMode, $LogFile)
 
-                Invoke-CommandWithLogging -FilePath $using:dismPath -Arguments "/Online /Cleanup-Image /StartComponentCleanup" -LogName "DISM_StartComponentCleanup" -LogDir $LogDir -VerboseMode:$VerboseMode
-            }
             $normalizedDismCleanupOutput = ($dismCleanupResult.Content -replace '[^a-zA-Z0-9]').ToLower()
             Log "Normalized DISM StartComponentCleanup output for parsing: $normalizedDismCleanupOutput" "DEBUG"
 
@@ -178,10 +177,10 @@ try {
 
             Log "Running DISM /Online /Cleanup-Image /RestoreHealth. This may take a long time..." "INFO"
             $dismResult1 = Invoke-TaskWithSpinner -Activity "Running DISM RestoreHealth (Online)" -VerboseMode:$VerboseMode -ScriptBlock {
-                param($functions, $LogDir, $VerboseMode, $LogFile)
+                param($dismPath, $LogDir, $VerboseMode, $LogFile)
+                Invoke-CommandWithLogging -FilePath $dismPath -Arguments "/Online /Cleanup-Image /RestoreHealth" -LogName "DISM_RestoreHealth" -LogDir $LogDir -VerboseMode:$VerboseMode
+            } -ArgumentList @($dismPath, $LogDir, $VerboseMode, $LogFile)
 
-                Invoke-CommandWithLogging -FilePath $using:dismPath -Arguments "/Online /Cleanup-Image /RestoreHealth" -LogName "DISM_RestoreHealth" -LogDir $LogDir -VerboseMode:$VerboseMode
-            }
             $dismOutput = $dismResult1.Content
             $normalizedDismOutput = ($dismOutput -replace '[^a-zA-Z0-9]').ToLower()
             Log "Normalized DISM RestoreHealth output for parsing: $normalizedDismOutput" "DEBUG"
@@ -197,10 +196,10 @@ try {
             } elseif ($normalizedDismOutput -match $dismSourceNotFoundPattern) {
                 Log "DISM /RestoreHealth failed to find source files. Retrying with Windows Update as the source (/Source:WinPE)..." "INFO"
                 $dismResult2 = Invoke-TaskWithSpinner -Activity "Retrying DISM RestoreHealth (WinPE Source)" -VerboseMode:$VerboseMode -ScriptBlock {
-                    param($functions, $LogDir, $VerboseMode, $LogFile)
+                    param($dismPath, $LogDir, $VerboseMode, $LogFile)
+                    Invoke-CommandWithLogging -FilePath $dismPath -Arguments "/Online /Cleanup-Image /RestoreHealth /Source:WinPE" -LogName "DISM_RestoreHealth_Retry" -LogDir $LogDir -VerboseMode:$VerboseMode
+                } -ArgumentList @($dismPath, $LogDir, $VerboseMode, $LogFile)
 
-                    Invoke-CommandWithLogging -FilePath $using:dismPath -Arguments "/Online /Cleanup-Image /RestoreHealth /Source:WinPE" -LogName "DISM_RestoreHealth_Retry" -LogDir $LogDir -VerboseMode:$VerboseMode
-                }
                 $dismRetryOutput = $dismResult2.Content
                 $normalizedDismRetryOutput = ($dismRetryOutput -replace '[^a-zA-Z0-9]').ToLower()
                 Log "Normalized DISM RestoreHealth (Retry) output for parsing: $normalizedDismRetryOutput" "DEBUG"
@@ -239,10 +238,10 @@ try {
                                     Log "Found install image at '$wimPath'. Retrying DISM with offline source..." "INFO"
                                     $dismArgs = "/Online /Cleanup-Image /RestoreHealth /Source:WIM:$wimPath:1 /LimitAccess"
                                     $dismOfflineResult = Invoke-TaskWithSpinner -Activity "Retrying DISM RestoreHealth (Offline ISO)" -VerboseMode:$VerboseMode -ScriptBlock {
-                                        param($functions, $LogDir, $VerboseMode, $LogFile)
+                                        param($dismPath, $dismArgs, $LogDir, $VerboseMode, $LogFile)
+                                        Invoke-CommandWithLogging -FilePath $dismPath -Arguments $dismArgs -LogName "DISM_RestoreHealth_Offline" -LogDir $LogDir -VerboseMode:$VerboseMode
+                                    } -ArgumentList @($dismPath, $dismArgs, $LogDir, $VerboseMode, $LogFile)
 
-                                        Invoke-CommandWithLogging -FilePath $using:dismPath -Arguments $using:dismArgs -LogName "DISM_RestoreHealth_Offline" -LogDir $LogDir -VerboseMode:$VerboseMode
-                                    }
                                     if ($dismOfflineResult.Content -match $dismSuccessPattern) {
                                         Log "DISM offline repair completed successfully." "INFO"
                                         $dismFailed = $false # The repair succeeded!
@@ -268,10 +267,10 @@ try {
         if (-not $dismFailed) {
             Log "DISM repair sequence completed. Running a final SFC /scannow to apply repairs." "INFO"
             $sfcResult2 = Invoke-TaskWithSpinner -Activity "Running Final System File Checker (SFC)" -VerboseMode:$VerboseMode -ScriptBlock {
-                param($functions, $LogDir, $VerboseMode, $LogFile)
+                param($sfcPath, $LogDir, $VerboseMode, $LogFile)
+                Invoke-CommandWithLogging -FilePath $sfcPath -Arguments "/scannow" -LogName "SFC_Scan_2" -LogDir $LogDir -VerboseMode:$VerboseMode
+            } -ArgumentList @($sfcPath, $LogDir, $VerboseMode, $LogFile)
 
-                Invoke-CommandWithLogging -FilePath $using:sfcPath -Arguments "/scannow" -LogName "SFC_Scan_2" -LogDir $LogDir -VerboseMode:$VerboseMode
-            }
             if ($sfcResult2) {
                 $sfcScanOutput2 = $sfcResult2.Content
                 if ($sfcScanOutput2 -match $sfcRebootRequiredPattern) { $rebootRequired = $true }
