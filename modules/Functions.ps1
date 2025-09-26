@@ -729,7 +729,8 @@ function Invoke-TaskWithSpinner {
         [Parameter(Mandatory=$true)]
         [string]$Activity,
         [switch]$VerboseMode
-    )
+    ) -ArgumentList @() # Add ArgumentList parameter to accept variables for the job
+
 
     # If not in verbose mode, just execute the block and return. No spinner needed.
     if (-not $VerboseMode) {
@@ -753,8 +754,8 @@ function Invoke-TaskWithSpinner {
         $jobParams = @{
             ScriptBlock = $ScriptBlock
             InitializationScript = $initScript
-            # Pass required variables to the job.
-            ArgumentList = @($LogDir, $VerboseMode, $LogFile)
+            # Pass the provided argument list to the job.
+            ArgumentList = $ArgumentList
         }
         $job = Start-Job @jobParams
 
