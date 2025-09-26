@@ -752,13 +752,22 @@ function Invoke-TaskWithSpinner {
 
         # The $using: scope is not valid in an InitializationScript.
         # We must build the script block by creating a string with the resolved path.
-        $initScript = [scriptblock]::Create(". `"$modulePath`"")
+        # We also define a param block to accept and set the global variables needed by the Log function.
+        $initScript = [scriptblock]::Create("
+            param(`$LogFile, `$VerboseMode)
+            
+            # Set the variables in the job's global scope so the Log function can find them.
+            Set-Variable -Name 'LogFile' -Value `$LogFile -Scope Global
+            Set-Variable -Name 'VerboseMode' -Value `$VerboseMode -Scope Global
+
+            # Dot-source the functions module.
+            . `"$modulePath`"
+        ")
 
         $jobParams = @{
             ScriptBlock = $ScriptBlock
             InitializationScript = $initScript
-            # Pass the provided argument list to the job.
-            ArgumentList = $ArgumentList
+            ArgumentList = @($LogFile, $VerboseMode) + $ArgumentList
         }
         $job = Start-Job @jobParams
 
