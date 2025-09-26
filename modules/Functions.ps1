@@ -733,8 +733,8 @@ function Invoke-TaskWithSpinner {
 
     # If not in verbose mode, just execute the block and return. No spinner needed.
     if (-not $VerboseMode) {
-        & $ScriptBlock
-        return
+        # Execute the scriptblock and return its output directly.
+        return & $ScriptBlock
     }
 
     $job = $null
@@ -753,8 +753,11 @@ function Invoke-TaskWithSpinner {
             $spinnerIndex = ($spinnerIndex + 1) % $spinner.Count
         }
 
-        # Once the job is done, check for errors and receive output.
-        if ($job.HasMoreData) { Receive-Job -Job $job | Out-Null }
+        # Once the job is done, receive the output from the job to return it.
+        if ($job.HasMoreData) {
+            # The result of the scriptblock is the last object from the job.
+            return Receive-Job -Job $job
+        }
     }
     finally {
         # Always ensure the progress bar is closed and the job is cleaned up.
