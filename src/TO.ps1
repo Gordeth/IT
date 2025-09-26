@@ -216,7 +216,7 @@ function Invoke-IndividualTask {
                 Write-Host "[M] Back to Main Menu"
                 Write-Host ""
 
-                $subChoice = Read-Host "Choose an individual task [A-G, M]"
+                $subChoice = Read-Host "Choose an individual task [A-H, M]"
 
                 switch ($subChoice.ToUpper()) {
                     'A' {
