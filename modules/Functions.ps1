@@ -746,13 +746,13 @@ function Invoke-TaskWithSpinner {
         # of the script file containing this function (i.e., the 'modules' folder).
         $modulePath = Join-Path $PSScriptRoot "Functions.ps1"
 
+        # The $using: scope is not valid in an InitializationScript.
+        # We must build the script block by creating a string with the resolved path.
+        $initScript = [scriptblock]::Create(". `"$modulePath`"")
+
         $jobParams = @{
             ScriptBlock = $ScriptBlock
-            # Pass the entire functions module to the job's session.
-            # This is more robust as it includes all helper functions (like Log).
-            InitializationScript = {
-                . $using:modulePath
-            }
+            InitializationScript = $initScript
             # Pass required variables to the job.
             ArgumentList = @($LogDir, $VerboseMode, $LogFile)
         }
