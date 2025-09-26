@@ -222,15 +222,18 @@ if ($UpdateList) {
                 $downloadProgress = $DownloadJob.GetProgress()
                 $currentUpdateIndex = $downloadProgress.CurrentUpdateIndex + 1
                 $currentUpdate = $UpdateList[$downloadProgress.CurrentUpdateIndex]
-                $percentComplete = [int]$downloadProgress.PercentComplete
+
+                # --- Robust, Culture-Invariant Type Conversion ---
+                # The COM object returns [System.Decimal], which is culture-sensitive.
+                # We must convert it to a culture-invariant string and then to a standard PowerShell type.
+                $percentComplete = [int][double]::Parse($downloadProgress.PercentComplete.ToString([System.Globalization.CultureInfo]::InvariantCulture))
+                $bytesDownloaded = [double]::Parse($downloadProgress.CurrentUpdateBytesDownloaded.ToString([System.Globalization.CultureInfo]::InvariantCulture))
+                $bytesToDownload = [double]::Parse($downloadProgress.CurrentUpdateBytesToDownload.ToString([System.Globalization.CultureInfo]::InvariantCulture))
 
                 # Calculate progress for the current update
-                $bytesDownloaded = $downloadProgress.CurrentUpdateBytesDownloaded
-                $bytesToDownload = $downloadProgress.CurrentUpdateBytesToDownload
                 $currentUpdatePercent = 0
                 if ($bytesToDownload -gt 0) {
-                    # Perform multiplication first to avoid floating-point issues across different cultures.
-                    $currentUpdatePercent = [int](($bytesDownloaded * 100) / $bytesToDownload)
+                    $currentUpdatePercent = [int](($bytesDownloaded / $bytesToDownload) * 100)
                 }
 
                 # Display a single, comprehensive progress bar to avoid nested Write-Progress issues.
