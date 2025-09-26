@@ -194,7 +194,38 @@ try {
 
             if ($dismFailed) {
                 if ($VerboseMode) {
-                    # MCT Fallback logic here...
+                    Log "All online DISM repair attempts have failed." "ERROR"
+                    $choice = Read-Host "Do you want to attempt an offline repair using a Windows ISO? This requires downloading the Media Creation Tool. (Y/N)"
+                    if ($choice -match '^(?i)y(es)?$') {
+                        Log "Proceeding with offline repair using Media Creation Tool." "INFO"
+                        $mountResult = $null
+                        try {
+                            # Use the centralized function to create the ISO. It handles download, prompts, and cleanup.
+                            $isoPath = Invoke-IsoCreationProcess -IsoDirectory (Join-Path $PSScriptRoot "ISO_REPAIR") -LogDir $LogDir
+
+                            if ($isoPath) {
+                                Log "ISO created. Mounting for offline repair..." "INFO"
+                                $mountResult = Mount-DiskImage -ImagePath $isoPath -PassThru
+                                $driveLetter = ($mountResult | Get-Volume).DriveLetter
+                                $wimPath = Join-Path "${driveLetter}:\sources" "install.wim"
+                                if (-not (Test-Path $wimPath)) { $wimPath = Join-Path "${driveLetter}:\sources" "install.esd" }
+
+                                if (Test-Path $wimPath) {
+                                    Log "Found install image at '$wimPath'. Retrying DISM with offline source..." "INFO"
+                                    $dismArgs = "/Online /Cleanup-Image /RestoreHealth /Source:WIM:$wimPath:1 /LimitAccess"
+                                    $dismOfflineResult = Invoke-CommandWithLogging -FilePath $dismPath -Arguments $dismArgs -LogName "DISM_RestoreHealth_Offline" -LogDir $LogDir -VerboseMode:$VerboseMode
+                                    if ($dismOfflineResult.Content -match $dismSuccessPattern) {
+                                        Log "DISM offline repair completed successfully." "INFO"
+                                        $dismFailed = $false # The repair succeeded!
+                                    } else {
+                                        Log "DISM offline repair failed. Manual intervention is required." "ERROR"
+                                    }
+                                }
+                            }
+                        } finally {
+                            if ($mountResult) { Dismount-DiskImage -ImagePath $isoPath -ErrorAction SilentlyContinue }
+                        }
+                    }
                 } else {
                     Log "Script is in silent mode. Manual intervention with a Windows ISO is required to complete the repair." "ERROR"
                 }
