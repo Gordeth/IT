@@ -232,11 +232,10 @@ if ($UpdateList) {
                     $currentUpdatePercent = [int](($currentUpdateBytesDownloaded / $currentUpdateBytesToDownload) * 100)
                 }
 
-                # Display detailed progress
-                $status = "Overall: $percentComplete% | Current ($currentUpdateIndex of $($UpdateList.Count)): {0:N2} MB / {1:N2} MB" -f $currentUpdateBytesDownloaded, $currentUpdateBytesToDownload
-                Write-Progress -Activity "Downloading Windows Updates" -Status $status -Id 1 -PercentComplete $percentComplete
-                Write-Progress -Activity "Downloading: $($currentUpdate.Title)" -ParentId 1 -Id 2 -PercentComplete $currentUpdatePercent
-
+                # Display a single, comprehensive progress bar to avoid nested Write-Progress issues.
+                $activity = "Downloading Update $currentUpdateIndex of $($UpdateList.Count): $($currentUpdate.Title)"
+                $status = "Overall: $percentComplete% | Current: $currentUpdatePercent% ({0:N2} MB / {1:N2} MB)" -f $currentUpdateBytesDownloaded, $currentUpdateBytesToDownload
+                Write-Progress -Activity $activity -Status $status -PercentComplete $percentComplete
                 Start-Sleep -Milliseconds 500
             }
             # Finalize the download job
