@@ -186,11 +186,12 @@ if ($UpdateList) {
             # --- Check 2: Is it in a major category? ---
             $isMajorByCategory = ($updateCategories | Where-Object { $majorUpdateCategoryIDs -contains $_ }) -ne $null
             
-            # --- Check 3: Does the title explicitly say it's a cumulative update? (Language-independent) ---
-            $isCumulativeByTitle = $_.Title -like "*Cumulative Update*"
+            # --- Check 3: Does the title contain a KB number? (Language-independent) ---
+            # This is a reliable way to catch cumulative updates, rollups, etc., regardless of language.
+            $hasKbNumber = $_.Title -match '\(KB\d{6,}\)'
 
-            # Return true if it's a major category or explicitly a cumulative update.
-            $isMajorByCategory -or $isCumulativeByTitle
+            # Return true if it's a major category or has a KB number.
+            $isMajorByCategory -or $hasKbNumber
         } | Select-Object -First 1
 
         if ($majorUpdate) {
