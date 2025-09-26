@@ -762,15 +762,15 @@ function Invoke-TaskWithSpinner {
         ")
 
         $jobParams = @{
-            # The $using: scope modifier is the standard, most reliable way to pass variables
-            # from the host session into a background job's script block.
+            # The script block for the job takes the user's scriptblock and arguments as its own parameters.
+            # This avoids nested $using scopes, which can be unreliable.
             ScriptBlock = {
-                # Execute the user's script block, passing its arguments via splatting.
-                & $using:ScriptBlock @using:ArgumentList
+                param($userScript, $userArgs)
+                & $userScript @userArgs
             }
             InitializationScript = $initScript
-            # The ArgumentList is ONLY for the InitializationScript.
-            ArgumentList = @($LogFile, $VerboseMode)
+            # Pass the required variables for the Init script, followed by the user's script and its arguments.
+            ArgumentList = @($LogFile, $VerboseMode, $ScriptBlock, $ArgumentList)
         }
         $job = Start-Job @jobParams
 
