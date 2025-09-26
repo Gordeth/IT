@@ -179,6 +179,9 @@ if ($CleanupMode -eq 'Full') {
 
         # Define the script block to be executed.
         $storageSenseBlock = {
+            # The variables are passed in via ArgumentList from Start-Job.
+            param($functions, $LogDir, $VerboseMode, $LogFile)
+
             # This command runs the configured Storage Sense cleanup tasks immediately.
             Start-StorageSense
         }
