@@ -728,7 +728,8 @@ function Invoke-TaskWithSpinner {
         [scriptblock]$ScriptBlock,
         [Parameter(Mandatory=$true)]
         [string]$Activity,
-        [switch]$VerboseMode
+        [switch]$VerboseMode,
+        [array]$ArgumentList
     )
 
     # If not in verbose mode, just execute the block and return. No spinner needed.
@@ -737,7 +738,7 @@ function Invoke-TaskWithSpinner {
         # This ensures non-verbose mode works the same as verbose mode, just without the spinner.
         # We must check if ArgumentList was provided before splatting.
         if ($PSBoundParameters.ContainsKey('ArgumentList')) { return & $ScriptBlock @ArgumentList }
-        else { return & $ScriptBlock }
+        else { return & $ScriptBlock } # Execute without arguments if none are passed
     }
 
     $job = $null
