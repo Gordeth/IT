@@ -229,7 +229,7 @@ if ($UpdateList) {
                 $currentUpdateBytesToDownload = $downloadProgress.CurrentUpdateBytesToDownload / 1MB
                 $currentUpdatePercent = 0
                 if ($currentUpdateBytesToDownload -gt 0) {
-                    $currentUpdatePercent = ($currentUpdateBytesDownloaded / $currentUpdateBytesToDownload) * 100
+                    $currentUpdatePercent = [int](($currentUpdateBytesDownloaded / $currentUpdateBytesToDownload) * 100)
                 }
 
                 # Display detailed progress
