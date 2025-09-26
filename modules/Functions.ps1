@@ -715,3 +715,50 @@ function Invoke-IsoCreationProcess {
         if (Test-Path $IsoDirectory) { Remove-Item @cleanupItems -ErrorAction SilentlyContinue }
     }
 }
+
+# =================================================================================
+# Invoke-TaskWithSpinner
+# Executes a long-running script block in a background job while displaying a
+# visual spinner in the console. This provides feedback to the user that the
+# script has not frozen during silent operations.
+# =================================================================================
+function Invoke-TaskWithSpinner {
+    param(
+        [Parameter(Mandatory=$true)]
+        [scriptblock]$ScriptBlock,
+        [Parameter(Mandatory=$true)]
+        [string]$Activity,
+        [switch]$VerboseMode
+    )
+
+    # If not in verbose mode, just execute the block and return. No spinner needed.
+    if (-not $VerboseMode) {
+        & $ScriptBlock
+        return
+    }
+
+    $job = $null
+    try {
+        # Start the long-running task in a background job.
+        $job = Start-Job -ScriptBlock $ScriptBlock
+        $spinner = @('|', '/', '-', '\')
+        $spinnerIndex = 0
+
+        # While the job is running, display the spinner.
+        while ($job.State -eq 'Running') {
+            $status = "$($spinner[$spinnerIndex]) Please wait, this may take several minutes..."
+            # Using -PercentComplete -1 creates an indeterminate (marquee) progress bar.
+            Write-Progress -Activity $Activity -Status $status -PercentComplete -1
+            Start-Sleep -Milliseconds 200
+            $spinnerIndex = ($spinnerIndex + 1) % $spinner.Count
+        }
+
+        # Once the job is done, check for errors and receive output.
+        if ($job.HasMoreData) { Receive-Job -Job $job | Out-Null }
+    }
+    finally {
+        # Always ensure the progress bar is closed and the job is cleaned up.
+        Write-Progress -Activity $Activity -Completed
+        if ($job) { Remove-Job -Job $job -Force }
+    }
+}
