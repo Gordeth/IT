@@ -211,18 +211,46 @@ if ($UpdateList) {
         }
 
         Log "Downloading updates... This may take some time."
-        # Save the current $VerbosePreference to restore it later
-        $originalVerbosePreference = $VerbosePreference
-        try {
-            # Step 1: Download updates. This will show a progress bar.
-            if ($VerboseMode) {
-                Download-WindowsUpdate -MicrosoftUpdate -AcceptAll -Verbose
-            } else {
+        if ($VerboseMode) {
+            Log "Verbose mode enabled. Displaying detailed download progress." "INFO"
+            $UpdateSession = New-Object -ComObject "Microsoft.Update.Session"
+            $UpdateDownloader = $UpdateSession.CreateUpdateDownloader()
+            $UpdateDownloader.Updates = $UpdateList
+            $DownloadJob = $UpdateDownloader.BeginDownload({ Write-Host "Download callback invoked." }, { Write-Host "Download state changed." }, $null)
+
+            while (-not $DownloadJob.IsCompleted) {
+                $downloadProgress = $DownloadJob.GetProgress()
+                $currentUpdateIndex = $downloadProgress.CurrentUpdateIndex + 1
+                $currentUpdate = $UpdateList[$downloadProgress.CurrentUpdateIndex]
+                $percentComplete = $downloadProgress.PercentComplete
+
+                # Calculate progress for the current update
+                $currentUpdateBytesDownloaded = $downloadProgress.CurrentUpdateBytesDownloaded / 1MB
+                $currentUpdateBytesToDownload = $downloadProgress.CurrentUpdateBytesToDownload / 1MB
+                $currentUpdatePercent = 0
+                if ($currentUpdateBytesToDownload -gt 0) {
+                    $currentUpdatePercent = ($currentUpdateBytesDownloaded / $currentUpdateBytesToDownload) * 100
+                }
+
+                # Display detailed progress
+                $status = "Overall: $percentComplete% | Current ($currentUpdateIndex of $($UpdateList.Count)): {0:N2} MB / {1:N2} MB" -f $currentUpdateBytesDownloaded, $currentUpdateBytesToDownload
+                Write-Progress -Activity "Downloading Windows Updates" -Status $status -Id 1 -PercentComplete $percentComplete
+                Write-Progress -Activity "Downloading: $($currentUpdate.Title)" -ParentId 1 -Id 2 -PercentComplete $currentUpdatePercent
+
+                Start-Sleep -Milliseconds 500
+            }
+            # Finalize the download job
+            $UpdateDownloader.EndDownload($DownloadJob) | Out-Null
+            Write-Progress -Activity "Downloading Windows Updates" -Completed -Id 1
+        } else {
+            # Original behavior for silent mode
+            $originalVerbosePreference = $VerbosePreference
+            try {
                 $VerbosePreference = 'SilentlyContinue'
                 Download-WindowsUpdate -MicrosoftUpdate -AcceptAll
+            } finally {
+                $VerbosePreference = $originalVerbosePreference
             }
-        } finally {
-            $VerbosePreference = $originalVerbosePreference
         }
         Log "Update download completed."
 
