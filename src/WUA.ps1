@@ -225,16 +225,17 @@ if ($UpdateList) {
                 $percentComplete = [int]$downloadProgress.PercentComplete
 
                 # Calculate progress for the current update
-                $currentUpdateBytesDownloaded = [Math]::Round([double]$downloadProgress.CurrentUpdateBytesDownloaded / 1MB, 2)
-                $currentUpdateBytesToDownload = [Math]::Round([double]$downloadProgress.CurrentUpdateBytesToDownload / 1MB, 2)
+                $bytesDownloaded = $downloadProgress.CurrentUpdateBytesDownloaded
+                $bytesToDownload = $downloadProgress.CurrentUpdateBytesToDownload
                 $currentUpdatePercent = 0
-                if ($currentUpdateBytesToDownload -gt 0) {
-                    $currentUpdatePercent = [int](($currentUpdateBytesDownloaded / $currentUpdateBytesToDownload) * 100)
+                if ($bytesToDownload -gt 0) {
+                    # Perform multiplication first to avoid floating-point issues across different cultures.
+                    $currentUpdatePercent = [int](($bytesDownloaded * 100) / $bytesToDownload)
                 }
 
                 # Display a single, comprehensive progress bar to avoid nested Write-Progress issues.
                 $activity = "Downloading Update $currentUpdateIndex of $($UpdateList.Count): $($currentUpdate.Title)"
-                $status = "Overall: $percentComplete% | Current: $currentUpdatePercent% ({0:N2} MB / {1:N2} MB)" -f $currentUpdateBytesDownloaded, $currentUpdateBytesToDownload
+                $status = "Overall: $percentComplete% | Current: $currentUpdatePercent% ({0:N2} MB / {1:N2} MB)" -f ($bytesDownloaded / 1MB), ($bytesToDownload / 1MB)
                 Write-Progress -Activity $activity -Status $status -PercentComplete $percentComplete
                 Start-Sleep -Milliseconds 500
             }
