@@ -177,16 +177,8 @@ if ($CleanupMode -eq 'Full') {
         Log "Performing full system cleanup by running Storage Sense..." "INFO"
         Log "This will use the current user's Storage Sense settings from the Windows Settings app." "INFO"
 
-        # Define the script block to be executed.
-        $storageSenseBlock = {
-            # The variables are passed in via ArgumentList from Start-Job.
-            param($functions, $LogDir, $VerboseMode, $LogFile)
-
-            # This command runs the configured Storage Sense cleanup tasks immediately.
-            Start-StorageSense
-        }
-        # Use the new spinner function to provide visual feedback during this long, silent operation.
-        Invoke-TaskWithSpinner -ScriptBlock $storageSenseBlock -Activity "Running Storage Sense Cleanup" -VerboseMode:$VerboseMode
+        # This command runs the configured Storage Sense cleanup tasks immediately.
+        Start-StorageSense
         Log "Storage Sense cleanup task finished." "INFO"
     } catch {
         Log "Failed to run Storage Sense. This command may not be available on older versions of Windows. Error: $_" -Level "ERROR"
