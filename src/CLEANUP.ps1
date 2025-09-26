@@ -125,7 +125,53 @@ try {
     Log "An error occurred while accessing the user temporary files directory: $_" -Level "WARN"
 }
 
-# ================== 3. Perform Full Cleanup (Storage Sense) ==================
+# ================== 3. Clear Browser Caches (Edge & Chrome) ==================
+try {
+    Log "Checking for running browser processes (Edge, Chrome)..." "INFO"
+    $runningBrowsers = Get-Process -Name "msedge", "chrome" -ErrorAction SilentlyContinue
+    if ($runningBrowsers) {
+        Log "One or more browser processes are running. Some cache files may be locked and cannot be deleted. For a full cleanup, please close all browser windows." "WARN"
+    }
+
+    # Helper function to clean a browser's cache directories
+    function Clear-BrowserCache {
+        param(
+            [string]$BrowserName,
+            [string]$UserDataPath
+        )
+        if (Test-Path $UserDataPath) {
+            Log "Found $BrowserName user data at '$UserDataPath'. Searching for profiles..." "INFO"
+            # Find all profile directories (e.g., 'Default', 'Profile 1', 'Profile 2', etc.)
+            $profileDirs = Get-ChildItem -Path $UserDataPath -Directory | Where-Object { $_.Name -eq 'Default' -or $_.Name -like 'Profile *' }
+            if (-not $profileDirs) {
+                Log "No profile directories found for $BrowserName." "INFO"
+                return
+            }
+
+            foreach ($profileDir in $profileDirs) {
+                $cachePath = Join-Path $profileDir.FullName "Cache"
+                if (Test-Path $cachePath) {
+                    Log "Clearing $BrowserName cache for profile '$($profileDir.Name)'..." "INFO"
+                    Get-ChildItem -Path $cachePath -Recurse -Force -ErrorAction SilentlyContinue | ForEach-Object {
+                        try {
+                            Remove-Item -Path $_.FullName -Recurse -Force -ErrorAction Stop
+                        } catch {
+                            Log "Could not remove '$($_.FullName)'. It may be in use." "WARN"
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    # Clean caches for Edge and Chrome
+    Clear-BrowserCache -BrowserName "Microsoft Edge" -UserDataPath "$env:LOCALAPPDATA\Microsoft\Edge\User Data"
+    Clear-BrowserCache -BrowserName "Google Chrome" -UserDataPath "$env:LOCALAPPDATA\Google\Chrome\User Data"
+} catch {
+    Log "An error occurred during browser cache cleanup: $_" "WARN"
+}
+
+# ================== 4. Perform Full Cleanup (Storage Sense) ==================
 if ($CleanupMode -eq 'Full') {
     try {
         Log "Performing full system cleanup by running Storage Sense..." "INFO"
