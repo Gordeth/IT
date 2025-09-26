@@ -740,7 +740,20 @@ function Invoke-TaskWithSpinner {
     $job = $null
     try {
         # Start the long-running task in a background job.
-        $job = Start-Job -ScriptBlock $ScriptBlock
+        # -InitializationScript passes the functions to the new session.
+        # We use splatting for clarity and to avoid syntax errors.
+        $jobParams = @{
+            ScriptBlock = $ScriptBlock
+            # Pass the entire functions module to the job's session.
+            # This is more robust as it includes all helper functions (like Log).
+            InitializationScript = {
+                . "$PSScriptRoot/../modules/Functions.ps1"
+            }
+            # Pass required variables to the job.
+            ArgumentList = @($LogDir, $VerboseMode, $LogFile)
+        }
+        $job = Start-Job @jobParams
+
         $spinner = @('|', '/', '-', '\')
         $spinnerIndex = 0
 
@@ -756,7 +769,7 @@ function Invoke-TaskWithSpinner {
         # Once the job is done, receive the output from the job to return it.
         if ($job.HasMoreData) {
             # The result of the scriptblock is the last object from the job.
-            return Receive-Job -Job $job
+            return (Receive-Job -Job $job)
         }
     }
     finally {
